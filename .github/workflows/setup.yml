@@ -1,0 +1,160 @@
+# The first-run setup as a new user meets it, on fresh Windows, macOS and Linux machines: the
+# release ZIP unpacked into a folder with spaces and accents in its name, the double-click launcher
+# started (it downloads its own Node.js: STUDIO_NODE=private ignores the runner's), the setup
+# wizard driven in a browser (drop the ROM, Build), then an object placed and played in the studio,
+# then a second start (no setup, fast).
+#
+# It needs your own Super Mario 64 ROM, which must never be in the repository. Put it somewhere
+# only you can download and add two repository secrets (Settings -> Secrets and variables ->
+# Actions):
+#   SM64_ROM_URL    a direct download link to the .z64 (for example a private release asset or a
+#                   pre-signed cloud storage link)
+#   SM64_ROM_SHA1   9bef1128717f958171a4afac3ed78ee2bb4e86ce (the US ROM; the job checks it)
+# Without the secrets the job stops after building the ZIP and testing the launcher alone.
+name: setup
+
+on:
+  workflow_dispatch:
+  push:
+    paths: ['tools/launch.*', 'Start Studio 64.*', 'start-studio64.sh', 'tools/start.mjs', 'tools/build_engine.mjs', 'tools/lib/toolchain.mjs', 'server/setup/**', 'web/setup.html', 'web/js/setup.js', 'engine/Makefile', '.github/workflows/setup.yml']
+
+jobs:
+  setup:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-2022, macos-14, ubuntu-24.04]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 120
+    env:
+      PORT: '8093'
+      STUDIO_OPEN: '0'
+      STUDIO_NODE: private          # the launcher downloads its own Node.js, as on a machine without one
+      STUDIO_SETUP_EXTRAS: 'off'    # (the pictures take 15 minutes more; set to on to test them too)
+    steps:
+      - uses: actions/checkout@v4
+      - name: Where the ZIP goes (spaces and accents on purpose)
+        shell: bash
+        run: echo "FOLDER=$RUNNER_TEMP/Spiele für Jörg" >> "$GITHUB_ENV"
+
+      # Node only to make the ZIP and drive the browser from the checkout (the launcher ignores it)
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Make the release ZIP
+        shell: bash
+        run: |
+          node tools/make_release_zip.mjs --out "$RUNNER_TEMP/dist"
+          npm ci --no-audit --no-fund
+      - name: Unpack it into a folder with spaces and accents
+        shell: bash
+        run: |
+          mkdir -p "$FOLDER"
+          cd "$FOLDER"
+          unzip -q "$RUNNER_TEMP"/dist/studio64-*.zip
+          ls -la "Studio 64"
+
+      - name: Get the ROM (from the secrets)
+        id: rom
+        shell: bash
+        env:
+          SM64_ROM_URL: ${{ secrets.SM64_ROM_URL }}
+          SM64_ROM_SHA1: ${{ secrets.SM64_ROM_SHA1 }}
+        run: |
+          if [ -z "$SM64_ROM_URL" ]; then echo "No SM64_ROM_URL secret: only the launcher is tested."; echo "have=0" >> "$GITHUB_OUTPUT"; exit 0; fi
+          curl -fsSL -o "$RUNNER_TEMP/rom.z64" "$SM64_ROM_URL"
+          SUM=$(node -e 'console.log(require("crypto").createHash("sha1").update(require("fs").readFileSync(process.argv[1])).digest("hex"))' "$RUNNER_TEMP/rom.z64")
+          if [ -n "$SM64_ROM_SHA1" ] && [ "$SUM" != "$SM64_ROM_SHA1" ]; then echo "The ROM's SHA-1 is $SUM"; exit 1; fi
+          echo "have=1" >> "$GITHUB_OUTPUT"
+
+      # ---- the launcher, as a double-click starts it ----
+      - name: Start Studio 64 (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $dir = Join-Path $env:FOLDER 'Studio 64'
+          $p = Start-Process -FilePath 'cmd.exe' -ArgumentList '/c', "`"$dir\Start Studio 64.bat`"" -WorkingDirectory $dir `
+            -RedirectStandardOutput "$env:RUNNER_TEMP\launcher.log" -RedirectStandardError "$env:RUNNER_TEMP\launcher.err" -PassThru -WindowStyle Hidden
+          $p.Id | Out-File "$env:RUNNER_TEMP\launcher.pid"
+      - name: Start Studio 64 (macOS)
+        if: runner.os == 'macOS'
+        shell: bash
+        run: |
+          cd "$FOLDER/Studio 64"
+          test -x "Start Studio 64.command"
+          nohup "./Start Studio 64.command" > "$RUNNER_TEMP/launcher.log" 2>&1 < /dev/null &
+          echo $! > "$RUNNER_TEMP/launcher.pid"
+      - name: Start Studio 64 (Linux)
+        if: runner.os == 'Linux'
+        shell: bash
+        run: |
+          cd "$FOLDER/Studio 64"
+          nohup ./start-studio64.sh > "$RUNNER_TEMP/launcher.log" 2>&1 < /dev/null &
+          echo $! > "$RUNNER_TEMP/launcher.pid"
+
+      - name: The launcher brings the server up
+        shell: bash
+        run: |
+          for _ in $(seq 1 600); do curl -fs "http://127.0.0.1:$PORT/api/config" > /dev/null && break; sleep 1; done
+          curl -fs "http://127.0.0.1:$PORT/api/config"
+          grep -q "Node.js is ready" "$RUNNER_TEMP/launcher.log"
+
+      # ---- the wizard: drop the ROM, Build, the studio opens; then place an object and play ----
+      - name: Set up with the wizard
+        if: steps.rom.outputs.have == '1'
+        shell: bash
+        run: node tests/setup/wizard.mjs --url "http://127.0.0.1:$PORT" --rom "$RUNNER_TEMP/rom.z64" --order v64 --wrong-rom --shots "$RUNNER_TEMP/shots" --scratch "$RUNNER_TEMP" --report "$RUNNER_TEMP/wizard.json" --timeout 100
+      - name: Place an object and play
+        if: steps.rom.outputs.have == '1'
+        shell: bash
+        run: STUDIO_URL="http://127.0.0.1:$PORT" node tests/setup/studio_check.test.mjs
+
+      # ---- a second start: no setup, nothing downloaded, fast ----
+      - name: Stop Studio 64
+        if: steps.rom.outputs.have == '1'
+        shell: bash
+        run: |
+          if [ "$RUNNER_OS" = Windows ]; then taskkill //F //T //PID "$(cat "$RUNNER_TEMP/launcher.pid" | tr -d '\r\n\357\273\277')" || true;
+          else pkill -TERM -P "$(cat "$RUNNER_TEMP/launcher.pid")" || true; kill "$(cat "$RUNNER_TEMP/launcher.pid")" || true; fi
+          for _ in $(seq 1 30); do curl -fs "http://127.0.0.1:$PORT/api/config" > /dev/null || break; sleep 1; done
+      - name: Start it again (Windows)
+        if: steps.rom.outputs.have == '1' && runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $dir = Join-Path $env:FOLDER 'Studio 64'
+          "$([DateTimeOffset]::Now.ToUnixTimeSeconds())" | Out-File "$env:RUNNER_TEMP\start2.txt"
+          Start-Process -FilePath 'cmd.exe' -ArgumentList '/c', "`"$dir\Start Studio 64.bat`"" -WorkingDirectory $dir `
+            -RedirectStandardOutput "$env:RUNNER_TEMP\launcher2.log" -RedirectStandardError "$env:RUNNER_TEMP\launcher2.err" -WindowStyle Hidden
+      - name: Start it again (macOS, Linux)
+        if: steps.rom.outputs.have == '1' && runner.os != 'Windows'
+        shell: bash
+        run: |
+          cd "$FOLDER/Studio 64"
+          date +%s > "$RUNNER_TEMP/start2.txt"
+          if [ "$RUNNER_OS" = macOS ]; then nohup "./Start Studio 64.command" > "$RUNNER_TEMP/launcher2.log" 2>&1 < /dev/null &
+          else nohup ./start-studio64.sh > "$RUNNER_TEMP/launcher2.log" 2>&1 < /dev/null & fi
+      - name: The second start is fast and builds nothing
+        if: steps.rom.outputs.have == '1'
+        shell: bash
+        run: |
+          start=$(tr -dc 0-9 < "$RUNNER_TEMP/start2.txt")
+          for _ in $(seq 1 120); do curl -fs "http://127.0.0.1:$PORT/api/config" > /dev/null && break; sleep 1; done
+          took=$(( $(date +%s) - start )); echo "second start: $took s"
+          curl -fs "http://127.0.0.1:$PORT/" > "$RUNNER_TEMP/home.html"
+          if grep -q "Set up Studio 64" "$RUNNER_TEMP/home.html"; then echo "the setup page came back"; exit 1; fi
+          if grep -E "Getting Node.js|Installing the npm packages" "$RUNNER_TEMP/launcher2.log"; then echo "the second start downloaded again"; exit 1; fi
+          test "$took" -lt 60
+
+      - name: Keep the logs and pictures
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: setup-${{ matrix.os }}
+          path: |
+            ${{ runner.temp }}/launcher*.log
+            ${{ runner.temp }}/launcher.err
+            ${{ runner.temp }}/wizard.json
+            ${{ runner.temp }}/shots
+            ${{ env.FOLDER }}/Studio 64/.setup/setup.log
+            tests/out
+          if-no-files-found: ignore

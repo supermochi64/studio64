@@ -1,0 +1,196 @@
+#!/usr/bin/env python3
+"""Katana Mario's models from a Shoggoth World checkout (its maid cafe, LEVEL_MAIDCAFE).
+
+    python3 tools/katana_extract.py [path/to/sm64-master]      (or SHOGGOTH_DIR; default ../sm64-master)
+
+Only reads the checkout (it needs the hack built once: its PNG textures come from build/us). Writes
+
+    engine/src/studio/katana/models.inc.c   the Legendary Blade (in the floor and in Mario's fist), the
+                                            six cosplayer fighters (dressed Toads: courses/mc/looks.py),
+                                            their animations (mc/anims.py), the effect textures (crescent,
+                                            sparkle, heart) and the manga words (NANI?!, ズバッ, ドン!, キン!)
+    engine/src/studio/katana/models.h       the symbols studio/katana*.c use
+    engine/src/studio/katana/katana_poses.h the IK-solved arm poses (tools/shoggoth/katana_poses.py)
+    web/data/katana.json           the fight's lines and the katana fight theme (.m64)
+
+Part of tools/shoggoth/refresh.mjs, which then takes the game's own data back out of models.inc.c
+(tools/shoggoth/split_vanilla.py: the cosplayers are re-lit vanilla Toads) -- run that, not this alone.
+"""
+import base64
+import json
+import os
+import re
+import shutil
+import subprocess
+import sys
+import tempfile
+
+ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+SRC = os.path.abspath(sys.argv[1] if len(sys.argv) > 1 else (os.environ.get('SHOGGOTH_DIR') or os.path.join(ROOT, '..', 'sm64-master')))
+LV = os.path.join(SRC, 'levels', 'maidcafe')
+OUT = os.path.join(ROOT, 'engine', 'src', 'studio', 'katana')
+WEB = os.path.join(ROOT, 'web', 'data')
+
+LOOKS = ['mario', 'luigi', 'wario', 'waluigi', 'peach', 'yoshi']
+ROOTS = ['maidcafe_cos_%s_geo' % l for l in LOOKS] + [
+    'maidcafe_katana_geo', 'maidcafe_katana_mario_dl', 'maidcafe_tex_slash', 'maidcafe_tex_sparkle', 'maidcafe_tex_heart',
+    'maidcafe_tex_w_nani', 'maidcafe_tex_w_zuba', 'maidcafe_tex_w_don', 'maidcafe_tex_w_kin', 'maidcafe_toad_anims', 'maidcafe_looks']
+
+DEF_RE = re.compile(r'^(?:static\s+)?(?:const\s+)?(?:ALIGNED8\s+)?(?:static\s+)?(?:const\s+)?(?:struct\s+)?(\w+)\s+(?:const\s+)?\*?\s*(?:const\s+)?'
+                    r'(\w+)\s*((?:\[[^\]]*\])*)\s*=\s*(\{|gdSPDefLights1\()', re.M)
+IDENT = re.compile(r'\b[A-Za-z_]\w*\b')
+
+
+def read(p):
+    with open(p, encoding='utf-8', errors='replace') as f:
+        return f.read()
+
+
+def definitions(text):
+    out = {}
+    for m in DEF_RE.finditer(text):
+        if m.group(4) == '{':
+            end = text.find('\n};', m.end())
+            if end < 0:
+                continue
+            out[m.group(2)] = (m.group(1), text[m.start():end + 3])
+        else:
+            end = text.find(');', m.end())
+            out[m.group(2)] = (m.group(1), text[m.start():end + 2])
+    return out
+
+
+def texture_include(inc):
+    for p in (os.path.join(SRC, inc), os.path.join(SRC, 'build', 'us', inc)):
+        if os.path.exists(p):
+            return read(p).strip()
+    raise SystemExit('missing texture %s (build the hack once)' % inc)
+
+
+def unfog(body):
+    body = body.replace('gsDPSetCycleType(G_CYC_2CYCLE)', 'gsDPSetCycleType(G_CYC_1CYCLE)')
+    body = re.sub(r'gsDPSetRenderMode\(G_RM_FOG_SHADE_A,\s*(G_RM_\w+?)2\)', r'gsDPSetRenderMode(\1, \g<1>2)', body)
+    body = re.sub(r'^\s*gsDPSetFogColor\([^)]*\),\n', '', body, flags=re.M)
+    body = re.sub(r'^\s*gsSPFogPosition\([^)]*\),\n', '', body, flags=re.M)
+    body = re.sub(r'^\s*gsSP(?:Set|Clear)GeometryMode\(G_FOG\),\n', '', body, flags=re.M)
+    return body
+
+
+def main():
+    if not all(os.path.exists(os.path.join(LV, f)) for f in ('model.inc.c', 'geo.c', 'texture.inc.c')):
+        print('No Shoggoth World checkout with the maid cafe at %s: no Katana Mario models refreshed' % SRC)
+        return 0
+    defs = {}
+    for f in ('texture.inc.c', 'model.inc.c', 'geo.c'):
+        defs.update(definitions(read(os.path.join(LV, f))))
+    seen, order, todo = set(), [], list(ROOTS)
+    while todo:
+        n = todo.pop()
+        if n in seen:
+            continue
+        if n not in defs:
+            raise SystemExit('%s not found in levels/maidcafe' % n)
+        seen.add(n)
+        order.append(n)
+        for ident in IDENT.findall(re.sub(r'#include "[^"]*"', '', defs[n][1])):
+            if ident.startswith('maidcafe_') and ident not in seen:
+                todo.append(ident)
+    rank = {'Texture': 0, 'u8': 0, 's16': 0, 'u16': 0, 'f32': 0, 'Vtx': 1, 'Lights1': 1, 'Gfx': 2, 'Animation': 2, 'GeoLayout': 4}
+    deps = {n: [i for i in IDENT.findall(re.sub(r'#include "[^"]*"', '', defs[n][1])) if i in seen and i != n] for n in order}
+    placed, out = set(), []
+
+    def visit(n, stack=()):
+        if n in placed or n in stack:
+            return
+        for d in deps[n]:
+            visit(d, stack + (n,))
+        placed.add(n)
+        out.append(n)
+    for n in sorted(order, key=lambda n: (rank.get(defs[n][0], 2), n)):
+        visit(n)
+    ext = set()
+    parts = ['// Generated by tools/katana_extract.py from Shoggoth World (levels/maidcafe, courses/mc) - do not edit.\n'
+             '// Katana Mario\'s blade, the cosplayer fighters, their animations, the effect textures and the manga words.\n'
+             '// (The vanilla Toad\'s triangles and his recoloured cap are made from the game\'s data at build time:\n'
+             '// tools/shoggoth/rom_parts.py, see the #includes of studio/romgen/.)\n']
+    globals_ = set(ROOTS)
+    for n in out:
+        kind, body = defs[n]
+        if kind == 'Gfx':
+            body = unfog(body)
+        body = re.sub(r'#include "(levels/maidcafe/[^"]+)"', lambda m: texture_include(m.group(1)), body)
+        body = re.sub(r'\bconst Texture\b', 'const u8', body)
+        body = body.replace('geo_mc_katana_switch', 'geo_kt_katana_switch').replace('geo_mc_fade', 'geo_kt_fade')
+        body = re.sub(r'\bmaidcafe_(\w+)', r'kt_\1', body)
+        # the roots are global (studio/katana*.c), the rest static
+        body = re.sub(r'^(?:static\s+)?', '' if n in globals_ else 'static ', body, count=1)
+        parts.append(body + '\n')
+        for ident in IDENT.findall(defs[n][1]):
+            if (ident.endswith('_dl') or '_seg' in ident or ident.startswith('geo_')) and not ident.startswith('maidcafe_'):
+                ext.add(ident)
+    os.makedirs(OUT, exist_ok=True)
+    with open(os.path.join(OUT, 'models.inc.c'), 'w') as f:
+        f.write('\n'.join(parts))
+    kinds = {n: defs[n][0] for n in ROOTS}
+    decl = {'Texture': 'u8', 'GeoLayout': 'GeoLayout', 'Gfx': 'Gfx'}
+    h = ['// Generated by tools/katana_extract.py - do not edit.', '#ifndef STUDIO_KATANA_MODELS_H', '#define STUDIO_KATANA_MODELS_H',
+         '#include "types.h"']
+    for n in ROOTS:
+        k = kinds[n]
+        s = re.sub(r'^maidcafe_', 'kt_', n)
+        if n == 'maidcafe_toad_anims':
+            h.append('extern const struct Animation *const %s[];' % s)
+        elif n == 'maidcafe_looks':
+            h.append('extern const f32 %s[][3];' % s)
+        else:
+            h.append('extern const %s %s[];' % (decl.get(k, k), s))
+    h.append('#endif')
+    with open(os.path.join(OUT, 'models.h'), 'w') as f:
+        f.write('\n'.join(h) + '\n')
+    # the arm poses
+    poses = os.path.join(SRC, 'src', 'game', 'shoggoth', 'overlay', 'katana_poses.h')
+    with open(os.path.join(OUT, 'katana_poses.h'), 'w') as f:
+        f.write(read(poses).replace('(included by katana.c)', '(included by studio/katana.c; copied by tools/katana_extract.py)'))
+    print('katana: %d definitions -> %s (external: %s)' % (len(out), os.path.relpath(os.path.join(OUT, 'models.inc.c'), ROOT),
+                                                          ', '.join(sorted(ext)) or 'none'))
+
+    # the lines (include/text_strings.h.in TEXT_MC_*), the long speeches (text/us/shoggoth_dialogs.h) and the music
+    texts = {}
+    for m in re.finditer(r'#define TEXT_MC_(\w+) _\("((?:[^"\\]|\\.)*)"\)', read(os.path.join(SRC, 'include', 'text_strings.h.in'))):
+        texts[m.group(1)] = m.group(2).replace('\\"', '"')
+    dialogs = {}
+    for m in re.finditer(r'DEFINE_DIALOG\(DIALOG_SH_MC_(CHALLENGE|KATANA|REMATCH|DEFEAT),[^_]*_\("((?:[^"\\]|\\.|\\\n)*)"\)\)',
+                         read(os.path.join(SRC, 'text', 'us', 'shoggoth_dialogs.h'))):
+        dialogs[m.group(1).lower()] = m.group(2).replace('\\\n', '').replace('\\n', '\n').replace('\\"', '"').strip()
+    song = None
+    seq = os.path.join(SRC, 'sound', 'sequences', 'us', '36_custom_event_katana_fight.s')
+    tmp = tempfile.mkdtemp()
+    try:
+        pre = subprocess.run(['cpp', '-P', '-I', os.path.join(SRC, 'sound', 'sequences'), '-I', os.path.join(SRC, 'include'), seq],
+                             check=True, capture_output=True, text=True).stdout
+        open(os.path.join(tmp, 'seq.s'), 'w').write(pre)
+        subprocess.run(['as', os.path.join(tmp, 'seq.s'), '-o', os.path.join(tmp, 'seq.o')], check=True, capture_output=True)
+        subprocess.run(['objcopy', '-O', 'binary', '-j', '.rodata', os.path.join(tmp, 'seq.o'), os.path.join(tmp, 'seq.m64')], check=True, capture_output=True)
+        song = open(os.path.join(tmp, 'seq.m64'), 'rb').read()
+    except Exception:
+        built = os.path.join(SRC, 'build', 'us', 'sound', 'sequences', 'us', '36_custom_event_katana_fight.m64')
+        if os.path.exists(built):
+            song = open(built, 'rb').read()
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+    banks = sorted(f for f in os.listdir(os.path.join(ROOT, 'engine', 'sound', 'sound_banks')) if f.endswith('.json'))
+    bank = banks.index('26_studio_tokyo.json') if '26_studio_tokyo.json' in banks else -1
+    os.makedirs(WEB, exist_ok=True)
+    data = {'source': 'Shoggoth World (the maid cafe: include/text_strings.h.in TEXT_MC_*, text/us/shoggoth_dialogs.h, '
+                      'sound/sequences/us/36_custom_event_katana_fight.s)',
+            'lines': texts, 'dialogs': dialogs,
+            'song': {'name': 'Samurai Cosplay Overdrive', 'm64': base64.b64encode(song).decode(), 'bank': bank, 'bytes': len(song)} if song and bank >= 0 else None}
+    with open(os.path.join(WEB, 'katana.json'), 'w') as f:
+        json.dump(data, f, ensure_ascii=False, indent=1)
+    print('katana: %d lines, %d speeches, music %s bytes (bank %d) -> web/data/katana.json'
+          % (len(texts), len(dialogs), len(song) if song else 0, bank))
+    return 0
+
+
+if __name__ == '__main__':
+    sys.exit(main())

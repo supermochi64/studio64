@@ -1,0 +1,97 @@
+STUDIO 64 0.1.0-beta - GETTING STARTED
+======================================
+
+Make your own Super Mario 64, right in your web browser.
+
+You need:
+  - your own Super Mario 64 ROM, US version (a .z64, .n64 or .v64 file, a .zip is fine too).
+    Studio 64 does not include the game.
+  - an internet connection the first time (about 1 GB is downloaded, once)
+  - about 4 GB of free disk space
+  - a web browser: Google Chrome or Microsoft Edge work best (Studio 64 is tested in Chrome)
+
+Nothing else. You don't need to install anything and you don't need an administrator password.
+
+
+WINDOWS (10 or 11)
+------------------
+ 1. Unzip the file you downloaded: right-click it, choose "Extract All...", then "Extract".
+    (Put the folder somewhere you like, for example in Documents. Don't run it from inside the zip.)
+ 2. Open the "Studio 64" folder and double-click "Start Studio 64" (Start Studio 64.bat).
+ 3. If a blue box says "Windows protected your PC": click "More info", then "Run anyway".
+ 4. A black window opens. Leave it open: it is Studio 64 running.
+    The first time it downloads what it needs (a few minutes).
+ 5. Your browser opens the setup page. Drop your ROM on it and press "Build Studio 64".
+    Wait about 5-10 minutes. The studio opens by itself.
+
+
+MAC (macOS 13 Ventura or newer, Apple Silicon or Intel)
+-------------------------------------------------------
+ 1. Double-click the file you downloaded. A "Studio 64" folder appears next to it.
+    (Move it somewhere you like, for example into Documents.)
+ 2. Open the folder. Right-click (or Control-click) "Start Studio 64.command" and choose "Open".
+ 3. macOS asks if you are sure: click "Open". (Only the first time.)
+    If there is no "Open" button: open System Settings > Privacy & Security, scroll down and
+    click "Open Anyway" next to "Start Studio 64.command", then try step 2 again.
+ 4. A Terminal window opens. Leave it open: it is Studio 64 running.
+    The first time it downloads what it needs (a few minutes).
+ 5. Your browser opens the setup page. Drop your ROM on it and press "Build Studio 64".
+    Wait about 5-10 minutes. The studio opens by itself.
+
+
+LINUX (Ubuntu, Debian, Fedora, Arch and others)
+-----------------------------------------------
+ 1. Unzip the file you downloaded (right-click > "Extract Here").
+ 2. Open the "Studio 64" folder. Right-click an empty spot in the folder and choose
+    "Open in Terminal". Type this and press Enter:
+        ./start-studio64.sh
+    (If it says "Permission denied", type  sh start-studio64.sh  instead.
+    Some file managers can also run it with a double-click: choose "Run" or "Run in Terminal".)
+ 3. Leave the terminal window open: it is Studio 64 running.
+    The first time it downloads what it needs (a few minutes).
+ 4. Your browser opens the setup page (or open http://localhost:8064 yourself).
+    Drop your ROM on it and press "Build Studio 64". Wait about 5-10 minutes.
+    The studio opens by itself. From now on Studio 64 is also in your applications menu.
+
+
+STARTING IT AGAIN LATER
+-----------------------
+Do the same double-click (Linux: ./start-studio64.sh, or "Studio 64" in your applications
+menu). It opens in a few seconds; nothing is built again. Your work is saved all the time.
+
+TO STOP STUDIO 64
+-----------------
+Close the black/Terminal window (or press Ctrl+C in it).
+
+IF SOMETHING GOES WRONG
+-----------------------
+ - The setup page always says what is wrong and what to do. Most problems are solved by
+   pressing "Try again".
+ - "This is not the US version" / "This ROM has been changed": Studio 64 needs the original
+   US ROM of Super Mario 64.
+ - The computer went to sleep or you closed the window during the setup: start Studio 64
+   again and press "Continue". It goes on where it stopped.
+ - The browser did not open: open http://localhost:8064 yourself (the window shows the
+   address).
+ - Still stuck: on the setup page click "Show details", then "Copy the whole log", and send
+   it with your question (see README.md).
+
+UPDATING
+--------
+Download the new version and unzip it NEXT TO the old "Studio 64" folder (rename the old one
+first, for example to "Studio 64 old"). Start the new one: its setup page offers to bring over
+your ROM and your projects from the old folder. When everything is there, you can delete the
+old folder.
+
+UNINSTALLING
+------------
+Delete the "Studio 64" folder. Studio 64 also keeps the compiler (about 1.5 GB) in one more
+folder, which you can delete too:
+  Windows:  %LOCALAPPDATA%\studio64   (paste this into the Explorer address bar)
+  Mac:      ~/Library/Caches/studio64   (Finder > Go > Go to Folder...)
+  Linux:    ~/.cache/studio64
+  (Linux only: also delete ~/.local/share/applications/studio64.desktop, the menu entry.)
+Nothing else was installed on your computer.
+
+Studio 64 is a fan project and not affiliated with Nintendo. The game you build from your ROM
+is for you: don't share it publicly.

@@ -1,0 +1,1540 @@
+{
+ "34:11": {
+  "notes": 1,
+  "songs": [
+   "01_cutscene_collect_star"
+  ],
+  "low": 30,
+  "high": 30,
+  "median": 30,
+  "dur": 4
+ },
+ "34:10": {
+  "notes": 26,
+  "songs": [
+   "01_cutscene_collect_star",
+   "03_level_grass"
+  ],
+  "low": 21,
+  "high": 21,
+  "median": 21,
+  "dur": 23
+ },
+ "34:127": {
+  "notes": 24,
+  "songs": [
+   "01_cutscene_collect_star",
+   "03_level_grass"
+  ],
+  "low": 15,
+  "high": 19,
+  "median": 19,
+  "dur": 16
+ },
+ "34:8": {
+  "notes": 26,
+  "songs": [
+   "01_cutscene_collect_star"
+  ],
+  "low": 27,
+  "high": 34,
+  "median": 30,
+  "dur": 13
+ },
+ "34:7": {
+  "notes": 9,
+  "songs": [
+   "01_cutscene_collect_star",
+   "03_level_grass"
+  ],
+  "low": 41,
+  "high": 51,
+  "median": 43,
+  "dur": 15
+ },
+ "34:6": {
+  "notes": 22,
+  "songs": [
+   "01_cutscene_collect_star",
+   "03_level_grass"
+  ],
+  "low": 15,
+  "high": 27,
+  "median": 22,
+  "dur": 24
+ },
+ "34:0": {
+  "notes": 1231,
+  "songs": [
+   "01_cutscene_collect_star",
+   "03_level_grass"
+  ],
+  "low": 15,
+  "high": 57,
+  "median": 34,
+  "dur": 37
+ },
+ "17:0": {
+  "notes": 317,
+  "songs": [
+   "02_menu_title_screen"
+  ],
+  "low": 10,
+  "high": 48,
+  "median": 30,
+  "dur": 48
+ },
+ "17:11": {
+  "notes": 16,
+  "songs": [
+   "02_menu_title_screen"
+  ],
+  "low": 0,
+  "high": 48,
+  "median": 30,
+  "dur": 102
+ },
+ "17:10": {
+  "notes": 26,
+  "songs": [
+   "02_menu_title_screen"
+  ],
+  "low": 8,
+  "high": 54,
+  "median": 21,
+  "dur": 25
+ },
+ "17:127": {
+  "notes": 238,
+  "songs": [
+   "02_menu_title_screen"
+  ],
+  "low": 4,
+  "high": 58,
+  "median": 32,
+  "dur": 117
+ },
+ "17:8": {
+  "notes": 28,
+  "songs": [
+   "02_menu_title_screen"
+  ],
+  "low": 10,
+  "high": 44,
+  "median": 34,
+  "dur": 66
+ },
+ "17:7": {
+  "notes": 30,
+  "songs": [
+   "02_menu_title_screen"
+  ],
+  "low": 11,
+  "high": 46,
+  "median": 38,
+  "dur": 45
+ },
+ "17:6": {
+  "notes": 21,
+  "songs": [
+   "02_menu_title_screen"
+  ],
+  "low": 13,
+  "high": 45,
+  "median": 27,
+  "dur": 49
+ },
+ "17:5": {
+  "notes": 30,
+  "songs": [
+   "02_menu_title_screen"
+  ],
+  "low": 11,
+  "high": 46,
+  "median": 38,
+  "dur": 45
+ },
+ "17:4": {
+  "notes": 36,
+  "songs": [
+   "02_menu_title_screen"
+  ],
+  "low": 32,
+  "high": 54,
+  "median": 39,
+  "dur": 96
+ },
+ "17:3": {
+  "notes": 78,
+  "songs": [
+   "02_menu_title_screen"
+  ],
+  "low": 16,
+  "high": 53,
+  "median": 43,
+  "dur": 76
+ },
+ "17:1": {
+  "notes": 39,
+  "songs": [
+   "02_menu_title_screen"
+  ],
+  "low": 5,
+  "high": 36,
+  "median": 22,
+  "dur": 48
+ },
+ "14:0": {
+  "notes": 969,
+  "songs": [
+   "04_level_inside_castle",
+   "15_cutscene_star_spawn"
+  ],
+  "low": 11,
+  "high": 48,
+  "median": 32,
+  "dur": 72
+ },
+ "14:3": {
+  "notes": 20,
+  "songs": [
+   "04_level_inside_castle"
+  ],
+  "low": 22,
+  "high": 53,
+  "median": 34,
+  "dur": 240
+ },
+ "14:2": {
+  "notes": 57,
+  "songs": [
+   "04_level_inside_castle",
+   "15_cutscene_star_spawn"
+  ],
+  "low": 21,
+  "high": 48,
+  "median": 34,
+  "dur": 71
+ },
+ "14:1": {
+  "notes": 52,
+  "songs": [
+   "04_level_inside_castle",
+   "15_cutscene_star_spawn"
+  ],
+  "low": 16,
+  "high": 48,
+  "median": 40,
+  "dur": 50
+ },
+ "19:15": {
+  "notes": 360,
+  "songs": [
+   "05_level_water"
+  ],
+  "low": 3,
+  "high": 58,
+  "median": 27,
+  "dur": 120
+ },
+ "19:14": {
+  "notes": 351,
+  "songs": [
+   "05_level_water"
+  ],
+  "low": 6,
+  "high": 54,
+  "median": 37,
+  "dur": 96
+ },
+ "19:11": {
+  "notes": 32,
+  "songs": [
+   "05_level_water"
+  ],
+  "low": 30,
+  "high": 46,
+  "median": 30,
+  "dur": 48
+ },
+ "19:10": {
+  "notes": 91,
+  "songs": [
+   "05_level_water"
+  ],
+  "low": 13,
+  "high": 51,
+  "median": 29,
+  "dur": 21909
+ },
+ "19:127": {
+  "notes": 77,
+  "songs": [
+   "05_level_water"
+  ],
+  "low": 11,
+  "high": 54,
+  "median": 24,
+  "dur": 37
+ },
+ "19:6": {
+  "notes": 383,
+  "songs": [
+   "05_level_water"
+  ],
+  "low": 8,
+  "high": 53,
+  "median": 32,
+  "dur": 72
+ },
+ "19:1": {
+  "notes": 375,
+  "songs": [
+   "05_level_water"
+  ],
+  "low": 1,
+  "high": 61,
+  "median": 34,
+  "dur": 192
+ },
+ "19:0": {
+  "notes": 225,
+  "songs": [
+   "05_level_water"
+  ],
+  "low": 1,
+  "high": 59,
+  "median": 24,
+  "dur": 290
+ },
+ "15:0": {
+  "notes": 499,
+  "songs": [
+   "06_level_hot"
+  ],
+  "low": 9,
+  "high": 57,
+  "median": 40,
+  "dur": 57
+ },
+ "15:3": {
+  "notes": 5,
+  "songs": [
+   "06_level_hot"
+  ],
+  "low": 35,
+  "high": 41,
+  "median": 38,
+  "dur": 10
+ },
+ "15:2": {
+  "notes": 16,
+  "songs": [
+   "06_level_hot"
+  ],
+  "low": 19,
+  "high": 31,
+  "median": 26,
+  "dur": 208
+ },
+ "18:0": {
+  "notes": 637,
+  "songs": [
+   "07_level_boss_koopa"
+  ],
+  "low": 15,
+  "high": 63,
+  "median": 30,
+  "dur": 25
+ },
+ "18:10": {
+  "notes": 17,
+  "songs": [
+   "07_level_boss_koopa"
+  ],
+  "low": 21,
+  "high": 21,
+  "median": 21,
+  "dur": 24
+ },
+ "18:8": {
+  "notes": 13,
+  "songs": [
+   "07_level_boss_koopa"
+  ],
+  "low": 15,
+  "high": 17,
+  "median": 17,
+  "dur": 24
+ },
+ "11:0": {
+  "notes": 2686,
+  "songs": [
+   "08_level_snow"
+  ],
+  "low": 17,
+  "high": 71,
+  "median": 37,
+  "dur": 48
+ },
+ "11:7": {
+  "notes": 17,
+  "songs": [
+   "08_level_snow"
+  ],
+  "low": 38,
+  "high": 46,
+  "median": 41,
+  "dur": 35
+ },
+ "11:6": {
+  "notes": 17,
+  "songs": [
+   "08_level_snow"
+  ],
+  "low": 38,
+  "high": 46,
+  "median": 41,
+  "dur": 35
+ },
+ "11:2": {
+  "notes": 18,
+  "songs": [
+   "08_level_snow"
+  ],
+  "low": 24,
+  "high": 46,
+  "median": 43,
+  "dur": 48
+ },
+ "11:1": {
+  "notes": 13,
+  "songs": [
+   "08_level_snow"
+  ],
+  "low": 54,
+  "high": 58,
+  "median": 56,
+  "dur": 37
+ },
+ "13:0": {
+  "notes": 3543,
+  "songs": [
+   "09_level_slide"
+  ],
+  "low": 0,
+  "high": 53,
+  "median": 25,
+  "dur": 82
+ },
+ "13:81": {
+  "notes": 72,
+  "songs": [
+   "09_level_slide"
+  ],
+  "low": 45,
+  "high": 127,
+  "median": 92,
+  "dur": 58
+ },
+ "13:113": {
+  "notes": 8,
+  "songs": [
+   "09_level_slide"
+  ],
+  "low": 12,
+  "high": 38,
+  "median": 36,
+  "dur": 31769
+ },
+ "13:127": {
+  "notes": 6,
+  "songs": [
+   "09_level_slide"
+  ],
+  "low": 16,
+  "high": 16,
+  "median": 16,
+  "dur": 96
+ },
+ "13:6": {
+  "notes": 10,
+  "songs": [
+   "09_level_slide"
+  ],
+  "low": 24,
+  "high": 36,
+  "median": 26,
+  "dur": 24
+ },
+ "13:2": {
+  "notes": 12,
+  "songs": [
+   "09_level_slide"
+  ],
+  "low": 48,
+  "high": 55,
+  "median": 54,
+  "dur": 48
+ },
+ "16:0": {
+  "notes": 1379,
+  "songs": [
+   "0A_level_spooky"
+  ],
+  "low": 6,
+  "high": 50,
+  "median": 30,
+  "dur": 44
+ },
+ "16:127": {
+  "notes": 18,
+  "songs": [
+   "0A_level_spooky"
+  ],
+  "low": 33,
+  "high": 41,
+  "median": 33,
+  "dur": 48
+ },
+ "16:2": {
+  "notes": 8,
+  "songs": [
+   "0A_level_spooky"
+  ],
+  "low": 27,
+  "high": 46,
+  "median": 46,
+  "dur": 384
+ },
+ "16:1": {
+  "notes": 11,
+  "songs": [
+   "0A_level_spooky"
+  ],
+  "low": 32,
+  "high": 39,
+  "median": 39,
+  "dur": 384
+ },
+ "20:4": {
+  "notes": 61,
+  "songs": [
+   "0B_event_piranha_plant"
+  ],
+  "low": 1,
+  "high": 56,
+  "median": 37,
+  "dur": 236
+ },
+ "20:3": {
+  "notes": 182,
+  "songs": [
+   "0B_event_piranha_plant"
+  ],
+  "low": 0,
+  "high": 49,
+  "median": 20,
+  "dur": 46
+ },
+ "20:2": {
+  "notes": 153,
+  "songs": [
+   "0B_event_piranha_plant",
+   "1B_event_solve_puzzle"
+  ],
+  "low": 13,
+  "high": 62,
+  "median": 28,
+  "dur": 163
+ },
+ "20:1": {
+  "notes": 72,
+  "songs": [
+   "0B_event_piranha_plant",
+   "1B_event_solve_puzzle"
+  ],
+  "low": 3,
+  "high": 59,
+  "median": 48,
+  "dur": 171
+ },
+ "20:0": {
+  "notes": 163,
+  "songs": [
+   "0B_event_piranha_plant",
+   "1B_event_solve_puzzle"
+  ],
+  "low": 14,
+  "high": 71,
+  "median": 53,
+  "dur": 153
+ },
+ "21:0": {
+  "notes": 637,
+  "songs": [
+   "0C_level_underground"
+  ],
+  "low": 1,
+  "high": 56,
+  "median": 36,
+  "dur": 94
+ },
+ "21:127": {
+  "notes": 29,
+  "songs": [
+   "0C_level_underground"
+  ],
+  "low": 21,
+  "high": 73,
+  "median": 39,
+  "dur": 94
+ },
+ "21:7": {
+  "notes": 18,
+  "songs": [
+   "0C_level_underground"
+  ],
+  "low": 2,
+  "high": 34,
+  "median": 10,
+  "dur": 389
+ },
+ "21:6": {
+  "notes": 69,
+  "songs": [
+   "0C_level_underground"
+  ],
+  "low": 4,
+  "high": 49,
+  "median": 25,
+  "dur": 50
+ },
+ "21:4": {
+  "notes": 6,
+  "songs": [
+   "0C_level_underground"
+  ],
+  "low": 10,
+  "high": 56,
+  "median": 44,
+  "dur": 85
+ },
+ "21:2": {
+  "notes": 69,
+  "songs": [
+   "0C_level_underground"
+  ],
+  "low": 4,
+  "high": 53,
+  "median": 30,
+  "dur": 46
+ },
+ "21:1": {
+  "notes": 35,
+  "songs": [
+   "0C_level_underground"
+  ],
+  "low": 0,
+  "high": 61,
+  "median": 43,
+  "dur": 189
+ },
+ "22:1": {
+  "notes": 6,
+  "songs": [
+   "0D_menu_star_select"
+  ],
+  "low": 41,
+  "high": 48,
+  "median": 45,
+  "dur": 24
+ },
+ "22:0": {
+  "notes": 12,
+  "songs": [
+   "0D_menu_star_select"
+  ],
+  "low": 41,
+  "high": 45,
+  "median": 45,
+  "dur": 24
+ },
+ "23:0": {
+  "notes": 630,
+  "songs": [
+   "0E_event_powerup"
+  ],
+  "low": 14,
+  "high": 58,
+  "median": 43,
+  "dur": 23
+ },
+ "23:12": {
+  "notes": 16,
+  "songs": [
+   "0E_event_powerup"
+  ],
+  "low": 61,
+  "high": 61,
+  "median": 61,
+  "dur": 12
+ },
+ "23:10": {
+  "notes": 16,
+  "songs": [
+   "0E_event_powerup"
+  ],
+  "low": 23,
+  "high": 23,
+  "median": 23,
+  "dur": 24
+ },
+ "23:127": {
+  "notes": 42,
+  "songs": [
+   "0E_event_powerup"
+  ],
+  "low": 14,
+  "high": 61,
+  "median": 16,
+  "dur": 14
+ },
+ "23:4": {
+  "notes": 32,
+  "songs": [
+   "0E_event_powerup"
+  ],
+  "low": 55,
+  "high": 67,
+  "median": 62,
+  "dur": 12
+ },
+ "23:2": {
+  "notes": 2,
+  "songs": [
+   "0E_event_powerup"
+  ],
+  "low": 46,
+  "high": 47,
+  "median": 47,
+  "dur": 50
+ },
+ "23:1": {
+  "notes": 10,
+  "songs": [
+   "0E_event_powerup"
+  ],
+  "low": 17,
+  "high": 27,
+  "median": 24,
+  "dur": 72
+ },
+ "24:0": {
+  "notes": 574,
+  "songs": [
+   "0F_event_metal_cap"
+  ],
+  "low": 15,
+  "high": 58,
+  "median": 36,
+  "dur": 90
+ },
+ "18:11": {
+  "notes": 17,
+  "songs": [
+   "10_event_koopa_message"
+  ],
+  "low": 28,
+  "high": 28,
+  "median": 28,
+  "dur": 48
+ },
+ "18:6": {
+  "notes": 4,
+  "songs": [
+   "10_event_koopa_message"
+  ],
+  "low": 17,
+  "high": 50,
+  "median": 38,
+  "dur": 192
+ },
+ "18:4": {
+  "notes": 7,
+  "songs": [
+   "10_event_koopa_message"
+  ],
+  "low": 67,
+  "high": 74,
+  "median": 70,
+  "dur": 6
+ },
+ "18:3": {
+  "notes": 2,
+  "songs": [
+   "10_event_koopa_message"
+  ],
+  "low": 38,
+  "high": 50,
+  "median": 50,
+  "dur": 48
+ },
+ "18:2": {
+  "notes": 5,
+  "songs": [
+   "10_event_koopa_message"
+  ],
+  "low": 12,
+  "high": 26,
+  "median": 23,
+  "dur": 48
+ },
+ "18:1": {
+  "notes": 5,
+  "songs": [
+   "10_event_koopa_message"
+  ],
+  "low": 24,
+  "high": 38,
+  "median": 35,
+  "dur": 48
+ },
+ "25:0": {
+  "notes": 1553,
+  "songs": [
+   "11_level_koopa_road"
+  ],
+  "low": 8,
+  "high": 122,
+  "median": 35,
+  "dur": 53
+ },
+ "25:98": {
+  "notes": 4,
+  "songs": [
+   "11_level_koopa_road"
+  ],
+  "low": 0,
+  "high": 34,
+  "median": 17,
+  "dur": 122
+ },
+ "25:12": {
+  "notes": 2,
+  "songs": [
+   "11_level_koopa_road"
+  ],
+  "low": 20,
+  "high": 20,
+  "median": 20,
+  "dur": 12
+ },
+ "25:10": {
+  "notes": 23,
+  "songs": [
+   "11_level_koopa_road"
+  ],
+  "low": 17,
+  "high": 17,
+  "median": 17,
+  "dur": 5
+ },
+ "25:6": {
+  "notes": 7,
+  "songs": [
+   "11_level_koopa_road"
+  ],
+  "low": 24,
+  "high": 48,
+  "median": 36,
+  "dur": 18
+ },
+ "25:4": {
+  "notes": 7,
+  "songs": [
+   "11_level_koopa_road"
+  ],
+  "low": 29,
+  "high": 53,
+  "median": 41,
+  "dur": 208
+ },
+ "25:1": {
+  "notes": 7,
+  "songs": [
+   "11_level_koopa_road"
+  ],
+  "low": 17,
+  "high": 41,
+  "median": 29,
+  "dur": 18
+ },
+ "31:12": {
+  "notes": 31,
+  "songs": [
+   "12_event_high_score"
+  ],
+  "low": 17,
+  "high": 17,
+  "median": 17,
+  "dur": 16
+ },
+ "31:11": {
+  "notes": 1,
+  "songs": [
+   "12_event_high_score"
+  ],
+  "low": 62,
+  "high": 62,
+  "median": 62,
+  "dur": 48
+ },
+ "31:2": {
+  "notes": 6,
+  "songs": [
+   "12_event_high_score"
+  ],
+  "low": 33,
+  "high": 39,
+  "median": 35,
+  "dur": 32
+ },
+ "31:0": {
+  "notes": 12,
+  "songs": [
+   "12_event_high_score"
+  ],
+  "low": 42,
+  "high": 53,
+  "median": 49,
+  "dur": 32
+ },
+ "33:3": {
+  "notes": 188,
+  "songs": [
+   "13_event_merry_go_round"
+  ],
+  "low": 23,
+  "high": 63,
+  "median": 52,
+  "dur": 96
+ },
+ "33:2": {
+  "notes": 176,
+  "songs": [
+   "13_event_merry_go_round"
+  ],
+  "low": 30,
+  "high": 148,
+  "median": 60,
+  "dur": 93
+ },
+ "33:0": {
+  "notes": 190,
+  "songs": [
+   "13_event_merry_go_round"
+  ],
+  "low": 23,
+  "high": 63,
+  "median": 52,
+  "dur": 96
+ },
+ "26:4": {
+  "notes": 10,
+  "songs": [
+   "14_event_race"
+  ],
+  "low": 46,
+  "high": 53,
+  "median": 46,
+  "dur": 17
+ },
+ "26:2": {
+  "notes": 46,
+  "songs": [
+   "14_event_race",
+   "17_cutscene_collect_key",
+   "1F_cutscene_victory"
+  ],
+  "low": 31,
+  "high": 51,
+  "median": 41,
+  "dur": 25
+ },
+ "26:1": {
+  "notes": 28,
+  "songs": [
+   "14_event_race",
+   "17_cutscene_collect_key",
+   "1F_cutscene_victory"
+  ],
+  "low": 27,
+  "high": 68,
+  "median": 39,
+  "dur": 32
+ },
+ "14:6": {
+  "notes": 9,
+  "songs": [
+   "15_cutscene_star_spawn"
+  ],
+  "low": 58,
+  "high": 67,
+  "median": 65,
+  "dur": 61
+ },
+ "14:5": {
+  "notes": 7,
+  "songs": [
+   "15_cutscene_star_spawn"
+  ],
+  "low": 39,
+  "high": 67,
+  "median": 55,
+  "dur": 43
+ },
+ "27:0": {
+  "notes": 1463,
+  "songs": [
+   "16_event_boss",
+   "1E_cutscene_intro",
+   "22_cutscene_lakitu"
+  ],
+  "low": 6,
+  "high": 44,
+  "median": 32,
+  "dur": 31
+ },
+ "27:11": {
+  "notes": 1,
+  "songs": [
+   "16_event_boss"
+  ],
+  "low": 28,
+  "high": 28,
+  "median": 28,
+  "dur": 10
+ },
+ "27:127": {
+  "notes": 31,
+  "songs": [
+   "16_event_boss",
+   "1E_cutscene_intro"
+  ],
+  "low": 33,
+  "high": 34,
+  "median": 34,
+  "dur": 12
+ },
+ "27:7": {
+  "notes": 9,
+  "songs": [
+   "16_event_boss"
+  ],
+  "low": 19,
+  "high": 19,
+  "median": 19,
+  "dur": 24
+ },
+ "27:4": {
+  "notes": 46,
+  "songs": [
+   "16_event_boss",
+   "1E_cutscene_intro",
+   "22_cutscene_lakitu"
+  ],
+  "low": 15,
+  "high": 48,
+  "median": 30,
+  "dur": 200
+ },
+ "27:3": {
+  "notes": 7,
+  "songs": [
+   "16_event_boss"
+  ],
+  "low": 34,
+  "high": 40,
+  "median": 37,
+  "dur": 36
+ },
+ "27:2": {
+  "notes": 73,
+  "songs": [
+   "16_event_boss",
+   "1E_cutscene_intro",
+   "22_cutscene_lakitu"
+  ],
+  "low": 34,
+  "high": 38,
+  "median": 36,
+  "dur": 24
+ },
+ "27:1": {
+  "notes": 62,
+  "songs": [
+   "16_event_boss",
+   "1E_cutscene_intro",
+   "22_cutscene_lakitu"
+  ],
+  "low": 28,
+  "high": 51,
+  "median": 43,
+  "dur": 49
+ },
+ "26:11": {
+  "notes": 4,
+  "songs": [
+   "17_cutscene_collect_key",
+   "1F_cutscene_victory"
+  ],
+  "low": 28,
+  "high": 28,
+  "median": 28,
+  "dur": 48
+ },
+ "26:10": {
+  "notes": 26,
+  "songs": [
+   "17_cutscene_collect_key",
+   "1F_cutscene_victory"
+  ],
+  "low": 27,
+  "high": 27,
+  "median": 27,
+  "dur": 9
+ },
+ "26:3": {
+  "notes": 11,
+  "songs": [
+   "17_cutscene_collect_key",
+   "1F_cutscene_victory"
+  ],
+  "low": 15,
+  "high": 37,
+  "median": 27,
+  "dur": 288
+ },
+ "26:0": {
+  "notes": 91,
+  "songs": [
+   "17_cutscene_collect_key",
+   "1F_cutscene_victory"
+  ],
+  "low": 28,
+  "high": 44,
+  "median": 34,
+  "dur": 24
+ },
+ "28:0": {
+  "notes": 716,
+  "songs": [
+   "18_event_endless_stairs"
+  ],
+  "low": 0,
+  "high": 36,
+  "median": 0,
+  "dur": 9326
+ },
+ "29:0": {
+  "notes": 1619,
+  "songs": [
+   "19_level_boss_koopa_final"
+  ],
+  "low": 17,
+  "high": 72,
+  "median": 52,
+  "dur": 72
+ },
+ "29:5": {
+  "notes": 16,
+  "songs": [
+   "19_level_boss_koopa_final"
+  ],
+  "low": 48,
+  "high": 60,
+  "median": 56,
+  "dur": 180
+ },
+ "29:4": {
+  "notes": 36,
+  "songs": [
+   "19_level_boss_koopa_final"
+  ],
+  "low": 34,
+  "high": 60,
+  "median": 44,
+  "dur": 54
+ },
+ "29:3": {
+  "notes": 6,
+  "songs": [
+   "19_level_boss_koopa_final"
+  ],
+  "low": 17,
+  "high": 29,
+  "median": 29,
+  "dur": 657
+ },
+ "29:2": {
+  "notes": 2,
+  "songs": [
+   "19_level_boss_koopa_final"
+  ],
+  "low": 17,
+  "high": 19,
+  "median": 19,
+  "dur": 481
+ },
+ "37:15": {
+  "notes": 40,
+  "songs": [
+   "1A_cutscene_credits"
+  ],
+  "low": 46,
+  "high": 53,
+  "median": 50,
+  "dur": 70
+ },
+ "37:14": {
+  "notes": 71,
+  "songs": [
+   "1A_cutscene_credits"
+  ],
+  "low": 43,
+  "high": 53,
+  "median": 46,
+  "dur": 46
+ },
+ "37:12": {
+  "notes": 32,
+  "songs": [
+   "1A_cutscene_credits"
+  ],
+  "low": 73,
+  "high": 73,
+  "median": 73,
+  "dur": 16
+ },
+ "37:11": {
+  "notes": 18,
+  "songs": [
+   "1A_cutscene_credits"
+  ],
+  "low": 28,
+  "high": 30,
+  "median": 28,
+  "dur": 24
+ },
+ "37:10": {
+  "notes": 32,
+  "songs": [
+   "1A_cutscene_credits"
+  ],
+  "low": 21,
+  "high": 21,
+  "median": 21,
+  "dur": 16
+ },
+ "37:127": {
+  "notes": 25,
+  "songs": [
+   "1A_cutscene_credits"
+  ],
+  "low": 15,
+  "high": 55,
+  "median": 20,
+  "dur": 16
+ },
+ "37:8": {
+  "notes": 88,
+  "songs": [
+   "1A_cutscene_credits"
+  ],
+  "low": 20,
+  "high": 48,
+  "median": 36,
+  "dur": 103
+ },
+ "37:7": {
+  "notes": 136,
+  "songs": [
+   "1A_cutscene_credits"
+  ],
+  "low": 38,
+  "high": 51,
+  "median": 44,
+  "dur": 96
+ },
+ "37:6": {
+  "notes": 36,
+  "songs": [
+   "1A_cutscene_credits"
+  ],
+  "low": 41,
+  "high": 51,
+  "median": 46,
+  "dur": 46
+ },
+ "37:5": {
+  "notes": 143,
+  "songs": [
+   "1A_cutscene_credits"
+  ],
+  "low": 43,
+  "high": 58,
+  "median": 51,
+  "dur": 48
+ },
+ "37:4": {
+  "notes": 819,
+  "songs": [
+   "1A_cutscene_credits"
+  ],
+  "low": 34,
+  "high": 44,
+  "median": 39,
+  "dur": 48
+ },
+ "37:3": {
+  "notes": 164,
+  "songs": [
+   "1A_cutscene_credits"
+  ],
+  "low": 24,
+  "high": 48,
+  "median": 38,
+  "dur": 51
+ },
+ "37:2": {
+  "notes": 392,
+  "songs": [
+   "1A_cutscene_credits"
+  ],
+  "low": 31,
+  "high": 34,
+  "median": 32,
+  "dur": 24
+ },
+ "37:1": {
+  "notes": 501,
+  "songs": [
+   "1A_cutscene_credits"
+  ],
+  "low": 13,
+  "high": 25,
+  "median": 20,
+  "dur": 72
+ },
+ "37:0": {
+  "notes": 83,
+  "songs": [
+   "1A_cutscene_credits"
+  ],
+  "low": 43,
+  "high": 53,
+  "median": 46,
+  "dur": 47
+ },
+ "32:8": {
+  "notes": 5,
+  "songs": [
+   "1C_event_toad_message"
+  ],
+  "low": 34,
+  "high": 39,
+  "median": 36,
+  "dur": 96
+ },
+ "32:7": {
+  "notes": 10,
+  "songs": [
+   "1C_event_toad_message"
+  ],
+  "low": 43,
+  "high": 51,
+  "median": 46,
+  "dur": 96
+ },
+ "32:0": {
+  "notes": 10,
+  "songs": [
+   "1C_event_toad_message"
+  ],
+  "low": 55,
+  "high": 62,
+  "median": 58,
+  "dur": 24
+ },
+ "30:3": {
+  "notes": 13,
+  "songs": [
+   "1D_event_peach_message"
+  ],
+  "low": 45,
+  "high": 53,
+  "median": 48,
+  "dur": 48
+ },
+ "30:2": {
+  "notes": 4,
+  "songs": [
+   "1D_event_peach_message"
+  ],
+  "low": 38,
+  "high": 58,
+  "median": 50,
+  "dur": 506
+ },
+ "30:1": {
+  "notes": 8,
+  "songs": [
+   "1D_event_peach_message"
+  ],
+  "low": 34,
+  "high": 43,
+  "median": 39,
+  "dur": 53
+ },
+ "30:0": {
+  "notes": 18,
+  "songs": [
+   "1D_event_peach_message"
+  ],
+  "low": 43,
+  "high": 53,
+  "median": 46,
+  "dur": 74
+ },
+ "27:8": {
+  "notes": 17,
+  "songs": [
+   "1E_cutscene_intro"
+  ],
+  "low": 17,
+  "high": 17,
+  "median": 17,
+  "dur": 5
+ },
+ "26:12": {
+  "notes": 87,
+  "songs": [
+   "1F_cutscene_victory"
+  ],
+  "low": 17,
+  "high": 17,
+  "median": 17,
+  "dur": 5
+ },
+ "26:5": {
+  "notes": 16,
+  "songs": [
+   "1F_cutscene_victory"
+  ],
+  "low": 55,
+  "high": 68,
+  "median": 63,
+  "dur": 25
+ },
+ "35:7": {
+  "notes": 44,
+  "songs": [
+   "20_cutscene_ending"
+  ],
+  "low": 41,
+  "high": 51,
+  "median": 45,
+  "dur": 36
+ },
+ "35:5": {
+  "notes": 125,
+  "songs": [
+   "20_cutscene_ending"
+  ],
+  "low": 48,
+  "high": 62,
+  "median": 56,
+  "dur": 24
+ },
+ "35:2": {
+  "notes": 45,
+  "songs": [
+   "20_cutscene_ending"
+  ],
+  "low": 15,
+  "high": 34,
+  "median": 22,
+  "dur": 180
+ },
+ "35:1": {
+  "notes": 47,
+  "songs": [
+   "20_cutscene_ending"
+  ],
+  "low": 31,
+  "high": 44,
+  "median": 34,
+  "dur": 160
+ },
+ "35:0": {
+  "notes": 126,
+  "songs": [
+   "20_cutscene_ending"
+  ],
+  "low": 31,
+  "high": 48,
+  "median": 38,
+  "dur": 74
+ },
+ "36:127": {
+  "notes": 16,
+  "songs": [
+   "21_menu_file_select"
+  ],
+  "low": 34,
+  "high": 54,
+  "median": 34,
+  "dur": 24
+ },
+ "36:3": {
+  "notes": 8,
+  "songs": [
+   "21_menu_file_select"
+  ],
+  "low": 39,
+  "high": 43,
+  "median": 41,
+  "dur": 192
+ },
+ "36:2": {
+  "notes": 8,
+  "songs": [
+   "21_menu_file_select"
+  ],
+  "low": 22,
+  "high": 27,
+  "median": 26,
+  "dur": 194
+ },
+ "36:1": {
+  "notes": 56,
+  "songs": [
+   "21_menu_file_select"
+  ],
+  "low": 36,
+  "high": 46,
+  "median": 41,
+  "dur": 36
+ },
+ "36:0": {
+  "notes": 56,
+  "songs": [
+   "21_menu_file_select"
+  ],
+  "low": 36,
+  "high": 46,
+  "median": 41,
+  "dur": 36
+ }
+}

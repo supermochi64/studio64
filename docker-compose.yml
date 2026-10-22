@@ -1,0 +1,22 @@
+# One command, no other installs:  docker compose up   →  http://localhost:8064
+# The folder is mounted into the container, so the built game, your projects and the setup
+# land here, exactly as with npm start (and you can switch between the two).
+services:
+  studio64:
+    build: .
+    image: studio64
+    ports:
+      - "127.0.0.1:8064:8064"     # only this computer; see docs/settings.md for the network
+    user: "${UID:-1000}:${GID:-1000}"
+    volumes:
+      - .:/studio64
+      - node_modules:/studio64/node_modules
+      # optional: a Shoggoth World checkout for Tokyo, Shotgun Mario and the cars
+      # - ../sm64-master:/sm64-master:ro
+    environment:
+      - STUDIO_PASSWORD=${STUDIO_PASSWORD:-}
+      # - SHOGGOTH_DIR=/sm64-master
+    restart: unless-stopped
+
+volumes:
+  node_modules:

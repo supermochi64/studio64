@@ -1,0 +1,12 @@
+/* Super Mario Sunshine characters (docs/sunshine.md): the Shine Sprite button of the Stars tab */
+.shine-dot {
+  width: 11px; height: 11px; border-radius: 50%;
+  background: radial-gradient(circle at 40% 35%, #fff6c8 0 25%, #ffc93c 55%, #f08a1c 100%);
+  box-shadow: 0 0 0 2px rgba(255, 190, 60, .3), 0 0 6px rgba(255, 200, 80, .7);
+}
+
+/* without a converted disc (first-run setup): no Shine Sprite, an invitation in the library instead */
+body.no-sunshine #add-shine { display: none; }
+.sms-unlock { grid-column: 1 / -1; display: flex; flex-direction: column; align-items: flex-start; gap: 8px; line-height: 1.5; }
+.sms-unlock b { color: var(--text); font-weight: 600; }
+.sms-unlock .btn { text-decoration: none; margin-top: 4px; }

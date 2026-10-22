@@ -1,0 +1,36 @@
+node_modules/
+*.log
+__pycache__/
+*.pyc
+.DS_Store
+
+# Local state: projects, the first-run setup (state, log, uploaded Sunshine disc),
+# the launchers' private Node.js and build tools, release ZIPs
+server/projects/
+server/sandbox/
+.setup/
+.runtime/
+dist/
+
+# Test output (logs, screenshots, temporary projects)
+tests/out/
+
+# Built or extracted from your ROM (or Sunshine disc): made locally by the setup, never published.
+# engine/.gitignore covers the rest of engine/ (assets, samples, the build).
+web/engine/
+web/thumbs/
+web/data/story_font.png
+web/data/story_texts.json
+web/data/textures.json
+server/samples/*.s64hack
+engine/baserom.*.z64
+engine/build/
+engine/.build.lock
+engine/.build.lock.d/
+engine/src/studio/gen/
+engine/src/studio/sms/gen/
+engine/src/studio/romgen/
+
+# Trailer production: frames, takes and the full-size render (attached to the GitHub release)
+promo/work/
+promo/studio64-trailer-1080p.mp4

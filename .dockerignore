@@ -1,0 +1,17 @@
+node_modules
+.setup
+web/engine
+web/thumbs
+engine/build
+engine/baserom.*.z64
+engine/.build.lock*
+server/projects
+server/sandbox
+server/samples/*.s64hack
+tests/out
+*.log
+.runtime
+dist
+promo
+release-notes
+.git

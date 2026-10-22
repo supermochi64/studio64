@@ -1,0 +1,345 @@
+[
+ {
+  "id": "tokyo:city",
+  "bhv": "bhvTkCity",
+  "gfx": "tokyo_city_geo",
+  "name": "Tokyo (the whole city)",
+  "params": [
+   "0x00000000"
+  ]
+ },
+ {
+  "id": "tokyo:petals",
+  "bhv": "bhvTkPetalEmitter",
+  "gfx": null,
+  "name": "Falling petals / fireflies",
+  "params": [
+   "0x3C0C0000",
+   "0x3C0C0100"
+  ]
+ },
+ {
+  "id": "tokyo:traffic_light",
+  "bhv": "bhvTkProp",
+  "gfx": "tokyo_traffic_light_geo",
+  "name": "Traffic light",
+  "params": [
+   "0x03000102",
+   "0x03000002"
+  ]
+ },
+ {
+  "id": "tokyo:ped_signal",
+  "bhv": "bhvTkProp",
+  "gfx": "tokyo_ped_signal_geo",
+  "name": "Pedestrian signal",
+  "params": [
+   "0x02000003"
+  ]
+ },
+ {
+  "id": "tokyo:screen_big",
+  "bhv": "bhvTkProp",
+  "gfx": "tokyo_screen_big_geo",
+  "name": "Giant screen",
+  "params": [
+   "0x04960000"
+  ]
+ },
+ {
+  "id": "tokyo:screen_2",
+  "bhv": "bhvTkProp",
+  "gfx": "tokyo_screen_2_geo",
+  "name": "Screen",
+  "params": [
+   "0x03820000"
+  ]
+ },
+ {
+  "id": "tokyo:screen_tall",
+  "bhv": "bhvTkProp",
+  "gfx": "tokyo_screen_tall_geo",
+  "name": "Tall screen",
+  "params": [
+   "0x036E0000"
+  ]
+ },
+ {
+  "id": "tokyo:neon_hotel",
+  "bhv": "bhvTkProp",
+  "gfx": "tokyo_neon_hotel_geo",
+  "name": "Flickering neon",
+  "params": [
+   "0x02000001"
+  ]
+ },
+ {
+  "id": "tokyo:waterfall",
+  "bhv": "bhvTkProp",
+  "gfx": "tokyo_waterfall_geo",
+  "name": "Waterfall",
+  "params": [
+   "0x04060000"
+  ]
+ },
+ {
+  "id": "tokyo:taxi",
+  "bhv": "bhvTkCar",
+  "gfx": "tokyo_taxi_geo",
+  "name": "Taxi",
+  "params": [
+   "0x00500000"
+  ]
+ },
+ {
+  "id": "tokyo:kei",
+  "bhv": "bhvTkCar",
+  "gfx": "tokyo_kei_geo",
+  "name": "Kei car",
+  "params": [
+   "0x01500000"
+  ]
+ },
+ {
+  "id": "tokyo:bus",
+  "bhv": "bhvTkCar",
+  "gfx": "tokyo_bus_geo",
+  "name": "City bus",
+  "params": [
+   "0x02500000"
+  ]
+ },
+ {
+  "id": "tokyo:kei_truck",
+  "bhv": "bhvTkCar",
+  "gfx": "tokyo_kei_truck_geo",
+  "name": "Kei truck",
+  "params": [
+   "0x07500000"
+  ]
+ },
+ {
+  "id": "tokyo:train",
+  "bhv": "bhvTkTrain",
+  "gfx": "tokyo_train_geo",
+  "name": "Commuter train",
+  "params": [
+   "0x03D81E00"
+  ]
+ },
+ {
+  "id": "tokyo:boat",
+  "bhv": "bhvTkBoat",
+  "gfx": "tokyo_boat_geo",
+  "name": "Canal boat",
+  "params": [
+   "0x04280000"
+  ]
+ },
+ {
+  "id": "tokyo:crane_jib",
+  "bhv": "bhvTkCraneJib",
+  "gfx": "tokyo_jib_geo",
+  "name": "Crane jib",
+  "params": [
+   "0x05000000"
+  ]
+ },
+ {
+  "id": "tokyo:lift",
+  "bhv": "bhvTkLift",
+  "gfx": "tokyo_lift_geo",
+  "name": "Glass lift",
+  "params": [
+   "0x06550000",
+   "0x06280000"
+  ]
+ },
+ {
+  "id": "tokyo:firefly",
+  "bhv": "bhvTkFirefly",
+  "gfx": "tokyo_fauna_firefly_geo",
+  "name": "Firefly",
+  "params": [
+   "0x00000000"
+  ]
+ },
+ {
+  "id": "tokyo:salaryman",
+  "bhv": "bhvTkPedestrian",
+  "gfx": "tokyo_salaryman_geo",
+  "name": "Salaryman",
+  "params": [
+   "0x00000000",
+   "0x01100000",
+   "0x02200000"
+  ]
+ },
+ {
+  "id": "tokyo:office_lady",
+  "bhv": "bhvTkPedestrian",
+  "gfx": "tokyo_ol_geo",
+  "name": "Office worker",
+  "params": [
+   "0x00000000"
+  ]
+ },
+ {
+  "id": "tokyo:schoolkid",
+  "bhv": "bhvTkPedestrian",
+  "gfx": "tokyo_schoolkid_geo",
+  "name": "Schoolkid",
+  "params": [
+   "0x00000000"
+  ]
+ },
+ {
+  "id": "tokyo:sailor",
+  "bhv": "bhvTkPedestrian",
+  "gfx": "tokyo_sailor_geo",
+  "name": "Sailor uniform",
+  "params": [
+   "0x00000000"
+  ]
+ },
+ {
+  "id": "tokyo:harajuku",
+  "bhv": "bhvTkPedestrian",
+  "gfx": "tokyo_harajuku_geo",
+  "name": "Harajuku style",
+  "params": [
+   "0x00000000"
+  ]
+ },
+ {
+  "id": "tokyo:station_staff",
+  "bhv": "bhvTkPedestrian",
+  "gfx": "tokyo_station_geo",
+  "name": "Station staff",
+  "params": [
+   "0x00000000"
+  ]
+ },
+ {
+  "id": "tokyo:takoyaki",
+  "bhv": "bhvTkPedestrian",
+  "gfx": "tokyo_takoyaki_geo",
+  "name": "Takoyaki vendor",
+  "params": [
+   "0x00000000"
+  ]
+ },
+ {
+  "id": "tokyo:miko",
+  "bhv": "bhvTkPedestrian",
+  "gfx": "tokyo_miko_geo",
+  "name": "Shrine maiden",
+  "params": [
+   "0x00000000"
+  ]
+ },
+ {
+  "id": "tokyo:builder",
+  "bhv": "bhvTkPedestrian",
+  "gfx": "tokyo_builder_geo",
+  "name": "Builder",
+  "params": [
+   "0x00000000"
+  ]
+ },
+ {
+  "id": "tokyo:boatman",
+  "bhv": "bhvTkPedestrian",
+  "gfx": "tokyo_boatman_geo",
+  "name": "Boatman",
+  "params": [
+   "0x00000000"
+  ]
+ },
+ {
+  "id": "tokyo:yakuza",
+  "bhv": "bhvTkPedestrian",
+  "gfx": "tokyo_yakuza_crew_geo",
+  "name": "Yakuza",
+  "params": [
+   "0x00000000"
+  ]
+ },
+ {
+  "id": "tokyo:drift_king",
+  "bhv": "bhvTkPedestrian",
+  "gfx": "tokyo_yakuza_boss_geo",
+  "name": "The Drift King",
+  "params": [
+   "0x00000000"
+  ]
+ },
+ {
+  "id": "tokyo:stationmaster",
+  "bhv": "bhvTkPedestrian",
+  "gfx": "tk_stationmaster_geo",
+  "name": "Stationmaster",
+  "params": [
+   "0x00000000"
+  ]
+ },
+ {
+  "id": "tokyo:tuner",
+  "bhv": "bhvStaticObject",
+  "gfx": "tokyo_yk_tuner_geo",
+  "name": "Tuner car",
+  "params": [
+   "0x00000000"
+  ]
+ },
+ {
+  "id": "tokyo:oni_red",
+  "bhv": "bhvGoomba",
+  "gfx": "tokyo_tke_oni_red_geo",
+  "name": "Oni (red)",
+  "params": [
+   "0x00000000",
+   "0x00010000"
+  ]
+ },
+ {
+  "id": "tokyo:oni_blue",
+  "bhv": "bhvGoomba",
+  "gfx": "tokyo_tke_oni_blue_geo",
+  "name": "Ao-oni (blue)",
+  "params": [
+   "0x00000000",
+   "0x00010000"
+  ]
+ },
+ {
+  "id": "tokyo:chochin",
+  "bhv": "bhvTkChochin",
+  "gfx": "tokyo_tke_chochin_geo",
+  "name": "Chochin-obake",
+  "params": [
+   "0x00000000",
+   "0x01000000"
+  ]
+ },
+ {
+  "id": "tokyo:kappa",
+  "bhv": "bhvTkKappa",
+  "gfx": "tokyo_tke_kappa_geo",
+  "name": "Kappa",
+  "params": [
+   "0x41455155"
+  ]
+ },
+ {
+  "id": "tokyo:tanuki",
+  "bhv": "bhvTkTanuki",
+  "gfx": "tokyo_tke_tanuki_geo",
+  "name": "Tanuki",
+  "params": [
+   "0x01000000",
+   "0x02000000",
+   "0x03000000"
+  ]
+ }
+]

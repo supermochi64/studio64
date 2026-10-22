@@ -1,0 +1,4 @@
+[
+ { "id": "sg:shotgun", "bhv": "bhvStudioShotgun", "gfx": "sg_shotgun_geo", "name": "Shotgun", "params": ["0x00000000"] },
+ { "id": "sg:gangster", "bhv": "bhvStudioGangster", "gfx": "sg_gangster0_geo", "name": "Gangster", "params": ["0x00000000", "0x00010000", "0x00020000"], "also": ["bhvStudioGangsterBullet"] }
+]

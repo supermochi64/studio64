@@ -1,0 +1,7 @@
+[
+ {"name": "tokyo", "recipes": "engine/src/studio/shoggoth/gen/rom_recipes.json",
+  "files": ["engine/src/studio/shoggoth/gen/tokyo/texture.inc.c", "engine/src/studio/shoggoth/gen/tokyo/model.inc.c", "engine/src/studio/shoggoth/gen/tokyo/geo.inc.c"]},
+ {"name": "shotgun", "recipes": "engine/src/studio/shotgun/rom_recipes.json", "files": ["engine/src/studio/shotgun/models.inc.c"]},
+ {"name": "vehicles", "recipes": "engine/src/studio/vehicles/rom_recipes.json", "files": ["engine/src/studio/vehicles/cars.inc.c"]},
+ {"name": "katana", "recipes": "engine/src/studio/katana/rom_recipes.json", "files": ["engine/src/studio/katana/models.inc.c"]}
+]

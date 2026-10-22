@@ -1,0 +1,15 @@
+# LF everywhere, also in Windows checkouts (the Makefiles and sh scripts need it), except the
+# Windows launchers: cmd.exe and Windows PowerShell want CRLF
+* text=auto eol=lf
+*.bat text eol=crlf
+*.cmd text eol=crlf
+*.ps1 text eol=crlf
+/GETTING\ STARTED.txt text eol=crlf
+*.png binary
+*.jpg binary
+*.webp binary
+*.ico binary
+*.wasm binary
+*.s64hack binary
+*.z64 binary
+*.iso binary

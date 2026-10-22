@@ -1,0 +1,38 @@
+// A Shine Sprite placed from the Stars tab: drawn (close-up), listed as a star, and collected like one.
+import { chromium } from 'playwright';
+const URL = process.env.STUDIO_URL || 'http://127.0.0.1:8064';
+const browser = await chromium.launch({ executablePath: '/usr/bin/google-chrome-stable', args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader'] });
+const proj = await (await fetch(URL + '/api/projects', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ level: 9 }) })).json();
+const page = await browser.newPage({ viewport: { width: 1280, height: 800 } });
+const errors = [];
+page.on('pageerror', (e) => { errors.push(e.message); console.log('pageerror:', e.message); });
+await page.goto(URL + '/?p=' + proj.id);
+await page.waitForSelector('#loading', { state: 'hidden', timeout: 120000 });
+await page.click('#start', { timeout: 8000 }).catch(() => {});
+await page.waitForTimeout(1500);
+await page.evaluate(() => studio64.levelsUI.createLevel('flat', null, 'Shine test'));
+await page.waitForFunction(() => studio64.engine.inIntro, null, { timeout: 15000 }).catch(() => {});
+await page.waitForFunction(() => !studio64.engine.inIntro, null, { timeout: 20000 });
+await page.waitForTimeout(2500);
+if (await page.evaluate(() => studio64.editor.active)) await page.evaluate(() => document.querySelector('#mode-play').click());
+const frames = (n) => page.evaluate((n) => new Promise((resolve) => { const e = studio64.engine; let k = 0; const fn = () => { if (++k >= n) { e.off('frame', fn); resolve(); } }; e.on('frame', fn); }), n);
+let ok = true;
+const check = (name, cond, info = '') => { ok &&= !!cond; console.log(cond ? 'PASS' : 'FAIL', name, info); };
+// placed the way the Stars tab does it: a star record with the Shine's entry
+await page.evaluate(() => studio64.engine.teleport(0, 30, -600, 0));
+const placed = await page.evaluate(() => studio64.engine.spawn({ uid: 0x7d000001, entry: 'sms:shine_sprite', x: 0, y: 150, z: 0, yaw: 0, pitch: 0, roll: 0, bparams: 0, scale: 1 }));
+check('spawned', placed >= 0, `slot ${placed}`);
+await frames(20);
+await page.evaluate(() => studio64.engine.setCamera(true, [0, 260, -330], [0, 190, 0], 45));
+await frames(10);
+await page.locator('canvas').first().screenshot({ path: 'tests/out/sms_shine.png' });
+await page.evaluate(() => studio64.engine.setCamera(false));
+const stars = [];
+await page.evaluate(() => { window.__stars = []; studio64.engine.on('star', (s) => window.__stars.push(s)); });
+await page.evaluate(() => studio64.engine.teleport(0, 150, -20, 0));
+await frames(40);
+const got = await page.evaluate(() => window.__stars);
+check('collected like a star', got.length > 0 && got[0].uid === 0x7d000001, JSON.stringify(got));
+check('no page errors', !errors.length, errors.join(' | '));
+await browser.close();
+process.exit(ok ? 0 : 1);

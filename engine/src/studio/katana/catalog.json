@@ -1,0 +1,5 @@
+[
+ { "id": "kt:blade", "bhv": "bhvKtBlade", "gfx": "kt_katana_geo", "name": "Legendary Blade (katana)", "params": ["0x00000000"] },
+ { "id": "kt:fighter", "bhv": "bhvKtFighter", "gfx": "kt_cos_luigi_geo", "name": "Katana fighter", "params": ["0x00000000", "0x00010000", "0x00020000", "0x00030000", "0x00040000", "0x00050000"], "also": ["bhvKtSlashHit"] },
+ { "id": "kt:duel", "bhv": "bhvKtDuel", "gfx": "kt_cos_mario_geo", "name": "Katana duel", "params": ["0x00000000"] }
+]

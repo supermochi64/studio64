@@ -1,0 +1,147 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Set up Studio 64</title>
+  <meta name="theme-color" content="#0c0c0e">
+  <link rel="icon" href="favicon.svg" type="image/svg+xml">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/app.css">
+  <link rel="stylesheet" href="css/setup.css">
+</head>
+<body class="setup-page">
+  <header class="su-top">
+    <div class="brand">
+      <span class="brand-mark" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 2.5l2.9 6 6.6.9-4.8 4.6 1.2 6.5L12 17.4 6.1 20.5l1.2-6.5L2.5 9.4l6.6-.9z"/></svg></span>
+      <span class="brand-name">Studio 64</span>
+    </div>
+    <span class="su-top-note" id="top-note">First-time setup</span>
+  </header>
+
+  <main class="su-main">
+    <!-- 1. what we need -->
+    <section id="view-inputs" class="su-view" hidden>
+      <h1 class="su-title" id="inputs-title">Let's set up Studio 64</h1>
+      <p class="su-lead" id="inputs-lead">Studio 64 builds Super Mario 64 for your browser from your own copy of the game.
+        You do this once and it runs by itself: the studio opens in <b id="est-total">about 5 minutes</b>.</p>
+
+      <div class="su-card" id="older-card" hidden>
+        <div class="su-card-head"><svg class="i" viewBox="0 0 24 24"><path d="M21 12a9 9 0 1 1-3-6.7L21 8M21 3v5h-5"/></svg>
+          <h2>Updating? Bring over your old Studio 64</h2></div>
+        <p class="su-card-text" id="older-text"></p>
+        <div class="su-row"><button class="btn primary" id="older-go">Bring them over</button><span class="su-go-hint" id="older-hint"></span></div>
+      </div>
+
+      <div class="su-card" id="rom-card">
+        <div class="su-card-head">
+          <span class="su-num">1</span>
+          <h2>Your Super Mario 64 ROM</h2>
+          <span class="su-tag">Required</span>
+        </div>
+        <label class="su-drop" id="rom-drop" tabindex="0">
+          <input type="file" id="rom-file" accept=".z64,.n64,.v64,.zip,.rom,.bin" hidden>
+          <span class="su-drop-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><rect x="4" y="3" width="16" height="18" rx="2"/><path d="M8 3v5h8V3M9 13h6M9 17h6"/></svg></span>
+          <span class="su-drop-main">Drop your Super Mario 64 ROM here</span>
+          <span class="su-drop-sub">or <u>choose the file</u> · US version · .z64, .n64 or .v64 (a .zip is fine)</span>
+        </label>
+        <div class="su-result" id="rom-result" hidden></div>
+      </div>
+
+      <div class="su-card" id="sms-card">
+        <div class="su-card-head">
+          <span class="su-num">2</span>
+          <h2>Super Mario Sunshine characters</h2>
+          <span class="su-tag soft">Optional</span>
+          <label class="su-switch" title="Add the Sunshine characters">
+            <input type="checkbox" id="sms-on"><span></span>
+          </label>
+        </div>
+        <p class="su-card-text">Piantas, Nokis, Strollin' Stus, Electrokoopas and more, converted from your own GameCube disc.
+          You can also add them later.</p>
+        <div id="sms-body" hidden>
+          <label class="su-drop" id="sms-drop" tabindex="0">
+            <input type="file" id="sms-file" accept=".iso,.gcm,.nkit,.rvz,.gcz,.ciso,.wia" hidden>
+            <span class="su-drop-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="2.5"/></svg></span>
+            <span class="su-drop-main">Drop your Super Mario Sunshine disc image here</span>
+            <span class="su-drop-sub">or <u>choose the file</u> · .iso, .gcm or .nkit.iso (about 1.4 GB)</span>
+          </label>
+          <div class="su-result" id="sms-result" hidden></div>
+        </div>
+      </div>
+
+      <div class="su-actions">
+        <button class="btn primary su-go" id="go" disabled>
+          <svg class="i" viewBox="0 0 24 24"><path d="M7 5v14l11-7z"/></svg><span id="go-label">Build Studio 64</span>
+        </button>
+        <span class="su-go-hint" id="go-hint">Drop your ROM first</span>
+      </div>
+
+      <details class="su-more">
+        <summary>What happens next?</summary>
+        <ul>
+          <li>The <b>compiler</b> (Emscripten, about 400 MB) is downloaded once, unless you have it already. Tools your computer
+            lacks (Python, a C compiler, make) are downloaded into this Studio 64 folder: nothing is installed on your system and
+            you need no administrator password.</li>
+          <li>Your ROM's textures, sounds and levels are unpacked and the game is <b>compiled to WebAssembly</b>.</li>
+          <li>The studio opens. In the background it <b>takes pictures</b> of every object and level for the library and makes the <b>sample hacks</b>.</li>
+          <li>Everything stays on this computer: the ROM is stored in this Studio 64 folder (<code>engine/baserom.us.z64</code>) and is never uploaded anywhere.</li>
+        </ul>
+      </details>
+    </section>
+
+    <!-- 2. building -->
+    <section id="view-progress" class="su-view" hidden>
+      <h1 class="su-title" id="progress-title">Building your studio</h1>
+      <p class="su-lead" id="progress-lead">You can leave this tab open and do something else. Closing it does not stop the setup.</p>
+
+      <div class="su-overall">
+        <div class="su-bar"><span id="overall-bar"></span></div>
+        <div class="su-overall-meta"><span id="overall-pct">0%</span><span id="overall-left"></span></div>
+      </div>
+
+      <div class="su-card su-error" id="error-card" hidden>
+        <div class="su-card-head"><svg class="i" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M15 9l-6 6M9 9l6 6"/></svg><h2 id="error-title"></h2></div>
+        <p id="error-message"></p>
+        <div class="su-fix" id="error-fix-box"><b>How to fix it</b><p id="error-fix"></p></div>
+        <div class="su-row">
+          <button class="btn primary" id="retry"><svg class="i" viewBox="0 0 24 24"><path d="M21 12a9 9 0 1 1-3-6.7L21 8M21 3v5h-5"/></svg>Try again</button>
+          <button class="btn" id="back-inputs">Change the ROM or disc</button>
+        </div>
+      </div>
+
+      <div class="su-card su-paused" id="paused-card" hidden>
+        <div class="su-card-head"><svg class="i" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M10 9v6M14 9v6"/></svg><h2>The setup was interrupted</h2></div>
+        <p>The server stopped while it was working. Everything finished so far is kept: it continues where it stopped.</p>
+        <div class="su-row"><button class="btn primary" id="resume"><svg class="i" viewBox="0 0 24 24"><path d="M7 5v14l11-7z"/></svg>Continue</button></div>
+      </div>
+
+      <ol class="su-list" id="steps"></ol>
+
+      <details class="su-log" id="log-box">
+        <summary>Show details <span class="su-log-last" id="log-last"></span></summary>
+        <pre id="log"></pre>
+        <div class="su-row"><button class="btn" id="copy-log"><svg class="i sm" viewBox="0 0 24 24"><rect x="9" y="9" width="12" height="12" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h10"/></svg>Copy the whole log</button></div>
+      </details>
+    </section>
+
+    <!-- 3. done -->
+    <section id="view-done" class="su-view su-done" hidden>
+      <div class="su-done-mark" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 2.5l2.9 6 6.6.9-4.8 4.6 1.2 6.5L12 17.4 6.1 20.5l1.2-6.5L2.5 9.4l6.6-.9z"/></svg></div>
+      <h1 class="su-title">Studio 64 is ready</h1>
+      <p class="su-lead" id="done-lead">Set up in <b id="done-time"></b>. <span id="done-state">Opening the studio…</span></p>
+      <p class="su-done-extras" id="done-extras" hidden>The pictures for the object library and the sample hacks are still being made in the
+        background. They show up by themselves; you can start building right away.</p>
+      <div class="su-card su-warn" id="done-warn" hidden>
+        <div class="su-card-head"><svg class="i" viewBox="0 0 24 24"><path d="M12 9v4M12 17h.01"/><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/></svg><h2>Almost everything worked</h2></div>
+        <ul id="done-warn-list"></ul>
+      </div>
+      <div class="su-row center"><a class="btn primary su-go" id="open" href="/">Open Studio 64</a></div>
+    </section>
+  </main>
+
+  <script type="module" src="js/setup.js"></script>
+</body>
+</html>

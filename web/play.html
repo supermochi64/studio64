@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Super Mario 64 hack</title>
+  <meta name="theme-color" content="#08080b">
+  <link rel="icon" href="favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="css/play.css">
+</head>
+<body>
+  <main class="pl-stage" id="stage">
+    <canvas id="canvas" tabindex="0" oncontextmenu="event.preventDefault()"></canvas>
+
+    <section class="pl-title" id="title">
+      <div class="pl-backdrop" id="backdrop"></div>
+      <div class="pl-card">
+        <div class="pl-kicker">A Super Mario 64 hack</div>
+        <h1 class="pl-name" id="hack-name">Loading…</h1>
+        <div class="pl-author" id="hack-author"></div>
+        <p class="pl-desc" id="hack-desc"></p>
+        <div class="pl-facts" id="hack-facts"></div>
+        <button class="pl-play" id="play-btn" disabled>
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5.5v13l11-6.5z"/></svg>
+          <span id="play-label">Loading the game…</span>
+        </button>
+        <div class="pl-progress" id="progress"><span></span></div>
+        <div class="pl-keys">
+          <span><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> move</span>
+          <span><kbd>Space</kbd> jump</span>
+          <span><kbd>J</kbd> punch</span>
+          <span><kbd>Shift</kbd> crouch</span>
+          <span><kbd>←</kbd><kbd>→</kbd> camera</span>
+          <span><kbd>Enter</kbd> pause</span>
+          <span><kbd>L</kbd> levels</span>
+        </div>
+        <p class="pl-legal" id="legal"></p>
+      </div>
+    </section>
+
+    <div class="pl-hud" id="hud" hidden>
+      <button class="pl-btn" id="levels-btn" title="Levels (L)"><svg viewBox="0 0 24 24"><path d="M3 6h18M3 12h18M3 18h18"/></svg><span>Levels</span></button>
+      <button class="pl-btn icon" id="full-btn" title="Fullscreen (F)"><svg viewBox="0 0 24 24"><path d="M8 3H5a2 2 0 0 0-2 2v3M21 8V5a2 2 0 0 0-2-2h-3M3 16v3a2 2 0 0 0 2 2h3M16 21h3a2 2 0 0 0 2-2v-3"/></svg></button>
+    </div>
+
+    <div class="pl-toasts" id="toasts"></div>
+
+    <section class="pl-levels" id="levels" hidden>
+      <div class="pl-levels-card">
+        <div class="pl-levels-head"><h2 id="levels-title">Levels</h2><button class="pl-btn" id="newgame-btn" title="Start again with a fresh save"><span>New game</span></button><button class="pl-btn icon" id="levels-close" title="Close (Esc)"><svg viewBox="0 0 24 24"><path d="M18 6 6 18M6 6l12 12"/></svg></button></div>
+        <div class="pl-level-grid" id="level-grid"></div>
+      </div>
+    </section>
+
+    <section class="pl-crash" id="crash" hidden>
+      <div class="pl-levels-card small">
+        <h2>The game stopped</h2>
+        <p>Something in this level made the game crash. Your stars are kept.</p>
+        <button class="pl-play" id="crash-restart"><span>Restart</span></button>
+      </div>
+    </section>
+  </main>
+  <script type="module" src="js/player.js"></script>
+</body>
+</html>

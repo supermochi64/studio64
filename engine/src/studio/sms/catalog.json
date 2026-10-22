@@ -1,0 +1,122 @@
+[
+ {
+  "id": "sms:pianta",
+  "bhv": "bhvSmsPianta",
+  "gfx": "sms_moma_geo",
+  "name": "Pianta",
+  "params": [
+   "0x00000000",
+   "0x00010000",
+   "0x00000002"
+  ]
+ },
+ {
+  "id": "sms:pianta_woman",
+  "bhv": "bhvSmsPianta",
+  "gfx": "sms_mow_geo",
+  "name": "Pianta (woman)",
+  "params": [
+   "0x00020000",
+   "0x00020002"
+  ]
+ },
+ {
+  "id": "sms:noki",
+  "bhv": "bhvSmsPianta",
+  "gfx": "sms_marem_geo",
+  "name": "Noki",
+  "params": [
+   "0x00030000",
+   "0x00030001",
+   "0x00030002"
+  ]
+ },
+ {
+  "id": "sms:noki_woman",
+  "bhv": "bhvSmsPianta",
+  "gfx": "sms_marew_geo",
+  "name": "Noki (woman)",
+  "params": [
+   "0x00040000",
+   "0x00040002"
+  ]
+ },
+ {
+  "id": "sms:strollin_stu",
+  "bhv": "bhvSmsStrollinStu",
+  "gfx": "sms_hamukuri_geo",
+  "name": "Strollin' Stu",
+  "params": [
+   "0x00000000",
+   "0x00000001",
+   "0x00010000"
+  ]
+ },
+ {
+  "id": "sms:swoopin_stu",
+  "bhv": "bhvSmsSwoopinStu",
+  "gfx": "sms_namekuri_geo",
+  "name": "Swoopin' Stu",
+  "params": [
+   "0x00000000",
+   "0x00000100",
+   "0x00000400"
+  ]
+ },
+ {
+  "id": "sms:electrokoopa",
+  "bhv": "bhvSmsElectrokoopa",
+  "gfx": "sms_dennoko_geo",
+  "name": "Electrokoopa",
+  "params": [
+   "0x00000000",
+   "0x00000001"
+  ],
+  "also": [
+   "bhvSmsElectroShell",
+   "bhvSmsHurtbox"
+  ]
+ },
+ {
+  "id": "sms:pokey",
+  "bhv": "bhvSmsPokey",
+  "gfx": "sms_sambo_geo",
+  "name": "Pokey (Sunshine)",
+  "params": [
+   "0x00000000",
+   "0x00000001"
+  ]
+ },
+ {
+  "id": "sms:cataquack",
+  "bhv": "bhvSmsCataquack",
+  "gfx": "sms_poihana_geo",
+  "name": "Cataquack",
+  "params": [
+   "0x00000000",
+   "0x00000100",
+   "0x00000001"
+  ]
+ },
+ {
+  "id": "sms:shine_sprite",
+  "bhv": "bhvSmsShine",
+  "gfx": "sms_shine_geo",
+  "name": "Shine Sprite",
+  "params": [
+   "0x00000000",
+   "0x01000000",
+   "0x02000000"
+  ]
+ },
+ {
+  "id": "sms:blooper",
+  "bhv": "bhvSmsBlooper",
+  "gfx": "sms_geso_geo",
+  "name": "Blooper (Sunshine)",
+  "params": [
+   "0x00000000",
+   "0x00000001"
+  ]
+ }
+]

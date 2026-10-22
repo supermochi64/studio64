@@ -1,0 +1,13 @@
+[
+ {"id": "vehicle:sportscar", "bhv": "bhvStudioCar", "gfx": "stv_sportscar_geo", "name": "Sportscar", "params": ["0x00000000"], "also": ["bhvStudioCarFlame"]},
+ {"id": "vehicle:racer", "bhv": "bhvStudioCar", "gfx": "stv_racer_hw_player_geo", "name": "Race car", "params": ["0x00000000"]},
+ {"id": "vehicle:drift_king", "bhv": "bhvStudioCar", "gfx": "stv_drift_king_hw_rival_geo", "name": "Drift King's car", "params": ["0x00000000"]},
+ {"id": "vehicle:taxi", "bhv": "bhvStudioCar", "gfx": "stv_taxi_geo", "name": "Taxi", "params": ["0x00000000"]},
+ {"id": "vehicle:sedan", "bhv": "bhvStudioCar", "gfx": "stv_sedan_geo", "name": "Sedan", "params": ["0x00000000"]},
+ {"id": "vehicle:bus", "bhv": "bhvStudioCar", "gfx": "stv_bus_geo", "name": "Bus", "params": ["0x00000000"]},
+ {"id": "vehicle:shuto_van", "bhv": "bhvStudioCar", "gfx": "stv_shuto_van_hw_traffic_1_geo", "name": "Delivery van", "params": ["0x00000000"]},
+ {"id": "vehicle:shuto_cab", "bhv": "bhvStudioCar", "gfx": "stv_shuto_cab_hw_traffic_2_geo", "name": "Tokyo cab", "params": ["0x00000000"]},
+ {"id": "vehicle:kei", "bhv": "bhvStudioCar", "gfx": "stv_kei_geo", "name": "Kei car", "params": ["0x00000000"]},
+ {"id": "vehicle:kei_truck", "bhv": "bhvStudioCar", "gfx": "stv_kei_truck_geo", "name": "Kei truck", "params": ["0x00000000"]},
+ {"id": "vehicle:race", "bhv": "bhvStudioRace", "gfx": "stv_drift_king_hw_rival_geo", "name": "Race (rival car)", "params": ["0x00000000"], "also": ["bhvStudioTrafficCar", "bhvStudioRaceDriver"]}
+]
