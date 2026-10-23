@@ -9,7 +9,9 @@
 [![Version 0.1.0-beta](https://img.shields.io/badge/version-0.1.0--beta-f5b301)](CHANGELOG.md)
 [![MIT license](https://img.shields.io/badge/license-MIT-3b82f6)](LICENSE)
 
-https://github.com/user-attachments/assets/4d7585fb-fa53-4ab3-8b3d-a426c5400223
+[![Watch the Studio 64 trailer on YouTube](https://img.youtube.com/vi/hcomzBaXxZo/maxresdefault.jpg)](https://www.youtube.com/watch?v=hcomzBaXxZo)
+
+[▶ Watch the trailer](https://www.youtube.com/watch?v=hcomzBaXxZo)
 
 [Download](../../releases/latest) · [Getting started](docs/getting-started.md) · [Documentation](docs/README.md) · [FAQ](docs/faq.md)
 
