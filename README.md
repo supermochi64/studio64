@@ -52,7 +52,7 @@ Working on the code? `git clone`, then `npm start` (Node.js 18 or newer) does th
 | ![Sculpting terrain](docs/img/terrain.png) | ![Writing dialog](docs/img/story.png) |
 | **Shape the ground.** Sculpt and paint terrain, even in the original levels, or start a new level from a template or a heightmap. | **Tell a story.** Dialogs in the game's own font, characters who talk, events, cutscenes, and every text in the game. |
 | ![Sound studio](docs/img/sound.png) | ![Title screen editor](docs/img/title-screen.png) |
-| **Make the music.** Write songs in a piano roll, played with the game's own instruments, and swap any sound effect. | **Make it yours.** Your own title screen and logo, then share the hack as a project file or a playable web game. |
+| **Make the music.** Write songs in a piano roll, played with the game's own instruments, and swap any sound effect. | **Make it yours.** Your own title screen and logo, then export a real N64 ROM and a .bps patch you can upload anywhere. |
 
 There's more: stars and red coins, moving platforms, enemies you put together from behavior blocks,
 game rules (gravity, jump height, lives), doors, pipes and paintings, your own 3D models and
@@ -89,6 +89,7 @@ Found a bug? [Open an issue](../../issues/new/choose) with what you did and what
 - [Getting started](docs/getting-started.md): install, first run, your first hack in 5 minutes
 - [FAQ](docs/faq.md) and [Troubleshooting](docs/troubleshooting.md)
 - [Keyboard shortcuts](docs/keyboard-shortcuts.md)
+- [ROM export](docs/rom-export.md): your hack as an N64 ROM and a .bps patch
 - [All guides](docs/README.md): build mode, terrain, story, sound, world, assets, sharing
 - For developers: [Architecture](docs/architecture.md), [Building the engine](docs/building-the-engine.md),
   [Testing](docs/testing.md), [Contributing](CONTRIBUTING.md)
@@ -102,7 +103,8 @@ This repository contains no ROM, no disc image and nothing extracted from the ga
 builds the game's assets from **your own** ROM on your own machine. What it builds (`web/engine/`
 and the playable game export) contains Nintendo's code and assets, so keep it to yourself or share it
 privately with people who own the game. Don't publish it or sell it. To share a hack with other
-Studio 64 users, send them the project file (`.s64hack`).
+Studio 64 users, send them the project file (`.s64hack`). To share it with everyone, export it as a ROM hack and post the `.bps` patch: it only holds
+your changes ([ROM export](docs/rom-export.md)).
 
 The Shoggoth World content is my own work and ships with Studio 64. The few pieces of it that are
 built on the game's own models (the dressed Toads and Goombas) ship as recipes, and the setup makes

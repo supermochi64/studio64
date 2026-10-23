@@ -1243,6 +1243,24 @@ f32 *studio_vehicle_hud(void) {
     return sHud;
 }
 
+// The car Mario drives put at x, y, z, heading yaw at `speed` (tests, guided drives): its physics
+// carries on from there (it settles on the ground, tilts with it, the wheels turn).
+EMSCRIPTEN_KEEPALIVE
+s32 studio_vehicle_pose(f32 x, f32 y, f32 z, s32 yaw, f32 speed) {
+    if (!studio_vehicle_driving()) {
+        return 0;
+    }
+    C.pos[0] = x;
+    C.pos[1] = y;
+    C.pos[2] = z;
+    C.yaw = (s16) yaw;
+    C.fwdSpeed = speed;
+    C.vel[0] = sins((s16) yaw) * speed;
+    C.vel[2] = coss((s16) yaw) * speed;
+    C.yawVel = C.slip = 0.0f;
+    return 1;
+}
+
 // The car Mario drives, for the page (uid as an unsigned number) and tests.
 EMSCRIPTEN_KEEPALIVE
 const char *studio_vehicle_state_json(void) {

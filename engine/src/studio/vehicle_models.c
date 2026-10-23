@@ -75,11 +75,15 @@ static struct GraphNode *sNodes[ARRAY_COUNT(sSources)];
 
 static void *pool_alloc_init(void) {
     if (sPool.startPtr == NULL) {
+#ifdef TARGET_N64_S64
+        sPool.totalSpace = 192 * 1024; // (an exported ROM: the level's memory, for its cars' paint jobs)
+#else
         sPool.totalSpace = 4 * 1024 * 1024;
+#endif
         sPool.startPtr = sPool.freePtr = malloc(sPool.totalSpace);
         sPool.usedSpace = 0;
     }
-    return &sPool;
+    return sPool.startPtr != NULL ? &sPool : NULL;
 }
 
 // a box collision for the looks that came without one (Tokyo's kei cars)
@@ -377,6 +381,9 @@ struct GraphNode *studio_car_look_node(s32 look, u32 paint, s32 *painted) {
     }
     if (sPaintCount >= MAX_PAINTS) {
         return sNodes[look];
+    }
+    if (pool_alloc_init() == NULL) {
+        return sNodes[look]; // (no memory for a painted copy: the car keeps its own colours)
     }
     {
         struct GraphNode *n = process_geo_layout(pool_alloc_init(), (void *) sSources[look].geo);

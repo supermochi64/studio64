@@ -123,6 +123,14 @@ if (bad.length) {
   console.error(`These files come from the game or a build and must not be in the ZIP:\n  ${bad.slice(0, 20).join('\n  ')}`);
   process.exit(1);
 }
+// the base ROM for ROM exports comes with it (as a patch: tools/make_romkit.mjs), for this version
+{
+  const { kitVersion, patchName } = await import('../server/romexport/romkit.js');
+  if (!files.includes(`server/romexport/base/${patchName(kitVersion())}`)) {
+    console.error(`The ZIP needs the base ROM patch for this version (${patchName(kitVersion())}): run node tools/make_romkit.mjs`);
+    process.exit(1);
+  }
+}
 for (const need of ['Start Studio 64.bat', 'Start Studio 64.command', 'start-studio64.sh', 'GETTING STARTED.txt', 'tools/launch.sh', 'tools/launch.ps1', 'tools/start.mjs', 'package.json', 'package-lock.json']) {
   if (!files.includes(need)) { console.error(`The ZIP needs ${need}`); process.exit(1); }
 }

@@ -183,3 +183,29 @@ a.btn { text-decoration: none; }
 .dc-file b { font: 600 12.5px var(--mono); }
 .dc-file span { font-size: 12px; color: var(--muted); }
 .dc-file ul { margin: 4px 0 0 16px; padding: 0; font-size: 11.5px; color: #f4d39a; }
+
+/* ROM export */
+.rx-run { display: grid; gap: 8px; margin: 14px 0 4px; }
+.rx-step { font-weight: 600; font-size: 13px; }
+.rx-bar { height: 6px; border-radius: 6px; background: rgba(255, 255, 255, .08); overflow: hidden; }
+.rx-bar span { display: block; height: 100%; width: 0; border-radius: 6px; background: linear-gradient(90deg, var(--accent), var(--accent-2)); transition: width .4s ease; }
+.rx-done { display: grid; gap: 12px; margin-top: 10px; }
+.rx-levels { display: grid; gap: 6px; max-height: 32vh; overflow-y: auto; }
+.rx-level { display: flex; gap: 10px; align-items: center; padding: 8px 12px; border-radius: 10px; background: var(--bg-2); border: 1px solid var(--border); }
+.rx-level .i { width: 16px; height: 16px; flex: none; color: var(--accent); }
+.rx-level div { display: grid; gap: 2px; }
+.rx-level b { font-size: 13px; }
+.rx-level span { font-size: 12px; color: var(--muted); }
+.rx-issues summary { cursor: pointer; font-size: 12.5px; color: #f4d39a; display: flex; gap: 6px; align-items: center; }
+.rx-issues summary .i { width: 14px; height: 14px; }
+.rx-issues ul { margin: 8px 0 0 18px; padding: 0; font-size: 12px; color: var(--muted); display: grid; gap: 4px; }
+.rx-issues b { color: var(--text); font-weight: 600; }
+.rx-files { display: grid; gap: 8px; }
+.rx-file { display: flex; gap: 12px; align-items: center; justify-content: space-between; padding: 10px 12px; border-radius: 10px; border: 1px solid var(--border); }
+.rx-file div { display: grid; gap: 3px; }
+.rx-file b { font: 600 12.5px var(--mono); }
+.rx-file span { font-size: 12px; color: var(--muted); line-height: 1.45; }
+.rx-file .btn { flex: none; }
+.modal .rx-name { flex-direction: column; gap: 6px; margin-top: 12px; }
+.rx-name label { font-size: 12px; color: var(--muted); }
+.modal .rx-name input { flex: none; }

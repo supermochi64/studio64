@@ -192,6 +192,7 @@ static void actor_init(struct ActorState *a) {
     o->oWallHitboxRadius = (a->cfg[A_HIT_R] > 0 ? a->cfg[A_HIT_R] : 70) * 0.6f;
     o->oInteractStatus = 0;
     o->oIntangibleTimer = 0;
+    o->oOpacity = 255; // (models that fade by it, like Toad's, are invisible at 0)
     if (anims != NULL) {
         o->oAnimations = (struct Animation **) anims;
         cur_obj_init_animation((s32) a->cfg[A_ANIM]);

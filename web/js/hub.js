@@ -5,6 +5,7 @@
 import { TEMPLATES } from './templates.js';
 import { World } from './world.js';
 import { loadPictures, hubPicture, templatePicture } from './pictures.js';
+import { RomExport, SLOT_NAMES } from './romexport.js';
 
 const $ = (s, root = document) => root.querySelector(s);
 const el = (tag, cls, html) => { const e = document.createElement(tag); if (cls) e.className = cls; if (html !== undefined) e.innerHTML = html; return e; };
@@ -567,6 +568,11 @@ export class Hub {
           <div class="row"><button class="btn" id="sh-file">${ic('download', 'sm')}Download .s64hack</button></div></div>
       </div>
       <div class="share-opt">
+        <div class="share-ic">${ic('castle')}</div>
+        <div class="share-body"><b>ROM hack</b><span>An N64 ROM that plays in emulators, and a .bps patch to upload anywhere (players apply it to their own Super Mario 64).</span>
+          <div class="row"><button class="btn" id="sh-rom">${ic('castle', 'sm')}Export ROM hack…</button></div></div>
+      </div>
+      <div class="share-opt">
         <div class="share-ic">${ic('gamepad')}</div>
         <div class="share-body"><b>Playable game</b><span>Your hack as a small website that plays in any browser, offline, from any static host. No editor, no chat.</span>
           <div class="row"><button class="btn" id="sh-play">${ic('download', 'sm')}Download .zip</button><a class="btn ghost" id="sh-preview" href="/play.html?p=${encodeURIComponent(id)}" target="_blank" rel="noopener">${ic('play', 'sm')}Try the player</a></div>
@@ -576,6 +582,7 @@ export class Hub {
       m.querySelector('#sh-copy').onclick = async () => { try { await navigator.clipboard.writeText(url); this.toast('Link copied'); } catch { m.querySelector('#sh-url').select(); } };
       m.querySelector('#sh-file').onclick = () => this.download(`/api/projects/${id}/export.s64hack${m.querySelector('#sh-chat').checked ? '' : '?chat=0'}`);
       m.querySelector('#sh-play').onclick = () => { this.toast('Building the playable game…', 'gamepad'); this.download(`/api/projects/${id}/standalone.zip`); };
+      m.querySelector('#sh-rom').onclick = () => { this.close(); this.romModal(); };
       m.querySelector('#sh-import').onclick = () => { this.close(); this.pickImport(); };
       m.querySelector('#sh-done').onclick = () => this.close();
     }, 'hub-mid');
@@ -603,6 +610,79 @@ export class Hub {
       m.querySelector('#dc-no').onclick = () => this.close();
       m.querySelector('#dc-ok').onclick = () => { this.close(); this.download(`/api/projects/${id}/decomp.zip`); };
     }, 'hub-mid');
+  }
+
+  // The hack as an N64 ROM and a BPS patch (romexport.js): every custom level goes into a course
+  // slot of the game, the hub into the castle grounds.
+  romModal() {
+    if (!this.state.engine?.ready) { this.toast('Open the project in the editor first', 'warn'); return; }
+    const name = $('#project-name')?.value || 'Studio 64 hack';
+    const levels = this.state.levels?.length || 0;
+    // edits of the original levels go into the ROM too
+    const edits = Object.entries(this.state.engine.patch?.areas || {}).filter(([k, a]) => /^\d+:\d+$/.test(k) && ((a.objects || []).length || (a.removals || []).length || (a.warps || []).length)).length;
+    const job = new RomExport(this.state);
+    let running = false;
+    this.modal(`<h2>${ic('castle')} Export as a ROM hack</h2>
+      <p>Makes a real N64 ROM of your hack that plays in emulators, and a <b>.bps patch</b> to share: players apply it to their own Super Mario 64 (USA) ROM. ${levels ? `Your levels take the castle's course paintings${levels > 15 ? ' (the first 15 of them)' : ''}, your changes to the original levels come along.` : 'Your changes to the original levels come along.'}</p>
+      ${levels || edits ? '' : '<div class="hub-warn">' + ic('warn') + '<span>This hack has no levels of its own and no changes to the original ones yet: the ROM would be the original game.</span></div>'}
+      <div class="field rx-name"><label for="rx-title">Name of the ROM</label><input type="text" id="rx-title" maxlength="20" value="${esc(name.slice(0, 20))}"></div>
+      <div class="rx-run" hidden><div class="rx-step"></div><div class="rx-bar"><span></span></div><span class="hint rx-hint"></span></div>
+      <div class="rx-done" hidden></div>
+      <div class="actions"><button class="btn" id="rx-no">Cancel</button><button class="btn primary" id="rx-go" ${levels || edits ? '' : 'disabled'}>${ic('castle', 'sm')}Build the ROM</button></div>`, (m) => {
+      const step = m.querySelector('.rx-step'), bar = m.querySelector('.rx-bar span'), hint = m.querySelector('.rx-hint');
+      m.querySelector('#rx-no').onclick = () => { job.cancelled = true; this.close(); };
+      m.querySelector('#rx-go').onclick = async () => {
+        if (running) return;
+        running = true;
+        const go = m.querySelector('#rx-go');
+        go.disabled = true;
+        m.querySelector('.rx-name').hidden = true;
+        m.querySelector('.rx-run').hidden = false;
+        try {
+          const title = m.querySelector('#rx-title').value.trim() || name;
+          const r = await job.run({
+            title,
+            onStep: ({ text, progress, setup }) => {
+              step.textContent = text;
+              bar.style.width = `${Math.round(progress * 100)}%`;
+              hint.textContent = setup ? 'The first time, Studio 64 builds the game from your ROM (a few minutes). Every export after that takes seconds.' : 'Studio 64 visits each of your areas to read them.';
+            },
+          });
+          m.querySelector('.rx-run').hidden = true;
+          this.romResult(m, r);
+          go.hidden = true;
+          m.querySelector('#rx-no').textContent = 'Done';
+        } catch (err) {
+          if (job.cancelled) return;
+          step.textContent = err.message;
+          hint.textContent = err.fix || err.detail || '';
+          go.disabled = false;
+          go.innerHTML = `${ic('restore', 'sm')}Try again`;
+          running = false;
+        }
+      };
+    }, 'hub-mid');
+  }
+
+  romResult(m, { report, files }) {
+    const mb = (n) => `${(n / 1048576).toFixed(1)} MB`;
+    const why = new Map();
+    for (const i of report.issues) {
+      const k = i.why;
+      if (!why.has(k)) why.set(k, []);
+      why.get(k).push(i.level && !String(i.name).startsWith('area') ? i.name : `${i.level ? `${i.level}, ` : ''}${i.name}`);
+    }
+    const done = m.querySelector('.rx-done');
+    done.hidden = false;
+    done.innerHTML = `<div class="rx-levels">${report.levels.map((l) => `<div class="rx-level">${ic(l.vanilla ? 'edit' : l.slot === 'castle_grounds' ? 'home' : 'star')}<div><b>${esc(l.name)}</b><span>${l.vanilla ? `your changes: ${l.areas.map((a) => [a.objects && plural(a.objects, 'object'), a.removed && `${a.removed} removed`, a.tris && 'new blocks'].filter(Boolean).join(', ') || 'settings').join('; ')}` : `${esc(SLOT_NAMES[l.slot] || l.slot)} · ${plural(l.areas.length, 'area')}`}</span></div></div>`).join('')}</div>
+      ${why.size ? `<details class="rx-issues"><summary>${ic('warn')} ${plural(report.issues.length, 'thing')} not in the ROM yet</summary><ul>${[...why].map(([w, names]) => `<li><b>${esc(names.slice(0, 6).join(', '))}${names.length > 6 ? ` and ${names.length - 6} more` : ''}</b>: ${esc(w)}</li>`).join('')}</ul></details>` : ''}
+      <div class="rx-files">
+        <div class="rx-file"><div><b>${esc(files.bps.name)}</b><span>The patch to share (${mb(files.bps.size)}). Upload it to SMW Central, Romhacking.net or RHDC; players apply it with Floating IPS or Rom Patcher JS onto Super Mario 64 (USA).</span></div><button class="btn primary" id="rx-bps">${ic('download', 'sm')}.bps</button></div>
+        <div class="rx-file"><div><b>${esc(files.rom.name)}</b><span>The ROM to play (${mb(files.rom.size)}): open it in Project64, mupen64plus, RetroArch or simple64.</span></div><button class="btn" id="rx-z64">${ic('download', 'sm')}.z64</button></div>
+      </div>
+      <div class="hub-warn">${ic('warn')}<span>The .z64 contains Nintendo's game: keep it for yourself. Share the .bps instead, it only has your changes.</span></div>`;
+    done.querySelector('#rx-bps').onclick = () => this.download(files.bps.url);
+    done.querySelector('#rx-z64').onclick = () => this.download(files.rom.url);
   }
 
   // ---- project settings ----------------------------------------------------------------------
@@ -810,6 +890,7 @@ export class Hub {
       '-',
       { label: 'Share & export…', icon: 'link', run: () => this.share() },
       { label: 'Export project file', icon: 'file', sub: '.s64hack', run: () => this.download(`/api/projects/${this.state.projectId}/export.s64hack`) },
+      { label: 'Export ROM hack…', icon: 'castle', sub: '.bps', run: () => this.romModal() },
       { label: 'Download playable game', icon: 'gamepad', sub: '.zip', run: () => this.downloadPlayable(this.state.projectId) },
       { label: 'Export for the decomp', icon: 'file', sub: 'C', run: () => this.decompModal() },
       { label: 'Import project…', icon: 'upload', run: () => this.pickImport() },

@@ -1,0 +1,7 @@
+Use your image generation tool to paint ONE square image, 1024x1024, saved as ivy_sheet.png in the current directory.
+A 2 x 2 grid of four square cells separated by thin pure black lines. Each cell is a flat, front-on, seamlessly tileable
+texture for a cheerful sunny Mediterranean town in a colourful 3D platform game (a polished modern remaster of a classic
+Nintendo 64 game: bright, saturated, hand-painted, crisp, soft even lighting, no cast shadows, no perspective, no text).
+(1) an old pale stone wall almost completely covered in lush bright green ivy leaves, with a few small white and pink
+flowers; (2) the same ivy wall but with more leaves and a little less stone showing; (3) square terracotta terrace floor
+tiles, warm orange-pink, with thin cream grout; (4) smooth white-washed stucco wall with a subtle warm texture.

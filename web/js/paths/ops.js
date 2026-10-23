@@ -146,9 +146,9 @@ export class PathsOps {
       // keep the kind's spacing to the plants around
       const sp = K.spacing * 0.9;
       if (near.some(x, z, sp)) continue;
-      // the slope: trees do not grow on cliffs
+      // the slope: trees do not grow on cliffs (up to about 53 degrees; small plants about 63)
       const n = this.normalAt(x, z, g);
-      if (n[1] < (K.align === 0 ? 0.72 : 0.55)) continue;
+      if (n[1] < (K.align === 0 ? 0.6 : 0.45)) continue;
       const s = Math.round(100 * (K.scale[0] + (K.scale[1] - K.scale[0]) * u4) * (1 + (hash2(a, 6, seed) - 0.5) * scaleJitter));
       const yaw = rotate ? Math.round(hash2(a, 7, seed) * 360) : 0;
       const tilt = align && !wet ? [Math.round(n[0] * 100), Math.round(n[2] * 100)] : [0, 0];

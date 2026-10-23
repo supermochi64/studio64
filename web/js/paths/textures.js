@@ -7,6 +7,33 @@ import { hash2, noise2, clamp } from './geom.js';
 
 const cache = new Map();
 
+// Transparent texels take the colours of the painted ones next to them (ring by ring): texture
+// filtering then blends a cut-out's edge with its own colours, not with black -- small sprites
+// (flowers) were mostly dark fringe.
+function bleed(rgba, w, h) {
+  const known = new Uint8Array(w * h);
+  let left = 0;
+  for (let i = 0; i < w * h; i++) { if (rgba[i * 4 + 3] > 0) known[i] = 1; else left++; }
+  if (!left || left === w * h) return;
+  for (let pass = 0; pass < 16 && left; pass++) {
+    const add = [];
+    for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+      const i = y * w + x;
+      if (known[i]) continue;
+      let r = 0, g = 0, b = 0, n = 0;
+      for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
+        const xx = x + dx, yy = y + dy;
+        if (xx < 0 || yy < 0 || xx >= w || yy >= h || !known[yy * w + xx]) continue;
+        const o = (yy * w + xx) * 4;
+        r += rgba[o]; g += rgba[o + 1]; b += rgba[o + 2]; n++;
+      }
+      if (n) add.push([i, r / n, g / n, b / n]);
+    }
+    for (const [i, r, g, b] of add) { rgba[i * 4] = r; rgba[i * 4 + 1] = g; rgba[i * 4 + 2] = b; known[i] = 1; left--; }
+    if (!add.length) break;
+  }
+}
+
 function make(key, w, h, fn) {
   if (cache.has(key)) return cache.get(key);
   const rgba = new Uint8Array(w * h * 4);
@@ -15,6 +42,7 @@ function make(key, w, h, fn) {
     const o = (y * w + x) * 4;
     rgba[o] = clamp(c[0], 0, 255); rgba[o + 1] = clamp(c[1], 0, 255); rgba[o + 2] = clamp(c[2], 0, 255); rgba[o + 3] = c[3] ?? 255;
   }
+  bleed(rgba, w, h);
   const t = { w, h, rgba };
   cache.set(key, t);
   return t;
@@ -58,6 +86,7 @@ function paint(key, w, h, draw) {
     }
   };
   draw({ px, disc, ellipse, line, w, h });
+  bleed(rgba, w, h);
   const t = { w, h, rgba };
   cache.set(key, t);
   return t;

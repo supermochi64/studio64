@@ -1202,6 +1202,62 @@ void studio_sculpt_restore(void) {
     sTessCur = NULL;
 }
 
+// The current area's sculpted shape for the ROM export (romdump.c), little endian:
+//   u32 sculpted (0: nothing follows)
+//   u32 ndl { u32 nraw; u32 changed; if changed: u32 ncmds; s32 cmd[ncmds] (-1: the next raw command,
+//             else a run); u32 nruns; { u32 count; u32 lit; tri[count * 3] (as drawn, the N64's Vtx) } }
+//   u32 nct { s16 v[9]; s16 type, force, room }; u32 hasRooms
+// The display lists come in the order the area's graph has them; raw commands are the original
+// list's own (G_DL followed, vertices and triangles left out), so the ROM copies its own.
+void studio_sculpt_write(void (*put)(const void *, u32)) {
+    struct TessArea *t = tess_area(FALSE);
+    s32 i, j, k, one = 1, zero = 0;
+    if (t == NULL || t->nct == 0) {
+        put(&zero, 4);
+        return;
+    }
+    put(&one, 4);
+    put(&t->ndls, 4);
+    for (i = 0; i < t->ndls; i++) {
+        struct TessDL *d = &t->dls[i];
+        s32 nraw = 0, changed = 0, vi = 0;
+        for (j = 0; j < d->ncmds; j++) nraw += d->cmds[j].run < 0;
+        for (j = 0; j < d->nruns && !changed && d->outV != NULL; j++) {
+            for (k = 0; k < d->runs[j].count * 3; k++) changed |= d->runs[j].tri[k].v.flag != 0;
+        }
+        put(&nraw, 4);
+        put(&changed, 4);
+        if (!changed) continue;
+        put(&d->ncmds, 4);
+        for (j = 0; j < d->ncmds; j++) put(&d->cmds[j].run, 4);
+        put(&d->nruns, 4);
+        // the drawn copy has the runs in command order, shaded
+        for (j = 0; j < d->ncmds; j++) {
+            struct TessRun *r;
+            if (d->cmds[j].run < 0) continue;
+            r = &d->runs[d->cmds[j].run];
+            put(&r->count, 4);
+            put(&r->lit, 4);
+            for (k = 0; k < r->count * 3; k++, vi++) {
+                // as the N64 has it (this build's Vtx has float positions): s16 ob[3], u16 flag, s16 tc[2], u8 cn[4]
+                const Vtx_t *v = &d->outV[vi].v;
+                s16 n64[8] = { (s16) floorf(v->ob[0] + 0.5f), (s16) floorf(v->ob[1] + 0.5f), (s16) floorf(v->ob[2] + 0.5f), 0, v->tc[0], v->tc[1] };
+                memcpy(&n64[6], v->cn, 4);
+                put(n64, 16);
+            }
+        }
+    }
+    put(&t->nct, 4);
+    for (i = 0; i < t->nct; i++) {
+        s16 room = t->ct[i].room;
+        put(t->ct[i].v, 18);
+        put(&t->ct[i].type, 2);
+        put(&t->ct[i].force, 2);
+        put(&room, 2);
+    }
+    put(&t->hasRooms, 4);
+}
+
 // What the sculpt copies are (tests): the area's collision pointer and each copy's.
 EMSCRIPTEN_KEEPALIVE
 const char *studio_sculpt_debug(void) {

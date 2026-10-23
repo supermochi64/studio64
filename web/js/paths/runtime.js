@@ -41,6 +41,7 @@ export class PathsRuntime {
     this.stats = { roads: 0, lines: 0, plants: 0, tris: 0, trees: 0 };
     this.customTex = new Map();
     this.install();
+    this.installGroundFollow();
   }
 
   on(fn) { this.listeners.push(fn); return () => { this.listeners = this.listeners.filter((f) => f !== fn); }; }
@@ -52,6 +53,68 @@ export class PathsRuntime {
   roadRecs() { return this.records().filter((r) => r.road); }
   lineRecs() { return this.records().filter((r) => r.line); }
   natureRecs() { return this.records().filter((r) => r.nature); }
+
+  // ---- plants on ground that changed --------------------------------------------------------
+
+  // A stroke of the terrain brushes (raise, lower, smooth, flatten; custom terrain or an original
+  // level): the plants that stood on the old ground stand on the new one afterwards, one edit.
+  installGroundFollow() {
+    const w = this.world;
+    if (!w?.beginStroke || !w.dab || !w.endStroke) return;
+    const begin = w.beginStroke.bind(w), dab = w.dab.bind(w), end = w.endStroke.bind(w);
+    w.beginStroke = (mode, hit, brush) => {
+      const st = begin(mode, hit, brush);
+      if (st && mode !== 'paint') st.plantGround = this.plantGrounds();
+      return st;
+    };
+    w.dab = (st, x, z) => {
+      const out = dab(st, x, z);
+      if (st?.plantGround) {
+        const r = st.brush?.radius || 0, b = st.box;
+        st.box = b ? [Math.min(b[0], x - r), Math.min(b[1], z - r), Math.max(b[2], x + r), Math.max(b[3], z + r)] : [x - r, z - r, x + r, z + r];
+      }
+      return out;
+    };
+    w.endStroke = (st) => {
+      const out = end(st);
+      if (st?.plantGround && st.box) {
+        try { this.followGround(st.plantGround, st.box); } catch (err) { console.error('paths: plants on the new ground', err); }
+      }
+      return out;
+    };
+  }
+
+  // the ground under every plant of the area: item -> height
+  plantGrounds() {
+    const g = new Map();
+    for (const rec of this.natureRecs()) for (const it of rec.nature.items || []) g.set(it, this.groundAt(it[1], it[3], it[2]));
+    return g;
+  }
+
+  followGround(before, [x0, z0, x1, z1]) {
+    const updates = [];
+    for (const rec of this.natureRecs()) {
+      let changed = false;
+      const items = (rec.nature.items || []).map((it) => {
+        const old = before.get(it);
+        if (old == null || it[1] < x0 || it[1] > x1 || it[3] < z0 || it[3] > z1 || KIND[it[0]]?.water === 'on') return it;
+        if (Math.abs(it[2] - old) > 16) return it; // (not on that ground: on a block, a bridge)
+        const now = this.groundAt(it[1], it[3], Math.max(it[2], old) + 1500);
+        if (now == null || Math.abs(now - old) < 1) return it;
+        changed = true;
+        const moved = it.slice();
+        moved[2] = Math.round(it[2] + (now - old));
+        return moved;
+      });
+      if (!changed) continue;
+      rec.nature.items = items;
+      touchNature(rec);
+      updates.push({ uid: rec.uid, fields: { nature: { ...rec.nature, items } } });
+    }
+    if (!updates.length || !this.ui?.ops) return;
+    this.ui.ops.commit({ type: 'update_many', updates, summary: 'Plants moved with the ground' });
+    this.sync();
+  }
 
   // ---- hooks into the engine ---------------------------------------------------------------
 
@@ -349,10 +412,19 @@ export class PathsRuntime {
       if (!byChunk.has(ck)) byChunk.set(ck, []);
       byChunk.get(ck).push(it);
     }
+    // (a plant under the custom terrain -- the ground was raised by an undo, a template, the AI --
+    // grows on top of it: buried plants are never meant)
+    const T = this.world?.terrain;
+    const onTerrain = !!T && this.engine.level === this.engine.studioLevel;
+    const lift = (it) => {
+      if (!onTerrain || KIND[it[0]]?.water === 'on' || !T.contains(it[1], it[3])) return it;
+      const t = T.heightAt(it[1], it[3]);
+      return t > it[2] + 2 ? [it[0], it[1], Math.round(t), ...it.slice(3)] : it;
+    };
     let col = false;
     for (const ck of dirty) {
       const items = byChunk.get(ck) || [];
-      const insts = items.map(itemInst);
+      const insts = items.map((it) => itemInst(lift(it)));
       for (const small of [true, false]) {
         const id = `n:${ck}:${small ? 's' : 'b'}`;
         const list = insts.filter((i) => KIND[i.kind] && KIND[i.kind].type !== 'sm64' && !!KIND[i.kind].small === small);

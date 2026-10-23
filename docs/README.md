@@ -28,6 +28,7 @@ features. The guides describe doing things by hand. The AI assistant is optional
 | [Objects](objects.md) | Moving platforms and paths, custom enemies without code, the scene panel, prefabs, game rules |
 | [World](world.md) | Areas, doors, pipes, paintings, warp zones, the hub, fog, weather, camera |
 | [Story](story.md) | Dialogs, characters that talk, events (When → If → Then), cutscenes, game texts |
+| [ROM export](rom-export.md) | Your hack as a real N64 ROM and a .bps patch to upload anywhere: where your levels go, what comes along |
 | [Title screen](title-screen.md) | Your hack's launch screen: logo maker, background, Press Start, music, splash screens, file select |
 | [Assets](assets.md) | Your own 3D models, textures, materials, skies, Mario's colours |
 | [Sunshine characters](sunshine.md) | Piantas, Nokis and more from your own Super Mario Sunshine disc |

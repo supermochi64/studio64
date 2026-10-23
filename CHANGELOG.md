@@ -1,5 +1,23 @@
 # Changelog
 
+## Unreleased
+
+- **ROM export.** ⋯ menu → *Export ROM hack…* makes a real N64 ROM that plays in emulators, and a
+  `.bps` patch to upload anywhere. Your hub replaces the castle grounds, your levels take the 15
+  course paintings with their own names in the menus, and changes to the original levels come
+  along. The story, keys, custom enemies, moving blocks, game rules, your songs, fog, cars and
+  races, Shotgun and Katana Mario, Tokyo's city life and your own sound effects all work in the
+  ROM, and the story's progress is kept in the save file. Roads, fences and plants and the
+  ground you sculpted in the original levels come along too. The base ROM comes with Studio 64 as a
+  patch, so exports take seconds on every computer. No Nintendo files go into the patch you
+  share (Sunshine characters stay in the browser). See [ROM export](docs/rom-export.md).
+- **Plants on raised ground.** The nature brush plants on hills you raised like on flat ground,
+  plants move with the ground when you raise or lower it under them, and flowers and grass are no
+  longer dark on one side. Trees, bushes, rocks and mushrooms have no more holes: every trunk and
+  pine tier missed one side, and round shapes had a dent on top (fence and lamp posts too).
+- **Custom objects with Toad's model** show up (they were invisible), and a platform on a track placed in
+  another level takes its track along instead of flying off to its own level.
+
 ## 0.1.0-beta (2026-10-22)
 
 The first public release.

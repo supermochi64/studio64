@@ -987,6 +987,47 @@ void studio_path_override_apply(struct Object *obj) {
 }
 
 // bhv_platform_on_track_init: the platform's own track is set; a drawn one replaces it.
+// A track platform placed in the studio far from its own track (one from another level) takes its
+// track along, moved so it starts where it was placed (it would fly off to the other level's spot).
+#define MOVED_TRACKS 8
+#define MOVED_TRACK_LEN 64
+static struct Waypoint sMovedTrack[MOVED_TRACKS][MOVED_TRACK_LEN];
+static s32 sMovedTrackNext;
+
+static s16 track_coord(f32 v) {
+    return (s16) (v < -32000.0f ? -32000.0f : v > 32000.0f ? 32000.0f : v);
+}
+
+static void move_track_here(struct Object *obj) {
+    const struct Waypoint *wp = obj->oPlatformOnTrackStartWaypoint;
+    struct Waypoint *out;
+    f32 dx, dy, dz;
+    s32 n = 0, i;
+    if (wp == NULL || obj->unused2 == 0) {
+        return;
+    }
+    dx = obj->oPosX - wp[0].pos[0];
+    dy = obj->oPosY - wp[0].pos[1];
+    dz = obj->oPosZ - wp[0].pos[2];
+    if (dx * dx + dy * dy + dz * dz < 1500.0f * 1500.0f) {
+        return; // in its own level: its own track
+    }
+    while (n < MOVED_TRACK_LEN - 1 && wp[n].flags != WAYPOINT_FLAGS_END) {
+        n++;
+    }
+    out = sMovedTrack[sMovedTrackNext];
+    sMovedTrackNext = (sMovedTrackNext + 1) % MOVED_TRACKS;
+    for (i = 0; i < n; i++) {
+        out[i].flags = wp[i].flags;
+        out[i].pos[0] = track_coord(wp[i].pos[0] + dx);
+        out[i].pos[1] = track_coord(wp[i].pos[1] + dy);
+        out[i].pos[2] = track_coord(wp[i].pos[2] + dz);
+    }
+    out[n].flags = WAYPOINT_FLAGS_END;
+    out[n].pos[0] = out[n].pos[1] = out[n].pos[2] = 0;
+    obj->oPlatformOnTrackStartWaypoint = out;
+}
+
 void studio_track_override_apply(struct Object *obj) {
     struct PathOverride *ov;
     s32 slot = obj - gObjectPool;
@@ -994,6 +1035,7 @@ void studio_track_override_apply(struct Object *obj) {
         sTrackOrig[slot] = obj->oPlatformOnTrackStartWaypoint;
     }
     if (sOverrideCount == 0 || (ov = override_of(obj)) == NULL) {
+        move_track_here(obj);
         return;
     }
     obj->oPlatformOnTrackStartWaypoint = ov->wp;

@@ -1,0 +1,18 @@
+{
+ "textures/grass/wf_textures.08000.rgba16": "wf_textures.08000.png",
+ "textures/grass/wf_textures.07000.rgba16": "wf_textures.07000.png",
+ "textures/grass/wf_textures.04000.rgba16": "wf_textures.04000.png",
+ "textures/grass/wf_textures.09000.rgba16": "wf_textures.09000.png",
+ "textures/grass/wf_textures.08800.rgba16": "wf_textures.08800.png",
+ "textures/grass/wf_textures.09800.rgba16": "wf_textures.09800.png",
+ "levels/wdw/4.rgba16": "4.png",
+ "levels/wdw/1.rgba16": "1.png",
+ "textures/grass/wf_textures.00800.rgba16": "wf_textures.00800.png",
+ "textures/grass/wf_textures.00000.rgba16": "wf_textures.00000.png",
+ "textures/grass/wf_textures.01000.rgba16": "wf_textures.01000.png",
+ "textures/grass/wf_textures.03800.rgba16": "wf_textures.03800.png",
+ "levels/wdw/0.rgba16": "0.png",
+ "textures/grass/wf_textures.07800.rgba16": "wf_textures.07800.png",
+ "textures/grass/wf_textures.02000.rgba16": "wf_textures.02000.png",
+ "textures/grass/wf_textures.05800.rgba16": "wf_textures.05800.png"
+}

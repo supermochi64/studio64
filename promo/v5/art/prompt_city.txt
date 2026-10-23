@@ -1,0 +1,19 @@
+Use your image generation tool to paint ONE square image, 1024x1024, saved as city_sheet.png in the current directory.
+It is a texture sheet for a cheerful, brand-new, sunny Mediterranean seaside town in a colourful 3D platform game
+(think a polished modern remaster of a classic Nintendo 64 game: clean, bright, saturated, hand-painted, slightly stylised,
+crisp details, soft even lighting, NO shadows cast across the tile, NO perspective: every cell is a flat front-on texture).
+The image is a 4 x 4 grid of 16 square cells separated by thin pure black lines (gutters). Each cell is a texture that can
+tile seamlessly (except cell 7). No text, no letters, no logos, no people.
+Row 1: (1) street paving: rounded warm light-grey and cream cobblestones with light mortar; (2) pastel butter-yellow
+stucco plaster wall, smooth with subtle brush texture; (3) white limestone wall of large smooth blocks with thin joints;
+(4) glossy orange-red terracotta roof tiles, Mediterranean barrel tiles in rows.
+Row 2: (5) light sandstone brick wall with crisp white mortar; (6) polished pale cream marble floor tiles;
+(7) ONE house window filling the cell: white window frame with four glass panes reflecting blue sky, open sky-blue wooden
+shutters on both sides, a flower box under it full of red geraniums, on a cream plaster wall; (8) freshly painted wooden
+planks, vertical boards, mint green paint.
+Row 3: (9) clean warm red clay brick wall; (10) white wrought-iron decorative lattice with curls, on a flat pure magenta
+(#FF00FF) background; (11) salmon-peach plaster wall with subtle texture; (12) colourful pebble mosaic paving
+(terracotta, cream, slate blue pebbles).
+Row 4: (13) new light pine wooden crate side with clean planks and a frame; (14) blue and white ornamental ceramic tile
+(azulejo); (15) dense flower bed of red, pink, yellow and white flowers with green leaves seen from above;
+(16) lush bright green lawn grass seen from above.

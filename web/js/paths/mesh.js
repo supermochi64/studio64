@@ -169,7 +169,7 @@ export function prism(mesh, key, base, { n = 6, r0 = 20, r1 = 15, h = 100, col =
   const circ = 2 * Math.PI * Math.max(r0, r1);
   for (let i = 0; i < n; i++) {
     const j = (i + 1) % n;
-    const a0 = rot + (i / n) * Math.PI * 2, a1 = rot + (j / n) * Math.PI * 2;
+    const a0 = rot + (i / n) * Math.PI * 2, a1 = rot + ((i + 1) / n) * Math.PI * 2; // (not j: the last side would face inward)
     const n0 = [Math.cos(a0), 0.15, Math.sin(a0)], n1 = [Math.cos(a1), 0.15, Math.sin(a1)];
     const u0 = (i / n) * circ / uvScale, u1 = ((i + 1) / n) * circ / uvScale, vh = h / uvScale;
     mesh.quad(key, V(lo[i], [u0, vh], col, 255, n0), V(lo[j], [u1, vh], col, 255, n1), V(hi[j], [u1, 0], col, 255, n1), V(hi[i], [u0, 0], col, 255, n0),
@@ -196,7 +196,7 @@ export function blob(mesh, key, center, { rx = 100, ry = 80, rz = 100, seg = 6, 
       const th = (s / seg) * Math.PI * 2 + (r % 2) * (Math.PI / seg);
       let nx = Math.sin(phi) * Math.cos(th), ny = Math.cos(phi), nz = Math.sin(phi) * Math.sin(th);
       if (flatBottom && ny < -0.2) ny = -0.2;
-      const j = r === 0 || r === rings ? 0 : 1 + (rand() - 0.5) * jitter;
+      const j = r === 0 || r === rings ? 1 : 1 + (rand() - 0.5) * jitter; // (the poles unjittered, not at the centre)
       row.push({ p: [cx + nx * rx * j, cy + ny * ry * j, cz + nz * rz * j], n: [nx, ny, nz], uv: [(s / seg) * (2 * Math.PI * rx) / uvScale, (r / rings) * (Math.PI * ry) / uvScale] });
     }
     pts.push(row);
@@ -217,6 +217,8 @@ export function blob(mesh, key, center, { rx = 100, ry = 80, rz = 100, seg = 6, 
 }
 
 // Crossed quads (a billboard you can walk around): `count` planes through the base point.
+const UP = [0, 1, 0];
+
 export function crossed(mesh, key, base, { w = 60, h = 80, count = 2, rot = 0, col = [255, 255, 255], tilt = [0, 0], topCol = null } = {}) {
   const [x, y, z] = base;
   for (let k = 0; k < count; k++) {
@@ -224,6 +226,8 @@ export function crossed(mesh, key, base, { w = 60, h = 80, count = 2, rot = 0, c
     const dx = Math.cos(a) * w / 2, dz = Math.sin(a) * w / 2;
     const tx = tilt[0] * h, tz = tilt[1] * h;
     const tc = topCol || col;
-    mesh.quad(key, V([x - dx, y, z - dz], [0, 1], col), V([x + dx, y, z + dz], [1, 1], col), V([x + dx + tx, y + h, z + dz + tz], [1, 0], tc), V([x - dx + tx, y + h, z - dz + tz], [0, 0], tc), null);
+    // (lit as the ground they stand on: a card's own facing turned half of them dark)
+    mesh.quad(key, V([x - dx, y, z - dz], [0, 1], col, 255, UP), V([x + dx, y, z + dz], [1, 1], col, 255, UP),
+      V([x + dx + tx, y + h, z + dz + tz], [1, 0], tc, 255, UP), V([x - dx + tx, y + h, z - dz + tz], [0, 0], tc, 255, UP), null);
   }
 }

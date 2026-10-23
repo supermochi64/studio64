@@ -112,7 +112,14 @@ static u32 city_sig(void) {
 // Shoggoth's level collision: vertices, triangle groups per surface type (with a force word for
 // the types that have one), special objects (none in Tokyo), water boxes.
 static void city_collision(s16 dx, s16 dy, s16 dz, s32 water, s16 *regions, s32 *count, s32 max) {
+#ifdef TARGET_N64_S64
+    // (an exported ROM has the city as its level's own geometry: there are no city objects, and
+    // without this reference the city's data stays out of the ROM's Tokyo module)
+    const s16 *p = NULL;
+    if (p == NULL) return;
+#else
     const s16 *p = (const s16 *) tokyo_area_collision;
+#endif
     const s16 *verts = NULL;
     s32 i;
     while (TRUE) {
