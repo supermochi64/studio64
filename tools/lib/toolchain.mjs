@@ -546,16 +546,16 @@ export function emsdkEnv(emsdk) {
 // `as` and `objcopy` for the one assembly file of the build (the sound player's sequence; GNU as
 // syntax, its .rodata copied out): the Emscripten SDK's clang and llvm-objcopy make the same bytes.
 // Used where GNU binutils are missing (a Linux without gcc) and always on macOS (Apple's as is not GNU as).
-// This clang is built with only the Wasm and AArch64 backends (no x86_64: `clang --print-targets`),
-// so aarch64-unknown-linux-gnu is the only one of those that still parses ELF-style `.section`/
-// `.align` syntax. But `.align`'s meaning (a byte count vs. a power of two) is target-specific in
-// GNU as, and AArch64 uses the power-of-two reading where x86_64 uses the byte count -- confirmed
-// by assembling the same ".align 2" on both and comparing the output size. `.balign` means "N
-// bytes" on every target, so rewriting `.align` to `.balign` first keeps the same bytes regardless
-// of which backend ends up assembling it.
-const AS_PY = `import os, re, sys, subprocess, tempfile
+// Which LLVM backends this clang has varies by host (an Apple Silicon Mac's emsdk build has only
+// Wasm and AArch64 -- no x86_64 at all, per `clang --print-targets`; writeBinutilsWrappers() below
+// picks whichever of those is actually there). Either way, `.align`'s meaning (a byte count vs. a
+// power of two) is target-specific in GNU as, and AArch64 uses the power-of-two reading where
+// x86_64 uses the byte count -- confirmed by assembling the same ".align 2" on both and comparing
+// the output size. `.balign` means "N bytes" on every target, so rewriting `.align` to `.balign`
+// first keeps the same bytes regardless of which backend ends up assembling it.
+const AS_PY = (target) => `import os, re, sys, subprocess, tempfile
 clang, a = sys.argv[1], sys.argv[2:]
-cmd = [clang, '--target=aarch64-unknown-linux-gnu', '-c', '-x', 'assembler']
+cmd = [clang, '--target=${target}', '-c', '-x', 'assembler']
 i = 0
 src_idx = None
 while i < len(a):
@@ -579,10 +579,16 @@ export function needBinutils() {
 }
 export function writeBinutilsWrappers(emsdk, python) {
   const bin = path.join(emsdk, 'upstream', 'bin');
+  const clang = path.join(bin, 'clang');
+  // GNU as syntax (.section/.align, used by the one file this runs on) only parses on an
+  // ELF/GNU-environment target: x86_64 when this clang has it, else aarch64 (always there: Wasm's
+  // own build requirement).
+  const targets = quiet(clang, ['--print-targets']).out;
+  const asTarget = /^\s*x86_64\s/m.test(targets) ? 'x86_64-unknown-linux-gnu' : 'aarch64-unknown-linux-gnu';
   const q = (s) => `'${s.replace(/'/g, `'\\''`)}'`;
   fs.mkdirSync(BIN(), { recursive: true });
   const write = (name, body) => { const f = path.join(BIN(), name); fs.writeFileSync(f, `#!/bin/sh\n# Studio 64: ${name} from the Emscripten SDK's LLVM (tools/lib/toolchain.mjs)\n${body}\n`); fs.chmodSync(f, 0o755); };
-  write('as', `exec ${[python.cmd, ...python.pre].map(q).join(' ')} -c ${q(AS_PY)} ${q(path.join(bin, 'clang'))} "$@"`);
+  write('as', `exec ${[python.cmd, ...python.pre].map(q).join(' ')} -c ${q(AS_PY(asTarget))} ${q(clang)} "$@"`);
   write('objcopy', `exec ${q(path.join(bin, 'llvm-objcopy'))} "$@"`);
   return BIN();
 }
