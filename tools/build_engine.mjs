@@ -59,7 +59,7 @@ let env = toolchainEnv(process.env, tc);
 env = buildEnv(env, { prepend: em.prepend, extra: em.extra });
 if (tc.env.STUDIO_NEED_CPP) env = buildEnv(env, { prepend: [writeCppWrapper(emsdk)] }); // no GNU cpp here: clang -E
 if (needBinutils()) env = buildEnv(env, { prepend: [writeBinutilsWrappers(emsdk, tc.python)] }); // no GNU as/objcopy: LLVM's
-if (!which(process.platform === 'win32' ? 'emcc.bat' : 'emcc', env[Object.keys(env).find((k) => k.toUpperCase() === 'PATH')])) fail(`emcc not found in ${emsdk}: run its "emsdk activate" for its version`);
+if (!which('emcc', env[Object.keys(env).find((k) => k.toUpperCase() === 'PATH')])) fail(`emcc not found in ${emsdk}: run its "emsdk activate" for its version`);
 const PY = [tc.python.cmd, ...tc.python.pre];
 if (!tc.python.pre.length) env.EMSDK_PYTHON = tc.python.cmd; // (emcc's launcher runs this Python)
 

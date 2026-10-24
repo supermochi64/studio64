@@ -17,6 +17,11 @@
   pine tier missed one side, and round shapes had a dent on top (fence and lamp posts too).
 - **Custom objects with Toad's model** show up (they were invisible), and a platform on a track placed in
   another level takes its track along instead of flying off to its own level.
+- **Windows setup.** The first build stopped with "The Emscripten SDK was not found" right after
+  the setup had installed it: Emscripten 6 starts its tools with `emcc.exe` on Windows, not
+  `emcc.bat` any more.
+- **Mario's colours.** A new shirt colour no longer shows around the M on his cap: the M is drawn in
+  the cap's own colour.
 
 ## 0.1.0-beta (2026-10-22)
 

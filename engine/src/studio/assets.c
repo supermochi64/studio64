@@ -1060,6 +1060,12 @@ extern const Gfx mario_butt[], mario_left_arm[], mario_left_foot[], mario_face_c
     mario_medium_poly_right_hand_closed[], mario_low_poly_left_hand_closed[], mario_low_poly_right_hand_closed[],
     mario_left_hand_open[], mario_right_hand_open[], mario_right_hand_cap_dl[], mario_right_hand_peace[],
     mario_cap_seg3_dl_03022F48[];
+extern const Gfx mario_cap_on_eyes_half_closed[], mario_cap_on_eyes_closed[], mario_cap_on_eyes_right[],
+    mario_cap_on_eyes_left[], mario_cap_on_eyes_up[], mario_cap_on_eyes_down[], mario_cap_on_eyes_dead[],
+    mario_low_poly_cap_on_eyes_front[], mario_low_poly_cap_on_eyes_half_closed[], mario_low_poly_cap_on_eyes_closed[],
+    mario_low_poly_cap_on_eyes_right[], mario_low_poly_cap_on_eyes_left[], mario_low_poly_cap_on_eyes_up[],
+    mario_low_poly_cap_on_eyes_down[], mario_low_poly_cap_on_eyes_dead[], mario_m_logo_dl[],
+    mario_low_poly_mario_m_logo_dl[], mario_right_hand_cap_m_logo_dl[], mario_cap_unused_m_logo_dl[];
 
 static u8 sGloveLights[24] __attribute__((aligned(8)));
 static u8 *sMarioLights[ASSET_MARIO_PARTS];
@@ -1104,6 +1110,26 @@ static void repoint_lights(const Gfx *dl, u8 *from, u8 *to, s32 depth) {
     }
 }
 
+// The M on the cap is drawn before the cap sets its red, so the clear part of its picture took the light of
+// whatever came before it (the shirt). Each call of it in `parent` goes through a list that sets the cap's light first.
+static Gfx sLogoDLs[4][4];
+static void logo_lights(const Gfx *parent, const Gfx *logo, s32 k, u8 *cap) {
+    Gfx *g = (Gfx *) parent, *w = sLogoDLs[k];
+    s32 n;
+    if (w[0].words.w0 == 0) {
+        Gfx *p = w;
+        gSPLight(p++, (Light *) (cap + 8), 1);
+        gSPLight(p++, (Light *) cap, 2);
+        gSPDisplayList(p++, logo);
+        gSPEndDisplayList(p++);
+    }
+    for (n = 0; n < 400 && GFX_OP(g) != G_ENDDL; n++, g++) {
+        if (GFX_OP(g) == G_DL && g->words.w1 == (uintptr_t) logo) {
+            g->words.w1 = (uintptr_t) w;
+        }
+    }
+}
+
 static void mario_lights_init(void) {
     s32 i;
     u8 *red, *white;
@@ -1111,6 +1137,13 @@ static void mario_lights_init(void) {
                                   mario_medium_poly_right_hand_closed, mario_low_poly_left_hand_closed,
                                   mario_low_poly_right_hand_closed, mario_left_hand_open, mario_right_hand_open,
                                   mario_right_hand_cap_dl, mario_right_hand_peace };
+    static const Gfx *eyes[] = { mario_cap_on_eyes_front, mario_cap_on_eyes_half_closed, mario_cap_on_eyes_closed,
+                                 mario_cap_on_eyes_right, mario_cap_on_eyes_left, mario_cap_on_eyes_up,
+                                 mario_cap_on_eyes_down, mario_cap_on_eyes_dead };
+    static const Gfx *low_eyes[] = { mario_low_poly_cap_on_eyes_front, mario_low_poly_cap_on_eyes_half_closed,
+                                     mario_low_poly_cap_on_eyes_closed, mario_low_poly_cap_on_eyes_right,
+                                     mario_low_poly_cap_on_eyes_left, mario_low_poly_cap_on_eyes_up,
+                                     mario_low_poly_cap_on_eyes_down, mario_low_poly_cap_on_eyes_dead };
     static const Gfx *caps[] = { mario_face_cap_on_dl, mario_low_poly_face_cap_on_dl, mario_cap_unused_dl,
                                  mario_right_hand_cap };
     if (sMarioReady) return;
@@ -1139,6 +1172,12 @@ static void mario_lights_init(void) {
         for (i = 0; i < (s32) (sizeof(caps) / sizeof(caps[0])); i++) {
             repoint_lights(caps[i], red, sMarioLights[ASSET_MARIO_CAP], 0);
         }
+        for (i = 0; i < 8; i++) {                     // (not the metal caps: they have no red)
+            logo_lights(eyes[i], mario_m_logo_dl, 0, sMarioLights[ASSET_MARIO_CAP]);
+            logo_lights(low_eyes[i], mario_low_poly_mario_m_logo_dl, 1, sMarioLights[ASSET_MARIO_CAP]);
+        }
+        logo_lights(mario_right_hand_cap, mario_right_hand_cap_m_logo_dl, 2, sMarioLights[ASSET_MARIO_CAP]);
+        logo_lights(mario_cap_unused_dl, mario_cap_unused_m_logo_dl, 3, sMarioLights[ASSET_MARIO_CAP]);
     }
     // the gloves: white is also the wings and metal Mario, so the hands get their own
     if (white != NULL) {

@@ -523,8 +523,10 @@ export function userCache() {
 export function findEmsdk() {
   const dirs = [process.env.EMSDK, path.join(os.homedir(), '.local', 'src', 'emsdk'), path.join(userCache(), 'emsdk')].filter(Boolean);
   for (const d of dirs) {
-    const emcc = path.join(d, 'upstream', 'emscripten', IS_WIN ? 'emcc.bat' : 'emcc');
-    if (fs.existsSync(path.join(d, 'emsdk.py')) && fs.existsSync(emcc) && fs.existsSync(path.join(d, '.emscripten'))) return d;
+    // (on Windows Emscripten 6 has emcc.exe; older ones had emcc.bat)
+    const emcc = path.join(d, 'upstream', 'emscripten', 'emcc');
+    const hasEmcc = IS_WIN ? ['.exe', '.bat'].some((x) => fs.existsSync(emcc + x)) : fs.existsSync(emcc);
+    if (fs.existsSync(path.join(d, 'emsdk.py')) && hasEmcc && fs.existsSync(path.join(d, '.emscripten'))) return d;
   }
   return null;
 }
