@@ -68,14 +68,19 @@ jobs:
           echo "have=1" >> "$GITHUB_OUTPUT"
 
       # ---- the launcher, as a double-click starts it ----
+      # (started through WMI, outside the step: GitHub's Windows runner ends what a step started itself
+      # when the step is over, which cut the launcher off mid-download. WMI passes no environment, so
+      # the command line sets the job's own.)
       - name: Start Studio 64 (Windows)
         if: runner.os == 'Windows'
         shell: pwsh
         run: |
           $dir = Join-Path $env:FOLDER 'Studio 64'
-          $p = Start-Process -FilePath 'cmd.exe' -ArgumentList '/c', "`"$dir\Start Studio 64.bat`"" -WorkingDirectory $dir `
-            -RedirectStandardOutput "$env:RUNNER_TEMP\launcher.log" -RedirectStandardError "$env:RUNNER_TEMP\launcher.err" -PassThru -WindowStyle Hidden
-          $p.Id | Out-File "$env:RUNNER_TEMP\launcher.pid"
+          $set = "set PORT=$env:PORT&& set STUDIO_OPEN=$env:STUDIO_OPEN&& set STUDIO_NODE=$env:STUDIO_NODE&& set STUDIO_SETUP_EXTRAS=$env:STUDIO_SETUP_EXTRAS&& "
+          $cmd = "cmd.exe /c `"$set`"$dir\Start Studio 64.bat`" > `"$env:RUNNER_TEMP\launcher.log`" 2> `"$env:RUNNER_TEMP\launcher.err`"`""
+          $r = Invoke-CimMethod -ClassName Win32_Process -MethodName Create -Arguments @{ CommandLine = $cmd; CurrentDirectory = $dir }
+          if ($r.ReturnValue -ne 0) { throw "Win32_Process.Create failed: $($r.ReturnValue)" }
+          $r.ProcessId | Out-File "$env:RUNNER_TEMP\launcher.pid"
       - name: Start Studio 64 (macOS)
         if: runner.os == 'macOS'
         shell: bash
@@ -135,8 +140,10 @@ jobs:
         run: |
           $dir = Join-Path $env:FOLDER 'Studio 64'
           "$([DateTimeOffset]::Now.ToUnixTimeSeconds())" | Out-File "$env:RUNNER_TEMP\start2.txt"
-          Start-Process -FilePath 'cmd.exe' -ArgumentList '/c', "`"$dir\Start Studio 64.bat`"" -WorkingDirectory $dir `
-            -RedirectStandardOutput "$env:RUNNER_TEMP\launcher2.log" -RedirectStandardError "$env:RUNNER_TEMP\launcher2.err" -WindowStyle Hidden
+          $set = "set PORT=$env:PORT&& set STUDIO_OPEN=$env:STUDIO_OPEN&& set STUDIO_NODE=$env:STUDIO_NODE&& set STUDIO_SETUP_EXTRAS=$env:STUDIO_SETUP_EXTRAS&& "
+          $cmd = "cmd.exe /c `"$set`"$dir\Start Studio 64.bat`" > `"$env:RUNNER_TEMP\launcher2.log`" 2> `"$env:RUNNER_TEMP\launcher2.err`"`""
+          $r = Invoke-CimMethod -ClassName Win32_Process -MethodName Create -Arguments @{ CommandLine = $cmd; CurrentDirectory = $dir }
+          if ($r.ReturnValue -ne 0) { throw "Win32_Process.Create failed: $($r.ReturnValue)" }
       - name: Start it again (macOS, Linux)
         if: steps.rom.outputs.have == '1' && runner.os != 'Windows'
         shell: bash
