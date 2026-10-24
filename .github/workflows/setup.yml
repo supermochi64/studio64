@@ -96,7 +96,12 @@ jobs:
         shell: bash
         run: |
           for _ in $(seq 1 600); do curl -fs "http://127.0.0.1:$PORT/api/config" > /dev/null && break; sleep 1; done
-          curl -fs "http://127.0.0.1:$PORT/api/config"
+          if ! curl -fs "http://127.0.0.1:$PORT/api/config"; then
+            # (what the launcher said, here in the log: the artifact needs a login to download)
+            echo "---- launcher.log"; cat "$RUNNER_TEMP/launcher.log" || true
+            echo "---- launcher.err"; cat "$RUNNER_TEMP/launcher.err" || true
+            exit 1
+          fi
           grep -q "Node.js is ready" "$RUNNER_TEMP/launcher.log"
 
       # ---- the wizard: drop the ROM, Build, the studio opens; then place an object and play ----
