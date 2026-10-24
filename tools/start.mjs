@@ -16,7 +16,12 @@ const PORT = Number(process.env.PORT || 8064);
 const HOST = process.env.HOST || '127.0.0.1';
 const IS_WIN = process.platform === 'win32';
 
-const say = (s) => console.log(`  ${s}`);
+// (started by a launcher: its steps also go to .setup/launcher.log, which the launcher began)
+const LOG = process.env.STUDIO_LAUNCHER ? path.join(ROOT, '.setup', 'launcher.log') : null;
+const log = (s) => { if (LOG) try { fs.appendFileSync(LOG, `${new Date().toTimeString().slice(0, 8)} ${s}\n`); } catch { /* */ } };
+const say = (s) => { console.log(`  ${s}`); log(s.trim()); };
+try { if (LOG && fs.statSync(LOG).size > 200000) fs.writeFileSync(LOG, ''); } catch { /* none yet */ }
+log(`start.mjs: Node.js ${process.version} (${process.execPath})`);
 const major = Number(process.versions.node.split('.')[0]);
 if (major < 18) {
   console.error(`\n  Studio 64 needs Node.js 18 or newer (this is ${process.version}). Get it from https://nodejs.org\n`);
@@ -36,6 +41,7 @@ if (missing.length) {
   const r = npm
     ? spawnSync(process.execPath, [npm, ...args], { cwd: ROOT, stdio: 'inherit' })
     : spawnSync(IS_WIN ? 'npm.cmd' : 'npm', args, { cwd: ROOT, stdio: 'inherit', shell: IS_WIN });
+  log(`npm install: exit ${r.status}${r.error ? ` (${r.error.message})` : ''}`);
   if (r.status !== 0) {
     console.error('\n  npm install failed. Check your internet connection and start Studio 64 again.\n');
     process.exit(1);
@@ -100,10 +106,12 @@ let stopping = false;
 for (const sig of ['SIGINT', 'SIGTERM', 'SIGHUP']) process.on(sig, () => { stopping = true; child?.kill(sig === 'SIGHUP' ? 'SIGTERM' : sig); });
 
 function startServer(restart = false) {
+  log(`starting the server on port ${PORT_NOW}`);
   child = spawn(process.execPath, [path.join(ROOT, 'server', 'index.js')], {
     cwd: ROOT, stdio: 'inherit', env: { ...process.env, PORT: String(PORT_NOW), STUDIO_SUPERVISED: '1', ...(restart ? { STUDIO_RESTART_WAIT: '1' } : {}) },
   });
   child.on('exit', (code, signal) => {
+    log(`the server ended: code ${code}, signal ${signal}`);
     if (code === 75 && !stopping) { say('Restarting the server after the setup...'); startServer(true); return; }
     process.exit(code ?? (signal ? 0 : 1));
   });
