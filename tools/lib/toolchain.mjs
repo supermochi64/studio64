@@ -10,10 +10,12 @@
 //
 // Every download is pinned (version + SHA-256 checksum) and checked before it is unpacked.
 // Used by the first-run setup (server/setup/) and the engine build (tools/build_engine.mjs).
-import crypto from 'node:crypto';
+import crypto, { X509Certificate } from 'node:crypto';
 import fs from 'node:fs';
+import https from 'node:https';
 import os from 'node:os';
 import path from 'node:path';
+import tls from 'node:tls';
 import { spawn, spawnSync } from 'node:child_process';
 import { Readable } from 'node:stream';
 import { pipeline } from 'node:stream/promises';
@@ -124,6 +126,92 @@ export function installCommand(pkgs) {
   return null;
 }
 
+// Node's bundled trust store sometimes cannot complete a certificate chain that is nonetheless
+// valid (seen with some sites' intermediates, e.g. Let's Encrypt's newer short-lived hierarchy:
+// ziglang.org sends leaf -> an intermediate -> a cross-signed root that Node's fetch cannot link
+// to its trusted copy of the root above that, though the signatures all check out). When that
+// happens below, we open our own TLS probe to see the chain the server actually sent, confirm
+// (ourselves, cryptographically) that its non-leaf certificates are really signed by one of
+// Node's own trusted roots, and retry trusting just those for this host. We are not trusting
+// anything the server merely claims: checkIssued()+verify() below fail closed unless a real
+// signature matches a root Node already ships with. The SHA-256 check afterwards authenticates
+// the bytes regardless, so this only affects which certificates we complete a chain with.
+const CERT_CHAIN_CODES = /^(UNABLE_TO_GET_ISSUER_CERT|UNABLE_TO_GET_ISSUER_CERT_LOCALLY|UNABLE_TO_VERIFY_LEAF_SIGNATURE|SELF_SIGNED_CERT_IN_CHAIN|DEPTH_ZERO_SELF_SIGNED_CERT|CERT_UNTRUSTED)$/;
+export const isCertChainError = (err) => CERT_CHAIN_CODES.test(err?.cause?.code || err?.code || '');
+const ROOT_CERTS = tls.rootCertificates.map((pem) => new X509Certificate(pem));
+
+function pemOf(der) {
+  return `-----BEGIN CERTIFICATE-----\n${der.toString('base64').match(/.{1,64}/g).join('\n')}\n-----END CERTIFICATE-----\n`;
+}
+
+/** The certificate chain a TLS server presents, unverified (only used to look for a link that
+ * independently checks out against a root Node already trusts; see extraTrustedCAs). */
+function probeChain(hostname, port) {
+  return new Promise((resolve) => {
+    const socket = tls.connect({ host: hostname, port, servername: hostname, rejectUnauthorized: false }, () => {
+      const chain = [];
+      const seen = new Set();
+      let c = socket.getPeerCertificate(true);
+      while (c && c.raw && !seen.has(c.fingerprint256)) { seen.add(c.fingerprint256); chain.push(c); c = c.issuerCertificate; }
+      socket.destroy();
+      resolve(chain);
+    });
+    socket.on('error', () => resolve([]));
+    socket.setTimeout(15000, () => { socket.destroy(); resolve([]); });
+  });
+}
+
+/** PEMs of the server's intermediates that are genuinely signed by one of `trustedRoots`
+ * (checkIssued: the names link up; verify: the signature itself is valid for that root's public
+ * key) — or null if none of them check out, meaning the failure is something else. `trustedRoots`
+ * defaults to Node's own bundled roots; tests pass a throwaway root to check the gate without
+ * forging a real CA's signature. */
+export async function extraTrustedCAs(url, trustedRoots = ROOT_CERTS) {
+  const { hostname, port } = new URL(url);
+  const chain = await probeChain(hostname, Number(port) || 443);
+  const extra = [];
+  for (const peerCert of chain.slice(1)) { // [0] is the leaf: never a CA we would add
+    const cert = new X509Certificate(peerCert.raw);
+    if (cert.ca && trustedRoots.some((root) => { try { return cert.checkIssued(root) && cert.verify(root.publicKey); } catch { return false; } })) {
+      extra.push(pemOf(peerCert.raw));
+    }
+  }
+  return extra.length ? extra : null;
+}
+
+/** Downloads with Node's https, trusting the default roots plus `extraCAs`: the fallback for
+ * isCertChainError(). */
+function downloadWithExtraCAs(url, part, extraCAs, onProgress, redirects = 5) {
+  return new Promise((resolve, reject) => {
+    const agent = new https.Agent({ ca: [...tls.rootCertificates, ...extraCAs] });
+    const req = https.get(url, { agent }, (res) => {
+      if (res.statusCode >= 300 && res.statusCode < 400 && res.headers.location) {
+        res.resume();
+        if (redirects <= 0) { reject(new Error('too many redirects')); return; }
+        downloadWithExtraCAs(new URL(res.headers.location, url).href, part, extraCAs, onProgress, redirects - 1).then(resolve, reject);
+        return;
+      }
+      if (res.statusCode !== 200) { res.resume(); reject(new Error(`HTTP ${res.statusCode}`)); return; }
+      const total = Number(res.headers['content-length']) || 0;
+      let got = 0;
+      res.on('data', (chunk) => { got += chunk.length; onProgress(got, total); });
+      pipeline(res, fs.createWriteStream(part)).then(resolve, reject);
+    });
+    req.on('error', reject);
+    req.setTimeout(30 * 60 * 1000, () => req.destroy(new Error('timed out')));
+  });
+}
+
+/** Hashes `part`, compares to the pin, and renames it to dest (or throws and removes it). */
+function verifyAndCommit(part, dest, sha256) {
+  const sum = crypto.createHash('sha256').update(fs.readFileSync(part)).digest('hex');
+  if (sha256 && sum !== sha256) {
+    fs.rmSync(part, { force: true });
+    throw new ToolError('A download was damaged', `${path.basename(dest)}: the checksum does not match (got ${sum.slice(0, 12)}…).`, 'Press Try again. If it happens again, your network may be changing downloads (a proxy or filter).');
+  }
+  fs.renameSync(part, dest);
+}
+
 /** Downloads url (or the first of several that works) to dest, checks its SHA-256. */
 export async function download(urls, dest, sha256, onProgress = () => {}) {
   const list = Array.isArray(urls) ? urls : [urls];
@@ -149,8 +237,22 @@ export async function download(urls, dest, sha256, onProgress = () => {}) {
       fs.renameSync(part, dest);
       return dest;
     } catch (err) {
+      if (err instanceof ToolError) { fs.rmSync(part, { force: true }); throw err; }
+      if (isCertChainError(err)) {
+        try {
+          const extraCAs = await extraTrustedCAs(url);
+          if (!extraCAs) throw err;
+          await downloadWithExtraCAs(url, part, extraCAs, onProgress);
+          verifyAndCommit(part, dest, sha256);
+          return dest;
+        } catch (fallbackErr) {
+          fs.rmSync(part, { force: true });
+          if (fallbackErr instanceof ToolError) throw fallbackErr;
+          last = fallbackErr;
+          continue;
+        }
+      }
       fs.rmSync(part, { force: true });
-      if (err instanceof ToolError) throw err;
       last = err;
     }
   }
