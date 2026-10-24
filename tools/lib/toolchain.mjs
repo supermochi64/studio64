@@ -2,7 +2,7 @@
 // missing, downloaded into .runtime/ in the Studio 64 folder: no administrator rights, no
 // package manager, nothing installed system-wide.
 //
-//   Python 3     the system's (3.8+), else python-build-standalone (all systems)
+//   Python 3     the system's (3.10+, what emsdk needs), else python-build-standalone (all systems)
 //   C/C++        the system's cc/c++ when they compile, else Zig's (zig cc / zig c++: its own libc
 //                headers, so it works without gcc, Xcode or Visual Studio); on Windows w64devkit's gcc
 //   make         the system's GNU make, else GNU make built from source with that compiler;
@@ -247,7 +247,9 @@ async function fetchTool(tool, dir, { onStatus, onProgress, strip = 1 }) {
 }
 
 // ---- the tools -------------------------------------------------------------------------------
-/** A system Python 3.8+ ({ cmd, pre, version }), or null. */
+/** A system Python 3.10+ ({ cmd, pre, version }), or null. (3.10, not 3.8: emsdk's installer
+ * refuses anything older, and macOS's Command Line Tools python3 is often 3.9 -- that must fall
+ * through to the private, pinned Python below, not be accepted here.) */
 export function systemPython() {
   const tries = IS_WIN ? [['py', ['-3']], ['python', []], ['python3', []]] : [['python3', []], ['python', []]];
   for (const [cmd, pre] of tries) {
@@ -256,7 +258,7 @@ export function systemPython() {
     if (IS_WIN && /WindowsApps/i.test(p)) continue; // the Microsoft Store's python.exe opens the Store
     const r = quiet(p, [...pre, '-c', 'import sys, zlib, json, hashlib; print("%d.%d" % sys.version_info[:2])']);
     const m = r.ok && r.out.match(/^(\d+)\.(\d+)/m);
-    if (m && (Number(m[1]) > 3 || (Number(m[1]) === 3 && Number(m[2]) >= 8))) return { cmd: p, pre, version: `${m[1]}.${m[2]}` };
+    if (m && (Number(m[1]) > 3 || (Number(m[1]) === 3 && Number(m[2]) >= 10))) return { cmd: p, pre, version: `${m[1]}.${m[2]}` };
   }
   return null;
 }
