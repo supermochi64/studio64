@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.1.3-beta (2026-10-24)
+
+- **Setup on a Mac** (thanks [@mikesherov](https://github.com/mikesherov)): the game's build stopped
+  with "file not found" for a level's textures. Apple's `make` (3.81, on every Mac) didn't
+  understand one line of the build rules, so the textures were never made.
+- **Windows launcher:** checks the Node.js download with .NET itself instead of `Get-FileHash`,
+  which some Windows PowerShell setups can't load, and says when it starts Studio 64.
+- The automatic setup test on GitHub passes on macOS and Linux.
+
 ## 0.1.2-beta (2026-10-24)
 
 - **ROM export on every computer.** The base ROM that comes with Studio 64 only matched computers
