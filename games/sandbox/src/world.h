@@ -61,3 +61,5 @@ const char *world_district_name(float x, float z);
 int world_find_spot(int type, V3 near, float minDist, float maxDist, int skip);
 int world_nearest_walk(float x, float z);
 int world_nearest_street(float x, float z);
+// a pole (lamp post, palm, tree trunk: boxes of kind 3) within r of (x, z) that reaches height y
+bool world_find_pole(float x, float z, float y, float r, float *cx, float *cz, float *bottom, float *top);

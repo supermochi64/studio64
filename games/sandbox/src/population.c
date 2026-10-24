@@ -96,7 +96,7 @@ static void spawn_people(V3 c) {
     if (s >= 0) {
       Spot *sp = &g_world.spots[s];
       V3 p = {sp->x, 0, sp->z};
-      if (in_view(p, 2) && v3_dist_xz(p, c) < 45) return;
+      if (in_view(p, 2) && v3_dist_xz(p, c) < 35 && g.time > 2) return;
       int owner = gang_block_owner(sp->district);
       if (!owner) return;
       int group = 2 + rnd_int(2);
@@ -114,8 +114,8 @@ static void spawn_people(V3 c) {
     int i = rnd_int(g_world.nwnode);
     V3 p = {g_world.wnodes[i].x, 0.2f, g_world.wnodes[i].z};
     float d = v3_dist_xz(p, c);
-    if (d < 30 || d > 70) continue;
-    if (in_view(p, 1.5f) && d < 50) continue;
+    if (d < 22 || d > 70) continue;
+    if (in_view(p, 1.5f) && d < 38 && g.time > 2) continue; // (the first moments: fill the streets round the start)
     node = i;
   }
   if (node < 0) return;
@@ -232,7 +232,7 @@ void population_step(void) {
     }
   }
   s_timer -= DT; s_vtimer -= DT;
-  if (s_timer <= 0) { s_timer = 0.4f; spawn_people(c); }
+  if (s_timer <= 0) { s_timer = g.time < 3 ? 0.05f : 0.35f; spawn_people(c); }
   if (s_vtimer <= 0) { s_vtimer = 0.5f; spawn_traffic(c); }
   // the police on foot, by the wanted level
   if (g.wanted > 0 && (g.frame % 45) == 0 && count_people(AK_COP) < g.wanted * 2 + 1) {

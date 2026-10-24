@@ -200,7 +200,7 @@ void ai_think(Actor *a) {
   Controls *c = &a->ctl;
   memset(c, 0, sizeof(*c));
   a->think += DT;
-  if (!actor_alive(a)) return;
+  if (!actor_alive(a) || a->brain == 99) return;
   if (a->state == ST_ENTER || a->state == ST_EXIT) return;
 
   // in a vehicle

@@ -6,6 +6,8 @@
 #include "gang.h"
 #include "camera.h"
 #include "player.h"
+#include "mission.h"
+#include "shop.h"
 #include <stdarg.h>
 
 static sprite_t *s_map;
@@ -95,6 +97,8 @@ static void radar(void) {
     else if (a->kind == AK_COP && g.wanted) blip(a->pos, c, yaw, scale, RGBA32(80, 120, 255, 255), 3);
     else if (a->hostile || a->warrior || (a->kind == AK_GANG && gang_hostile(a, p))) blip(a->pos, c, yaw, scale, RGBA32(240, 60, 60, 255), 2);
   }
+  // the mission: where to go (yellow)
+  { V3 t; if (mission_target(&t)) blip(t, c, yaw, scale, RGBA32(255, 220, 40, 255), 4); }
   // home
   for (int i = 0; i < g_world.nspot; i++) if (g_world.spots[i].type == SPOT_HOME) blip((V3){g_world.spots[i].x, 0, g_world.spots[i].z}, c, yaw, scale, RGBA32(255, 255, 255, 255), 4);
   rdpq_set_scissor(0, 0, 320, 240);
@@ -120,6 +124,7 @@ static void bar(int x, int y, int w, float v, color_t c) {
 void hud_draw(void) {
   Actor *p = g.player;
   if (!p) return;
+
   // top right: money, health and armour, the weapon, the stars
   hud_text(320 - 14 - hud_text_width("$00000000", 1), 14, RGBA32(110, 220, 110, 255), 1, "$%08d", g.money);
   bar(320 - 14 - 64, 26, 64, p->health / 100.0f, RGBA32(220, 50, 50, 255));
@@ -175,6 +180,8 @@ void hud_draw(void) {
     color_t c = !strcmp(g.bigMessage, "KNOCKED OUT") || !strcmp(g.bigMessage, "ARRESTED") || !strcmp(g.bigMessage, "WAR LOST") ? RGBA32(230, 60, 50, 255) : RGBA32(255, 220, 80, 255);
     text_center(90, c, 3, g.bigMessage);
   }
+  mission_hud();
+  shop_hud();
   if (g.war) hud_text(14, 26, RGBA32(255, 200, 80, 255), 1, g.warTimer > 0 && g.warWave == 0 ? "GANG WAR: GET READY" : "GANG WAR  WAVE %d/3  %d LEFT", g.warWave, g.warLeft);
 }
 

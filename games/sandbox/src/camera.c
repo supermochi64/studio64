@@ -3,6 +3,7 @@
 #include "render.h"
 
 Camera g_cam;
+bool g_camLock; V3 g_camEye, g_camAt; // (tests) a fixed camera
 
 void camera_init(V3 at, float yaw) {
   g_cam.yaw = g_cam.wantYaw = yaw;
@@ -68,4 +69,5 @@ void camera_update(V3 target, float heading, float speed, int mode, V3 aimAt, co
   c->eye = v3_lerp(c->eye, eye, mode == CAM_AIM ? 0.5f : 0.6f);
   g_view.eye = c->eye;
   g_view.target = look;
+  if (g_camLock) { g_view.eye = g_camEye; g_view.target = g_camAt; }
 }

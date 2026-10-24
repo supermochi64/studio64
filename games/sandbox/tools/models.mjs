@@ -5,65 +5,128 @@
 // materials with a "prim" tint (shirt, pants, paint...): the game sets the colour per character or
 // car, so one model makes every look. To replace a model, put a .glb with the same bone and material
 // names in assets/ (made in Blender with fast64): see docs/sandbox.md.
-import { Gltf, MeshBuilder, box, cylinder } from './lib/gltf.mjs';
+import { Gltf, MeshBuilder, box, cylinder, ellipsoid, tube } from './lib/gltf.mjs';
 
 const W = [255, 255, 255, 255];
 const gray = (v) => [v, v, v, 255];
 
 // ---- people ----
-// bones (the game's actor.c knows these indices)
+// A cartoon body in the proportions of a 3D platformer's hero: a big head, a round middle, short
+// legs, big hands and shoes. 15 bones (the game's actor.c knows the indices). One material: an 8x4
+// palette texture the game gives each person (skin, clothes, hair...), so one model makes every look;
+// a part whose palette texel is transparent is not drawn (a cap, a beard, a hair style).
 export const HUMAN_BONES = [
-  { name: 'hips', parent: -1, head: [0, 0.95, 0] },
-  { name: 'torso', parent: 0, head: [0, 1.02, 0] },
-  { name: 'head', parent: 1, head: [0, 1.52, 0] },
-  { name: 'arm_l', parent: 1, head: [0.23, 1.44, 0] },
-  { name: 'fore_l', parent: 3, head: [0.23, 1.16, 0] },
-  { name: 'arm_r', parent: 1, head: [-0.23, 1.44, 0] },
-  { name: 'fore_r', parent: 5, head: [-0.23, 1.16, 0] },
-  { name: 'leg_l', parent: 0, head: [0.1, 0.92, 0] },
-  { name: 'shin_l', parent: 7, head: [0.1, 0.5, 0] },
-  { name: 'leg_r', parent: 0, head: [-0.1, 0.92, 0] },
-  { name: 'shin_r', parent: 9, head: [-0.1, 0.5, 0] },
+  { name: 'hips', parent: -1, head: [0, 0.78, 0] },
+  { name: 'torso', parent: 0, head: [0, 0.84, 0] },
+  { name: 'head', parent: 1, head: [0, 1.2, 0] },
+  { name: 'arm_l', parent: 1, head: [0.27, 1.12, 0] },
+  { name: 'fore_l', parent: 3, head: [0.31, 0.92, 0] },
+  { name: 'hand_l', parent: 4, head: [0.32, 0.74, 0] },
+  { name: 'arm_r', parent: 1, head: [-0.27, 1.12, 0] },
+  { name: 'fore_r', parent: 6, head: [-0.31, 0.92, 0] },
+  { name: 'hand_r', parent: 7, head: [-0.32, 0.74, 0] },
+  { name: 'leg_l', parent: 0, head: [0.125, 0.74, 0] },
+  { name: 'shin_l', parent: 9, head: [0.13, 0.43, 0] },
+  { name: 'foot_l', parent: 10, head: [0.13, 0.13, 0] },
+  { name: 'leg_r', parent: 0, head: [-0.125, 0.74, 0] },
+  { name: 'shin_r', parent: 12, head: [-0.13, 0.43, 0] },
+  { name: 'foot_r', parent: 13, head: [-0.13, 0.13, 0] },
 ];
+// the palette's texels (src/actor.c fills them)
+export const PAL = { SKIN: 0, SKIN2: 1, SHIRT: 2, SHIRT2: 3, PANTS: 4, SHOES: 5, SOLE: 6, HAIR: 7, HAT: 8, BRIM: 9, EYE: 10, PUPIL: 11, MOUTH: 12, BAND: 13, BELT: 14, BEARD: 15, AFRO: 16, LONG: 17, GLASSES: 18, BALD: 19 };
+const texel = (k) => [((k % 8) + 0.5) / 8, (Math.floor(k / 8) + 0.5) / 4];
+// baked light: a little darker underneath
+const ao = (n) => { const v = Math.round(255 * (0.78 + 0.22 * n[1])); return [v, v, v, 255]; };
+
+function buildCharacter(b, mat, o) {
+  const E = (k, c, r, joint, x = {}) => ellipsoid(b, mat, c, r, { uv: texel(k), colorFn: ao, joint, segs: x.segs ?? o.segs, rings: x.rings ?? o.rings, from: x.from, to: x.to, rot: x.rot });
+  const T = (k, a, c, r0, r1, joint, x = {}) => tube(b, mat, a, c, r0, r1, { uv: texel(k), colorFn: ao, joint, segs: x.segs ?? Math.max(5, o.segs - 2), capA: x.capA, capB: x.capB });
+  const hs = o.head;          // head size
+  const hy = 1.42;            // head centre
+  // hips, belly, chest (a tank top / shirt over a round middle)
+  E(PAL.PANTS, [0, 0.8, 0], [0.26, 0.15, 0.21], 0);
+  if (!o.lite) E(PAL.BELT, [0, 0.885, 0.005], [0.255, 0.04, 0.205], 1, { segs: o.segs, rings: 2 });
+  E(PAL.SHIRT, [0, 1.0, 0], [0.28 * o.body, 0.25, 0.23 * o.body], 1);
+  if (!o.lite) E(PAL.SHIRT, [0, 0.95, 0.05], [0.24 * o.body, 0.18, 0.21 * o.body], 1, { rings: 4 });
+  if (o.stripe) E(PAL.SHIRT2, [0, 1.1, 0.165], [0.11, 0.11, 0.05], 1, { segs: 6, rings: 3 }); // the number on the chest
+  // shoulders (bare in a tank top, else sleeves)
+  for (const sx of [1, -1]) E(o.tank ? PAL.SKIN : PAL.SHIRT, [sx * 0.245, 1.11, 0], [0.105, 0.095, 0.1], 1, { segs: 6, rings: 4 });
+  // the head: skull, jaw, nose, ears, eyes, brows, mouth
+  E(PAL.SKIN, [0, hy, 0.02], [0.245 * hs, 0.245 * hs, 0.235 * hs], 2);
+  E(PAL.SKIN, [0, hy - 0.1 * hs, 0.08], [0.205 * hs, 0.13 * hs, 0.17 * hs], 2, { rings: 4 });
+  E(PAL.SKIN2, [0, hy - 0.035, 0.235 * hs + 0.03], [0.072 * o.nose, 0.062 * o.nose, 0.07 * o.nose], 2, { segs: 7, rings: 4 });
+  for (const sx of [1, -1]) {
+    E(PAL.SKIN2, [sx * 0.24 * hs, hy, 0.0], [0.04, 0.064, 0.05], 2, { segs: 5, rings: o.lite ? 2 : 3 });
+    E(PAL.EYE, [sx * 0.085, hy + 0.06, 0.2 * hs + 0.012], [0.058, 0.074, 0.035], 2, { segs: 6, rings: o.lite ? 3 : 4 });
+    E(PAL.PUPIL, [sx * 0.078, hy + 0.055, 0.2 * hs + 0.044], [0.027, 0.038, 0.012], 2, { segs: 5, rings: 2 });
+    T(PAL.HAIR, [sx * 0.13, hy + 0.155, 0.19 * hs], [sx * 0.04, hy + 0.165, 0.215 * hs], 0.018, 0.016, 2, { segs: 4 });
+    if (o.glasses && !o.lite) E(PAL.GLASSES, [sx * 0.085, hy + 0.06, 0.2 * hs + 0.05], [0.07, 0.05, 0.012], 2, { segs: 6, rings: 3 });
+  }
+  E(PAL.MOUTH, [0, hy - 0.16 * hs, 0.2 * hs + 0.005], [0.06, 0.022, 0.025], 2, { segs: 6, rings: 3 });
+  // facial hair: a moustache and a goatee (hidden by a clear BEARD texel)
+  for (const sx of [1, -1]) E(PAL.BEARD, [sx * 0.058, hy - 0.105, 0.225 * hs + 0.025], [0.078, 0.032, 0.035], 2, { segs: o.lite ? 5 : 6, rings: o.lite ? 2 : 3, rot: sx * 0.35 });
+  E(PAL.BEARD, [0, hy - 0.215 * hs, 0.16 * hs], [0.06, 0.05, 0.045], 2, { segs: 6, rings: 3 });
+  // hair styles: short (round the back and sides), an afro, long (down the back); a cap over them
+  E(PAL.HAIR, [0, hy + 0.03, -0.02], [0.255 * hs, 0.235 * hs, 0.245 * hs], 2, { from: 0.42 });
+  if (o.styles) {
+    E(PAL.AFRO, [0, hy + 0.1, -0.02], [0.32 * hs, 0.28 * hs, 0.31 * hs], 2, { from: 0.35 });
+    E(PAL.LONG, [0, hy - 0.1, -0.12], [0.24 * hs, 0.3 * hs, 0.14 * hs], 2, { rings: 4 });
+  }
+  E(PAL.HAT, [0, hy + 0.1, 0.0], [0.265 * hs, 0.205 * hs, 0.26 * hs], 2, { from: 0.5 });
+  E(PAL.BRIM, [0, hy + 0.115, 0.2 * hs + 0.04], [0.19, 0.028, 0.14], 2, { segs: 7, rings: 3 });
+  if (o.emblem) E(PAL.SHIRT2, [0, hy + 0.19, 0.22 * hs], [0.075, 0.075, 0.025], 2, { segs: 6, rings: 3 }); // the crew's palm on the cap
+  // arms: upper, fore (a band at the wrist), a big hand
+  for (const [sx, up, fore, hand] of [[1, 3, 4, 5], [-1, 6, 7, 8]]) {
+    T(o.tank ? PAL.SKIN : PAL.SHIRT, [sx * 0.27, 1.12, 0], [sx * 0.31, 0.92, 0], 0.07, 0.064, up, { capB: true });
+    T(PAL.SKIN, [sx * 0.31, 0.92, 0], [sx * 0.32, 0.77, 0], 0.064, 0.058, fore);
+    if (o.bands) T(PAL.BAND, [sx * 0.318, 0.8, 0], [sx * 0.32, 0.745, 0], 0.074, 0.074, fore, { segs: 6 });
+    E(PAL.SKIN, [sx * 0.325, 0.69, 0.012], [0.088 * o.hands, 0.094 * o.hands, 0.098 * o.hands], hand, { segs: o.lite ? 6 : 7, rings: o.lite ? 3 : 5 });
+    if (!o.lite) E(PAL.SKIN2, [sx * 0.29, 0.71, 0.075], [0.035, 0.05, 0.035], hand, { segs: 5, rings: 3 }); // the thumb
+  }
+  // legs: baggy trousers, big shoes with a sole
+  for (const [sx, up, low, foot] of [[1, 9, 10, 11], [-1, 12, 13, 14]]) {
+    T(PAL.PANTS, [sx * 0.125, 0.78, 0], [sx * 0.13, 0.43, 0], 0.115, 0.1, up);
+    T(PAL.PANTS, [sx * 0.13, 0.45, 0], [sx * 0.13, 0.17, 0], 0.1, 0.108 * o.flare, low, { capA: true });
+    E(PAL.SHOES, [sx * 0.13, 0.095, 0.06], [0.112 * o.feet, 0.088, 0.19 * o.feet], foot, { segs: o.lite ? 6 : 7, rings: o.lite ? 3 : 4 });
+    if (!o.lite) E(PAL.SOLE, [sx * 0.13, 0.032, 0.06], [0.118 * o.feet, 0.034, 0.2 * o.feet], foot, { segs: 7, rings: 2 });
+  }
+}
 
 function human(out) {
+  const make = (name, o) => {
+    const g = new Gltf();
+    const mat = g.material('body', { texRef: true, texSize: [8, 4], layer: 'cutout', fog: true, prim: true });
+    const b = new MeshBuilder();
+    buildCharacter(b, mat, o);
+    g.skinned(name, b, HUMAN_BONES);
+    g.save(`${out}/${name}.glb`);
+    return b.triangleCount;
+  };
+  // the hero: the biggest head, hands and shoes, a moustache, the crew's cap with its palm, a tank top
+  const t0 = make('hero', { segs: 8, rings: 5, head: 1.08, body: 1.04, nose: 1.15, hands: 1.15, feet: 1.12, flare: 1.08, tank: true, bands: true, emblem: true, stripe: true, styles: false });
+  // everyone else: the same body, simpler, with the hair styles and glasses
+  const t1 = make('person', { lite: true, segs: 6, rings: 3, head: 1.0, body: 1.0, nose: 1.0, hands: 1.0, feet: 1.0, flare: 1.0, tank: false, bands: false, emblem: false, stripe: true, styles: true, glasses: true });
+  // far away: a handful of boxes on the same bones and palette
   const g = new Gltf();
-  const tint = (name) => g.material(name, { prim: true, fog: true });
-  const skin = tint('skin'), shirt = tint('shirt'), pants = tint('pants'), shoes = tint('shoes'), hair = tint('hair'), hat = tint('hat');
-  const eyes = g.material('eyes', {});
+  const mat = g.material('body', { texRef: true, texSize: [8, 4], layer: 'cutout', fog: true, prim: true });
   const b = new MeshBuilder();
-  const bx = (mat, min, max, joint, shade = 1) => box(b, mat, min, max, { joint, color: gray(Math.round(235 * shade)) });
-  // hips and torso (shirt), a belt line of pants
-  bx(pants, [-0.17, 0.86, -0.11], [0.17, 1.02, 0.11], 0);
-  bx(shirt, [-0.19, 1.0, -0.12], [0.19, 1.46, 0.12], 1);
-  bx(shirt, [-0.21, 1.36, -0.13], [0.21, 1.48, 0.13], 1, 1.05); // shoulders
-  // head, hair, face
-  bx(skin, [-0.05, 1.46, -0.05], [0.05, 1.53, 0.05], 2, 0.9); // neck
-  bx(skin, [-0.12, 1.52, -0.12], [0.12, 1.8, 0.13], 2);
-  bx(hair, [-0.13, 1.72, -0.13], [0.13, 1.83, 0.12], 2);
-  bx(hair, [-0.13, 1.56, -0.135], [0.13, 1.76, -0.08], 2, 0.9);
-  box(b, eyes, [0.04, 1.66, 0.13], [0.08, 1.69, 0.135], { joint: 2, color: [30, 30, 30, 255], faces: ['s'] });
-  box(b, eyes, [-0.08, 1.66, 0.13], [-0.04, 1.69, 0.135], { joint: 2, color: [30, 30, 30, 255], faces: ['s'] });
-  bx(skin, [-0.03, 1.6, 0.13], [0.03, 1.66, 0.165], 2, 0.85); // nose
-  // a cap (drawn only for looks with one: the game skips this material)
-  bx(hat, [-0.135, 1.78, -0.135], [0.135, 1.88, 0.135], 2);
-  bx(hat, [-0.12, 1.78, 0.12], [0.12, 1.8, 0.27], 2, 0.9);
-  // arms: sleeve, skin, hand
-  for (const [s, up, fore] of [[1, 3, 4], [-1, 5, 6]]) {
-    const x0 = s > 0 ? 0.19 : -0.27, x1 = s > 0 ? 0.27 : -0.19;
-    bx(shirt, [x0, 1.18, -0.06], [x1, 1.47, 0.06], up);
-    bx(skin, [x0 + 0.005, 0.9, -0.05], [x1 - 0.005, 1.18, 0.05], fore);
-    bx(skin, [x0, 0.82, -0.05], [x1, 0.91, 0.06], fore, 0.92);
+  const B = (k, min, max, joint) => { const uv = texel(k); const before = b.group(mat).uv.length; box(b, mat, min, max, { joint, color: [235, 235, 235, 255] }); const g2 = b.group(mat); for (let i = before; i < g2.uv.length; i += 2) { g2.uv[i] = uv[0]; g2.uv[i + 1] = uv[1]; } };
+  B(PAL.PANTS, [-0.24, 0.68, -0.18], [0.24, 0.88, 0.18], 0);
+  B(PAL.SHIRT, [-0.26, 0.86, -0.2], [0.26, 1.2, 0.2], 1);
+  B(PAL.SKIN, [-0.22, 1.2, -0.2], [0.22, 1.64, 0.22], 2);
+  B(PAL.HAIR, [-0.23, 1.5, -0.22], [0.23, 1.68, 0.2], 2);
+  B(PAL.HAT, [-0.24, 1.58, -0.23], [0.24, 1.7, 0.33], 2);
+  for (const [sx, up, fore, leg, shin] of [[1, 3, 4, 9, 10], [-1, 6, 7, 12, 13]]) {
+    const x0 = sx > 0 ? 0.24 : -0.36, x1 = sx > 0 ? 0.36 : -0.24;
+    B(PAL.SHIRT, [x0, 0.9, -0.06], [x1, 1.14, 0.06], up);
+    B(PAL.SKIN, [x0, 0.62, -0.08], [x1, 0.92, 0.08], fore);
+    const l0 = sx > 0 ? 0.03 : -0.23, l1 = sx > 0 ? 0.23 : -0.03;
+    B(PAL.PANTS, [l0, 0.4, -0.1], [l1, 0.78, 0.1], leg);
+    B(PAL.SHOES, [l0, 0.0, -0.1], [l1, 0.42, 0.22], shin);
   }
-  // legs: pants, shoes
-  for (const [s, up, low] of [[1, 7, 8], [-1, 9, 10]]) {
-    const x0 = s > 0 ? 0.015 : -0.185, x1 = s > 0 ? 0.185 : -0.015;
-    bx(pants, [x0, 0.5, -0.09], [x1, 0.92, 0.09], up);
-    bx(pants, [x0 + 0.01, 0.1, -0.08], [x1 - 0.01, 0.52, 0.08], low, 0.95);
-    bx(shoes, [x0 - 0.005, 0.0, -0.09], [x1 + 0.005, 0.11, 0.16], low);
-  }
-  g.skinned('human', b, HUMAN_BONES);
-  g.save(`${out}/human.glb`);
+  g.skinned('person_lod', b, HUMAN_BONES);
+  g.save(`${out}/person_lod.glb`);
+  console.log(`people: hero ${t0}, person ${t1}, far ${b.triangleCount} triangles`);
   return 'human';
 }
 

@@ -10,6 +10,17 @@ enum {
   SND_COUNT
 };
 
+// voices (tools/audio.mjs makes them): the hero's and everyone else's
+enum {
+  VO_HUP, VO_HOO, VO_YAHOO, VO_YAH, VO_WAHA, VO_HA, VO_HYA, VO_OOF, VO_OW, VO_WHOA, VO_UGH, VO_YEAH,
+  VO_HEREWEGO, VO_LETSGO, VO_SNORE, VO_SCREAM, VO_HEY, VO_YO, VO_FREEZE, VO_COMEON, VO_HMM, VO_WOOHOO,
+  VO_COUNT
+};
+// music (tools/audio.mjs): the city by day and by night, a gang war, the title, the car radio
+enum { MUS_NONE = -1, MUS_DAY, MUS_NIGHT, MUS_WAR, MUS_TITLE, MUS_RADIO, MUS_PASSED, MUS_COUNT };
+void sound_voice(int vo, V3 at, float pitch);
+void sound_music(int track);     // crossfades; MUS_PASSED plays once, then the previous comes back
+
 void sound_init(void);
 void sound_update(void);                 // once a frame (fills the audio buffers)
 void sound_play(int id, V3 at);

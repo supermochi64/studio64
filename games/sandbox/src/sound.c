@@ -181,3 +181,7 @@ void sound_radio(bool on) {
   if (!on) { if (mixer_ch_playing(CH_RADIO)) mixer_ch_stop(CH_RADIO); return; }
   if (!mixer_ch_playing(CH_RADIO)) { mixer_ch_play(CH_RADIO, &s_radio.wave); mixer_ch_set_vol(CH_RADIO, 0.4f, 0.4f); }
 }
+
+// (voices and music: tools/audio.mjs makes them; until they are loaded, nothing plays)
+void sound_voice(int vo, V3 at, float pitch) { (void)vo; (void)at; (void)pitch; }
+void sound_music(int track) { (void)track; }

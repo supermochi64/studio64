@@ -88,7 +88,7 @@ void vehicle_rider_matrix(Vehicle *v, Actor *a, T3DMat4 *out) {
   body_matrix(v, &body, 1.0f);
   V3 l = seat_local(v, a->seat);
   // the rider's hips at the seat: the model's hips are 0.95 m up
-  mat_place(&seat, (V3){l.x, l.y - 0.5f * a->look.height + 0.45f, l.z}, 0, 0, 0, 0, MODEL_SCALE * a->look.height);
+  mat_place(&seat, (V3){l.x, l.y + 0.5f - 0.78f * a->look.height, l.z}, 0, 0, 0, 0, MODEL_SCALE * a->look.height);
   mat_mul(out, &body, &seat);
 }
 

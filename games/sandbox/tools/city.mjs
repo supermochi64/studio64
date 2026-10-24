@@ -432,7 +432,7 @@ export class City {
       box(b, m('plain'), [ax, 6.1, az], [Math.max(x, tip[0]) + 0.06, 6.24, Math.max(z, tip[1]) + 0.06], { color: [92, 96, 100, 255] });
       box(b, m('plain'), [tip[0] - 0.25, 5.98, tip[1] - 0.25], [tip[0] + 0.25, 6.12, tip[1] + 0.25], { color: [255, 240, 190, 255], shadeSides: false });
     });
-    this.solid(x, z, 0.12, 0.12, PAD_Y, 6.2, { flags: BOX.THIN });
+    this.solid(x, z, 0.12, 0.12, PAD_Y, 6.2, { flags: BOX.THIN, kind: 3 }); // (kind 3: a pole to climb)
   }
   hydrant(x, z) {
     this.emit(x, z, (b, m) => { cylinder(b, m('plain'), x, z, PAD_Y, 0.75, 0.15, 6, { color: [196, 40, 36, 255] }); box(b, m('plain'), [x - 0.22, 0.45, z - 0.06], [x + 0.22, 0.55, z + 0.06], { color: [176, 36, 30, 255] }); });
@@ -463,7 +463,7 @@ export class City {
       }
     });
     this.lod(x, z, (b, m) => { box(b, m('plain'), [x - 0.2, ground, z - 0.2], [x + 0.2, ground + h, z + 0.2], { color: [120, 92, 62, 255], faces: ['n', 's', 'e', 'w'] }); box(b, m('plain2'), [tx - 2.5, ground + h - 1.2, tz - 2.5], [tx + 2.5, ground + h, tz + 2.5], { color: [70, 120, 46, 255] }); });
-    this.solid(x, z, 0.3, 0.3, ground, ground + h, { flags: BOX.THIN });
+    this.solid(x, z, 0.3, 0.3, ground, ground + h, { flags: BOX.THIN, kind: 3 });
   }
   tree(x, z, seed, size = 1) {
     const r = rng(Math.floor(seed * 997 + x * 3 + z));
@@ -480,7 +480,7 @@ export class City {
       b.quad(m('leaves'), [[x - cr, cy, z - cr], [x - cr, cy, z + cr], [x + cr, cy, z + cr], [x + cr, cy, z - cr]], { color: [200, 210, 200, 255] });
     });
     this.lod(x, z, (b, m) => box(b, m('plain'), [x - cr * 0.8, g + h - cr * 0.5, z - cr * 0.8], [x + cr * 0.8, g + h + cr * 1.2, z + cr * 0.8], { color: [64, 110, 44, 255] }));
-    this.solid(x, z, 0.3, 0.3, g - 0.3, g + h, { flags: BOX.THIN });
+    this.solid(x, z, 0.3, 0.3, g - 0.3, g + h, { flags: BOX.THIN, kind: 3 });
   }
   trafficLight(x, z, yaw) {
     this.emit(x, z, (b, m) => {
@@ -491,7 +491,7 @@ export class City {
       boxRotated(b, m('plain'), [hx, 4.75, hz], [0.27, 0.12, 0.24], yaw, { color: [200, 40, 30, 255], shadeSides: false });
       boxRotated(b, m('plain'), [hx, 4.05, hz], [0.27, 0.12, 0.24], yaw, { color: [40, 200, 70, 255], shadeSides: false });
     });
-    this.solid(x, z, 0.15, 0.15, 0, 5.2, { flags: BOX.THIN });
+    this.solid(x, z, 0.15, 0.15, 0, 5.2, { flags: BOX.THIN, kind: 3 });
   }
   fence(ax, az, bx, bz, kind = 'wood', height = 1.1) {
     // a straight fence (wood, hedge, chain-link or a low wall); solid, but low enough to jump
@@ -611,6 +611,8 @@ export class City {
         const cz = edge === 'n' ? inner.z0 + 4 + d / 2 : inner.z1 - 4 - d / 2;
         if (D < 2 * (4 + d) + 2 && edge === 's' && D < 4 + d + 4) continue;
         this.house(cx, cz, w, d, facing, r);
+        const by = edge === 'n' ? cz + d / 2 + 4 : cz - d / 2 - 4; // the back yard
+        if (Math.abs(by - (inner.z0 + inner.z1) / 2) > 2.5 && by > inner.z0 + 2 && by < inner.z1 - 2) this.yard(cx + (r() - 0.5) * 4, by, r);
         // side fences between lots, and the driveway
         const fz0 = edge === 'n' ? inner.z0 + 0.5 : inner.z1 - 0.5 - depth;
         if (k > 0) this.fence(start + k * lotW, fz0 + 1.5, start + k * lotW, fz0 + depth, r() < 0.5 ? 'wood' : 'hedge', 1.1);
@@ -667,29 +669,59 @@ export class City {
 
   commercial(p, inner) {
     const r = this.r;
-    // shops round the edge, a car park in the middle
+    // shops on every side of the block, the middle a car park, a gas station or a mall
     this.tiles(inner.x0, inner.z0, inner.x1, inner.z1, PAD_Y + 0.005, 'asphalt', 4);
     const W = inner.x1 - inner.x0, D = inner.z1 - inner.z0;
-    const sd = Math.min(16, D / 3);
-    let x = inner.x0;
-    while (x < inner.x1 - 8) {
-      const w = Math.min(inner.x1 - x, 12 + r() * 10);
-      this.shop(x, inner.z0, x + w - 0.5, inner.z0 + sd, 2, r);
-      x += w;
-    }
-    x = inner.x0;
-    while (x < inner.x1 - 8) {
-      const w = Math.min(inner.x1 - x, 12 + r() * 10);
-      this.shop(x, inner.z1 - sd, x + w - 0.5, inner.z1, 0, r);
-      x += w;
-    }
-    // parking rows
-    for (let px = inner.x0 + 4; px < inner.x1 - 4; px += 3.2) for (const pz of [inner.z0 + sd + 4, inner.z1 - sd - 4]) {
-      if (r() < 0.25) this.spot(SPOT.PARK, px, pz, pz < (inner.z0 + inner.z1) / 2 ? Math.PI : 0);
+    const sd = Math.min(15, D / 3.5);
+    const row = (a, b, place) => { let t = a; while (t < b - 7) { const w = Math.min(b - t, 10 + r() * 9); if (b - t - w < 7) { place(t, b); break; } place(t, t + w - 0.5); t += w; } };
+    row(inner.x0, inner.x1, (a, b) => this.shop(a, inner.z0, b, inner.z0 + sd, 2, r));
+    row(inner.x0, inner.x1, (a, b) => this.shop(a, inner.z1 - sd, b, inner.z1, 0, r));
+    row(inner.z0 + sd + 1, inner.z1 - sd - 1, (a, b) => this.shop(inner.x0, a, inner.x0 + sd, b, 3, r));
+    row(inner.z0 + sd + 1, inner.z1 - sd - 1, (a, b) => this.shop(inner.x1 - sd, a, inner.x1, b, 1, r));
+    const mx = (inner.x0 + inner.x1) / 2, mz = (inner.z0 + inner.z1) / 2;
+    const kind = (p.bx * 3 + p.bz) % 4;
+    if (kind === 0) this.gasStation(mx, mz, r);
+    else if (kind === 1) this.shop(mx - 18, mz - 12, mx + 18, mz + 12, 0, r, { floors: 3, sign: 'MARKET' });
+    // parking rows in what is left
+    for (let px = inner.x0 + sd + 4; px < inner.x1 - sd - 4; px += 3.2) for (const pz of [inner.z0 + sd + 4, inner.z1 - sd - 4]) {
+      if (kind < 2 && Math.abs(px - mx) < 22) continue;
+      if (r() < 0.3) this.spot(SPOT.PARK, px, pz, pz < mz ? Math.PI : 0);
       this.tiles(px - 0.06, pz - 2.5, px + 0.06, pz + 2.5, PAD_Y + 0.012, 'stucco', 4, [240, 240, 240, 255]);
     }
-    this.spot(SPOT.PED, (inner.x0 + inner.x1) / 2, (inner.z0 + inner.z1) / 2);
+    this.spot(SPOT.PED, mx, mz + 14); this.spot(SPOT.PED, mx - 14, mz);
     void W;
+  }
+
+  gasStation(x, z, r) {
+    const g = PAD_Y;
+    this.emit(x, z, (b, m) => {
+      box(b, m('plain'), [x - 10, g + 4.6, z - 6], [x + 10, g + 5.2, z + 6], { color: [230, 230, 230, 255], colors: { bottom: [250, 250, 240, 255] } });
+      box(b, m('plain'), [x - 10.05, g + 4.6, z - 6.05], [x + 10.05, g + 4.9, z + 6.05], { color: [200, 40, 40, 255], faces: ['n', 's', 'e', 'w'], shadeSides: false });
+      for (const [dx, dz] of [[-8, -4], [8, -4], [-8, 4], [8, 4]]) box(b, m('plain'), [x + dx - 0.2, g, z + dz - 0.2], [x + dx + 0.2, g + 4.6, z + dz + 0.2], { color: [220, 220, 220, 255] });
+      for (const dx of [-4, 4]) for (const dz of [-1.5, 1.5]) {
+        box(b, m('plain'), [x + dx - 0.4, g, z + dz - 0.25], [x + dx + 0.4, g + 1.6, z + dz + 0.25], { color: [200, 50, 40, 255] });
+        box(b, m('plain'), [x + dx - 0.3, g + 1.0, z + dz + 0.26], [x + dx + 0.3, g + 1.4, z + dz + 0.27], { color: [40, 40, 40, 255], faces: ['s'] });
+      }
+    });
+    this.lod(x, z, (b, m) => box(b, m('plain'), [x - 10, g + 4.6, z - 6], [x + 10, g + 5.2, z + 6], { color: [220, 220, 220, 255] }));
+    for (const [dx, dz] of [[-8, -4], [8, -4], [-8, 4], [8, 4]]) this.solid(x + dx, z + dz, 0.25, 0.25, g, g + 4.6, { flags: BOX.THIN });
+    this.solid(x, z, 10, 6, g + 4.6, g + 5.2);
+    for (const dx of [-4, 4]) for (const dz of [-1.5, 1.5]) this.solid(x + dx, z + dz, 0.4, 0.25, g, g + 1.6, { kind: 2 }); // pumps (kind 2: they burn)
+    this.spot(SPOT.PARK, x - 4, z, 0); this.spot(SPOT.PARK, x + 4, z, Math.PI);
+  }
+
+  // backyards: pools, sheds, trees
+  yard(x, z, r) {
+    const k = r();
+    if (k < 0.22) {
+      const w = 3 + r() * 2, d = 5 + r() * 2;
+      this.tiles(x - w / 2 - 0.6, z - d / 2 - 0.6, x + w / 2 + 0.6, z + d / 2 + 0.6, PAD_Y + 0.012, 'concrete', 3);
+      this.emit(x, z, (b, m) => b.quad(m('plain'), [[x - w / 2, PAD_Y + 0.02, z - d / 2], [x - w / 2, PAD_Y + 0.02, z + d / 2], [x + w / 2, PAD_Y + 0.02, z + d / 2], [x + w / 2, PAD_Y + 0.02, z - d / 2]], { color: [60, 170, 220, 255] }));
+    } else if (k < 0.45) {
+      const c = PASTELS[Math.floor(r() * PASTELS.length)];
+      this.emit(x, z, (b, m) => { box(b, m('wood'), [x - 1.2, PAD_Y, z - 1], [x + 1.2, PAD_Y + 2.1, z + 1], { color: c, uvScale: 2, faces: ['n', 's', 'e', 'w'] }); box(b, m('plain'), [x - 1.4, PAD_Y + 2.1, z - 1.2], [x + 1.4, PAD_Y + 2.3, z + 1.2], { color: [110, 70, 50, 255] }); });
+      this.solid(x, z, 1.2, 1.0, PAD_Y, PAD_Y + 2.3);
+    } else if (k < 0.8) this.tree(x, z, r() * 9, 0.9 + r() * 0.3);
   }
 
   tower(x0, z0, x1, z1, h, r) {

@@ -9,6 +9,8 @@
 #include "stream.h"
 #include "camera.h"
 #include "population.h"
+#include "render.h"
+extern float g_hour;
 extern float g_perf[3], g_perfDraw[5];
 extern bool g_profile;
 static void perf_parts(void) {
@@ -206,10 +208,82 @@ static bool run_test(int n, int t) {
   return false;
 }
 
+// the tour: every district, a screenshot each
+typedef struct { const char *name; float x, z, yaw, hour; } Stop;
+static const Stop TOUR[] = {
+  {"home", -384, 14, PI, 16}, {"court", -384, 150, PI, 16}, {"commerce", -128, 40, PI * 0.8f, 15}, {"downtown", -64, -100, PI * 0.9f, 14},
+  {"park", 20, 280, PI, 16}, {"violet", 300, 40, PI * 0.75f, 16}, {"gold", 192, 420, PI, 17}, {"docks", 560, 250, PI / 2, 16},
+  {"hills", -420, -420, PI * 1.2f, 15}, {"beach", -12, 590, 0, 17.5f}, {"oak", -512, -230, PI, 16}, {"night", -64, -100, PI * 0.9f, 22.5f},
+  {"sunset", -64, 576, PI / 2, 18.6f},
+};
+static bool tour(int t) {
+  int i = t / 90, f = t % 90;
+  if (i >= (int)(sizeof(TOUR) / sizeof(TOUR[0]))) { debugf("TEST done: tour\n"); return true; }
+  if (f == 0) { place_player(TOUR[i].x, TOUR[i].z, TOUR[i].yaw); extern float g_hour; g_hour = TOUR[i].hour; }
+  if (f == 80) shot(TOUR[i].name);
+  return false;
+}
+
+// the model show: the hero up close in his poses, then the townspeople
+extern bool g_camLock; extern V3 g_camEye, g_camAt;
+typedef struct { const char *name; int state; int jumpType; float flip, roll, vx, angle; int combo; } Shot;
+static const Shot POSES[] = {
+  {"m_idle", ST_IDLE, 0, 0, 0, 0, 0.0f, 0}, {"m_idle_side", ST_IDLE, 0, 0, 0, 0, 1.3f, 0}, {"m_idle_back", ST_IDLE, 0, 0, 0, 0, 2.6f, 0},
+  {"m_run", ST_RUN, 0, 0, 0, 9, 0.7f, 0}, {"m_walk", ST_RUN, 0, 0, 0, 2, 0.7f, 0}, {"m_jump1", ST_JUMP, 1, 0, 0, 0, 0.5f, 0},
+  {"m_jump2", ST_JUMP, 2, 0, 0, 0, 0.5f, 0}, {"m_triple", ST_JUMP, 3, 1.6f, 0, 0, 1.4f, 0}, {"m_long", ST_LONGJUMP, 1, 0.5f, 0, 0, 1.4f, 0},
+  {"m_back", ST_BACKFLIP, 1, -2.2f, 0, 0, 1.4f, 0}, {"m_gp", ST_GPFALL, 1, 0, 0, 0, 0.6f, 0}, {"m_dive", ST_DIVE, 1, 1.45f, 0, 0, 1.3f, 0},
+  {"m_punch", ST_PUNCH, 0, 0, 0, 0, 0.8f, 0}, {"m_kick", ST_PUNCH, 0, 0, 0, 0, 1.2f, 2}, {"m_crouch", ST_CROUCH, 0, 0, 0, 0, 0.8f, 0},
+  {"m_skid", ST_SKID, 0, 0, 0, 0, 1.2f, 0}, {"m_wall", ST_WALLHIT, 0, 0, 0, 0, 0.6f, 0}, {"m_swim", ST_SWIM, 0, 0, 0, 0, 1.0f, 0},
+  {"m_dance", ST_DANCE, 0, 0, 0, 0, 0.3f, 0}, {"m_sleep", ST_IDLE, 0, 0, 0, 0, 0.7f, 99},
+};
+static V3 s_spot;
+static bool model_show(int t) {
+  Actor *p = P();
+  int n = (int)(sizeof(POSES) / sizeof(POSES[0]));
+  int i = t / 24, f = t % 24;
+  if (t == 0) { place_player(-384, 160, 0); s_spot = p->pos; g_hour = 13; }
+  if (i < n) {
+    const Shot *s = &POSES[i];
+    float ang = s->angle;
+    g_camLock = true;
+    g_camEye = (V3){s_spot.x + sinf(ang) * 3.4f, s_spot.y + 1.3f, s_spot.z + cosf(ang) * 3.4f};
+    g_camAt = (V3){s_spot.x, s_spot.y + 0.9f, s_spot.z};
+    p->pos = s_spot; p->yaw = 0; p->vel = (V3){0, 0, s->vx}; p->onGround = true;
+    p->state = s->state; p->jumpType = s->jumpType; p->flip = s->flip; p->roll = s->roll; p->combo = s->combo;
+    p->stateTime = s->state == ST_PUNCH ? 0.1f : s->state == ST_DANCE ? 1.6f : 0.3f;
+    if (s->state == ST_JUMP || s->state == ST_LONGJUMP || s->state == ST_BACKFLIP || s->state == ST_GPFALL || s->state == ST_DIVE || s->state == ST_WALLHIT) p->pos.y += 0.6f;
+    p->idleTime = s->combo == 99 ? 20 : 0;
+    p->speed = s->vx;
+    if (f == 20) shot(s->name);
+    return false;
+  }
+  // the townspeople in a row
+  int k = t - n * 24;
+  if (k == 0) {
+    for (int j = 0; j < 9; j++) {
+      int kind = j < 6 ? AK_CIVILIAN : AK_GANG;
+      int gang = j < 6 ? GANG_NONE : j == 6 ? GANG_PALM : j == 7 ? GANG_VIOLET : GANG_GOLD;
+      Actor *a = actor_spawn(kind, gang, (V3){s_spot.x - 4 + j * 1.0f, s_spot.y, s_spot.z + 3}, PI);
+      if (a) a->brain = 99; // (no brain: stands still)
+    }
+    p->pos = (V3){s_spot.x + 6, s_spot.y, s_spot.z};
+  }
+  g_camEye = (V3){s_spot.x, s_spot.y + 1.6f, s_spot.z + 8.5f};
+  g_camAt = (V3){s_spot.x, s_spot.y + 0.9f, s_spot.z + 3};
+  for (int j = 0; j < MAX_ACTORS; j++) { Actor *a = &g.actors[j]; if (a->used && a->brain == 99) { a->ctl = (Controls){0}; a->yaw = PI; a->state = ST_IDLE; } }
+  if (k == 30) shot("m_people");
+  if (k == 31) { g_camEye = (V3){s_spot.x - 2, s_spot.y + 1.3f, s_spot.z + 5.2f}; }
+  if (k == 50) shot("m_people_near");
+  if (k == 60) { debugf("TEST done: model\n"); g_camLock = false; return true; }
+  return false;
+}
+
 void testplay_input(Pad *p) { *p = s_pad; }
 
 void testplay_step(void) {
   if (s_test == 999 || !g.player) return;
+  if (!strcmp(TESTPLAY, "model")) { memset(&s_pad, 0, sizeof(s_pad)); if (model_show(s_t++)) s_test = 999; return; }
+  if (!strcmp(TESTPLAY, "tour")) { memset(&s_pad, 0, sizeof(s_pad)); if (tour(s_t++)) s_test = 999; return; }
   if (s_t == 0) debugf("TEST %d\n", s_test);
   if (run_test(s_test, s_t)) { s_test++; s_t = 0; } else s_t++;
   if (!actor_alive(g.player)) { g.player->health = 100; g.player->state = ST_IDLE; }

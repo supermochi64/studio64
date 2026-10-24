@@ -48,7 +48,7 @@ filesystem/map.sprite: assets/map.png
 
 filesystem/%.sprite: assets/%.png
 	@mkdir -p $(dir $@)
-	@$(N64_MKSPRITE) -c 1 -o $(dir $@) "$<"
+	@$(N64_MKSPRITE) -f RGBA16 -c 1 -o $(dir $@) "$<"
 
 filesystem/%.font64: assets/fonts/%.fnt
 	@mkdir -p filesystem

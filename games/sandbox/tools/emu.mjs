@@ -48,7 +48,7 @@ const onData = (d) => {
 ares.stdout.on('data', onData);
 ares.stderr.on('data', onData);
 
-function shot(name) {
+function shot(name, tries = 4) {
   const file = path.join(out, name);
   try {
     const id = execFileSync('xdotool', ['search', '--name', '^ares', ], { env }).toString().trim().split('\n').pop();
@@ -56,7 +56,11 @@ function shot(name) {
     execFileSync('import', ['-display', DISP, '-window', 'root', file], { env });
     // the game area: below the menu bar, above the status bar (the window's 4:3 picture)
     execFileSync('convert', [file, '-crop', `750x576+${Number(g.X) + 108}+${Number(g.Y) + 71}`, '+repage', file]);
-  } catch (e) { console.error('screenshot failed', e.message); }
+  } catch (e) {
+    // X sometimes refuses a capture mid-frame: try again a moment later
+    if (tries > 1) { setTimeout(() => shot(name, tries - 1), 120); return file; }
+    console.error('screenshot failed', e.message.split('\n')[0]);
+  }
   return file;
 }
 

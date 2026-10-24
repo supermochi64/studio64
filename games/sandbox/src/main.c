@@ -18,6 +18,8 @@
 #include "hud.h"
 #include "save.h"
 #include "testplay.h"
+#include "mission.h"
+#include "shop.h"
 #include <stdarg.h>
 
 Game g;
@@ -112,7 +114,10 @@ static void people_separate(void) {
 static void game_step(const Pad *pad) {
   g.time += DT; g.frame++;
   g_hour = fmodf(g_hour + DT * (24.0f / (24 * 60)), 24.0f); // a day lasts 24 minutes
-  player_step(pad);
+  bool inShop = shop_step(pad);
+  Pad pp = *pad;
+  if (inShop) { pp.pdl = pp.pdr = pp.pcu = false; }
+  player_step(&pp);
   for (int i = 0; i < MAX_ACTORS; i++) if (g.actors[i].used && &g.actors[i] != g.player) ai_think(&g.actors[i]);
   for (int i = 0; i < MAX_ACTORS; i++) if (g.actors[i].used) actor_step(&g.actors[i]);
   for (int i = 0; i < MAX_VEHICLES; i++) if (g.vehicles[i].used) vehicle_step(&g.vehicles[i]);
@@ -125,6 +130,7 @@ static void game_step(const Pad *pad) {
   pickup_step();
   population_step();
   gang_step();
+  mission_step();
   Actor *p = g.player;
   // knocked out or arrested: a moment, then back at the clinic / the police station
   if (p && !actor_alive(p) && g.deadTimer <= 0) { g.deadTimer = 4; g.deadKind = 1; game_big("KNOCKED OUT"); sound_play_ui(SND_WASTED); }
@@ -158,6 +164,8 @@ static void draw_world(void) {
   if (g_profile) rspq_wait();
   uint32_t t3 = get_ticks_us();
   pickup_draw();
+  mission_draw();
+  shop_draw();
   weapon_projectiles_draw();
   fx_draw();
   if (g_profile) rspq_wait();
@@ -180,7 +188,7 @@ int main(void) {
   sound_init();
   world_load();
   stream_init();
-  g_models.human = load("human"); render_tag_tints(g_models.human);
+  g_models.hero = load("hero"); g_models.person = load("person"); g_models.personFar = load("person_lod");
   g_models.shadow = load("shadow"); g_models.fxCube = load("fx_cube"); g_models.fxFlash = load("fx_flash");
   g_models.fxTracer = load("fx_tracer"); g_models.marker = load("marker");
   g_models.pickHealth = load("p_health"); g_models.pickArmor = load("p_armor"); g_models.pickCash = load("p_cash");
@@ -192,6 +200,8 @@ int main(void) {
   ai_init();
   population_init();
   pickup_init();
+  mission_init();
+  shop_init();
   debugf("Sandbox: %d boxes, %d street edges, %d sidewalk nodes, %d spots\n", g_world.nbox, g_world.nsedge, g_world.nwnode, g_world.nspot);
 
   enum { S_TITLE, S_PLAY, S_PAUSE } state = S_TITLE;

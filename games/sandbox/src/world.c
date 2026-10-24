@@ -359,3 +359,16 @@ int world_nearest_street(float x, float z) {
   for (int i = 0; i < g_world.nsnode; i++) { float d = sqrf(g_world.snodes[i].x - x) + sqrf(g_world.snodes[i].z - z); if (d < bd) { bd = d; best = i; } }
   return best;
 }
+
+bool world_find_pole(float x, float z, float y, float r, float *cx, float *cz, float *bottom, float *top) {
+  int n = gather(x, z, r + 0.5f);
+  float best = r;
+  bool found = false;
+  for (int i = 0; i < n; i++) {
+    const Box *b = s_q[i];
+    if (b->kind != 3 || y < b->y0 || y > b->y1) continue;
+    float d = sqrtf(sqrf(b->cx - x) + sqrf(b->cz - z));
+    if (d < best) { best = d; *cx = b->cx; *cz = b->cz; *bottom = b->y0; *top = b->y1; found = true; }
+  }
+  return found;
+}

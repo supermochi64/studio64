@@ -21,6 +21,7 @@ enum {
   ST_IDLE, ST_RUN, ST_SKID, ST_CROUCH, ST_CROUCHSLIDE, ST_PUNCH, ST_LAND, ST_GPLAND, ST_BELLYSLIDE,
   ST_JUMP, ST_LONGJUMP, ST_BACKFLIP, ST_SIDEFLIP, ST_FALL, ST_WALLHIT, ST_WALLKICK, ST_GPSPIN, ST_GPFALL,
   ST_DIVE, ST_AIRKICK, ST_KNOCKED, ST_DOWN, ST_GETUP, ST_DEAD, ST_SWIM, ST_VEHICLE, ST_ENTER, ST_EXIT,
+  ST_LEDGE, ST_LEDGECLIMB, ST_POLE, ST_SLIDEKICK, ST_SWEEP, ST_CRAWL, ST_BUTTSLIDE, ST_HARDLAND, ST_DANCE, ST_HURT,
   ST_COUNT
 };
 #define ST_IS_AIR(s) ((s) >= ST_JUMP && (s) <= ST_KNOCKED)
@@ -37,10 +38,14 @@ typedef struct {
 } Controls;
 
 typedef struct {
-  color_t skin, shirt, pants, shoes, hair, hat;
-  bool hasHat;
-  float height;         // scale, ~0.93..1.07
+  color_t skin, shirt, shirt2, pants, shoes, hair, hat;
+  bool hasHat, beard, glasses;
+  uint8_t hairStyle;    // 0 short, 1 afro, 2 long, 3 bald
+  float height, width;  // scale
+  float voice;          // pitch of their voice
 } Look;
+#define NBONES 15
+typedef struct { float x[NBONES], y[NBONES], z[NBONES]; float hipY; } Pose;
 
 struct Actor {
   bool used;
@@ -79,6 +84,13 @@ struct Actor {
   Controls ctl;
   // drawing
   T3DSkeleton skel;
+  bool hero;            // the player's own model
+  Pose pose;            // the pose shown (blends toward the state's pose)
+  surface_t palette;    // the person's colours (an 8x4 texture)
+  float squash;         // landing squash / jump stretch (1 = none)
+  float idleTime, pushTime, poleAngle, poleTop, ledgeY;
+  V3 polePos, ledgeAt;
+  float sayTimer;
   float despawnTimer;
   int id;
 };
@@ -136,7 +148,7 @@ extern Game g;
 
 // models shared by the modules (main.c loads them)
 typedef struct {
-  T3DModel *human, *shadow, *fxCube, *fxFlash, *fxTracer, *marker;
+  T3DModel *hero, *person, *personFar, *shadow, *fxCube, *fxFlash, *fxTracer, *marker;
   T3DModel *weapon[W_COUNT];
   T3DModel *pickHealth, *pickArmor, *pickCash;
   T3DModel *vehicle[16];

@@ -29,7 +29,7 @@ const tileAxis = (size) => ({ mask: Math.round(Math.log2(size)), shift: 0, low: 
  * opts.prim      true: multiply by the primitive colour (set at draw time: tints, flashes)
  */
 function f3dExtras(opts) {
-  const tex = !!opts.tex;
+  const tex = !!opts.tex || !!opts.texRef; // texRef: a texture the game sets at draw time (palettes)
   const [w, h] = opts.texSize || [32, 32];
   const color = tex
     ? { A: CC.TEX0, B: CC.ZERO, C: CC.SHADE, D: CCD.ZERO }
@@ -45,7 +45,8 @@ function f3dExtras(opts) {
       name: '', presetName: 'Custom',
       combiner1: { name: '', ...color, ...alpha },
       combiner2,
-      tex0: tex ? { tex_set: 1, name: '', tex: { name: opts.tex, type: 'Image' }, menu: 1, S: tileAxis(w), T: tileAxis(h), tex_format: 5, autoprop: 0 }
+      tex0: opts.texRef ? { tex_set: 1, name: '', use_tex_reference: 1, tex_reference: '0x08000000', tex_reference_size: [w, h], tex: null, menu: 1, S: tileAxis(w), T: tileAxis(h), tex_format: 5, autoprop: 0 }
+        : tex ? { tex_set: 1, name: '', tex: { name: opts.tex, type: 'Image' }, menu: 1, S: tileAxis(w), T: tileAxis(h), tex_format: 5, autoprop: 0 }
         : { tex_set: 0, name: '', tex: null, menu: 1, S: {}, T: {}, autoprop: 0, tex_format: 5 },
       tex1: { tex_set: 0, name: '', tex: null, menu: 1, S: {}, T: {}, autoprop: 0, tex_format: 7 },
       set_prim: 0, set_env: 0, set_blend: 0,
@@ -262,4 +263,56 @@ export function cylinder(b, mat, cx, cz, y0, y1, r, n, opts = {}) {
     b.quad(mat, [p0, p1, q1, q0], { color: col.map((v, k) => (k < 3 ? Math.round(v * f) : v)), uv: [[i / n, 1], [(i + 1) / n, 1], [(i + 1) / n, 0], [i / n, 0]], joint: opts.joint || 0 });
     if (opts.cap !== false) b.triangle(mat, [q0, q1, [cx, y1, cz]], { color: col, joint: opts.joint || 0 });
   }
+}
+
+// ---- smooth shapes (vertex normals: lit round, not faceted) ----
+
+/**
+ * An ellipsoid. opts: color (or colorFn(normal) for baked light), uv (one texel for all), joint,
+ * from/to (latitude range 0..1 from the bottom), segs, rings, rot (yaw around y), flatten (cut at y).
+ */
+export function ellipsoid(b, mat, c, r, opts = {}) {
+  const segs = opts.segs || 8, rings = opts.rings || 6;
+  const lat0 = opts.from ?? 0, lat1 = opts.to ?? 1;
+  const yaw = opts.rot || 0, cy = Math.cos(yaw), sy = Math.sin(yaw);
+  const pt = (i, j) => {
+    const v = lat0 + (lat1 - lat0) * (j / rings);
+    const phi = -Math.PI / 2 + v * Math.PI, th = (i / segs) * Math.PI * 2;
+    const nx0 = Math.cos(phi) * Math.sin(th), ny = Math.sin(phi), nz0 = Math.cos(phi) * Math.cos(th);
+    const nx = nx0 * cy + nz0 * sy, nz = -nx0 * sy + nz0 * cy;
+    const px = nx0 * r[0], pz = nz0 * r[2];
+    const p = [c[0] + px * cy + pz * sy, c[1] + ny * r[1], c[2] - px * sy + pz * cy];
+    // the normal of an ellipsoid: n / r^2, normalised
+    let n = [nx / r[0], ny / r[1], nz / r[2]]; const l = Math.hypot(...n) || 1; n = n.map((q) => q / l);
+    return { p, n };
+  };
+  const col = (n) => (opts.colorFn ? opts.colorFn(n) : opts.color || [255, 255, 255, 255]);
+  const uv = opts.uv || [0.5, 0.5];
+  const idx = [];
+  for (let j = 0; j <= rings; j++) { idx.push([]); for (let i = 0; i <= segs; i++) { const q = pt(i, j); idx[j].push(b.vert(mat, q.p, q.n, col(q.n), uv, opts.joint || 0)); } }
+  for (let j = 0; j < rings; j++) for (let i = 0; i < segs; i++) {
+    const a = idx[j][i], bb = idx[j][i + 1], cc = idx[j + 1][i + 1], d = idx[j + 1][i];
+    if (j > 0 || lat0 > 0) b.tri(mat, a, bb, cc); // (the poles: one triangle per segment)
+    if (j < rings - 1 || lat1 < 1) b.tri(mat, a, cc, d);
+  }
+}
+
+/** A tube between two points (radii r0 at a, r1 at b), smooth, optional end caps (half spheres). */
+export function tube(b, mat, a, bp, r0, r1, opts = {}) {
+  const segs = opts.segs || 8;
+  const d = [bp[0] - a[0], bp[1] - a[1], bp[2] - a[2]];
+  const len = Math.hypot(...d) || 1;
+  const ax = d.map((q) => q / len);
+  // two directions across the tube
+  let u = Math.abs(ax[1]) < 0.9 ? [0, 1, 0] : [1, 0, 0];
+  const cross = (p, q) => [p[1] * q[2] - p[2] * q[1], p[2] * q[0] - p[0] * q[2], p[0] * q[1] - p[1] * q[0]];
+  let v = cross(ax, u); const lv = Math.hypot(...v); v = v.map((q) => q / lv);
+  u = cross(v, ax);
+  const col = (n) => (opts.colorFn ? opts.colorFn(n) : opts.color || [255, 255, 255, 255]);
+  const uv = opts.uv || [0.5, 0.5];
+  const ring = (c, r) => { const out = []; for (let i = 0; i <= segs; i++) { const t = (i / segs) * Math.PI * 2; const n = [u[0] * Math.cos(t) + v[0] * Math.sin(t), u[1] * Math.cos(t) + v[1] * Math.sin(t), u[2] * Math.cos(t) + v[2] * Math.sin(t)]; out.push(b.vert(mat, [c[0] + n[0] * r, c[1] + n[1] * r, c[2] + n[2] * r], n, col(n), uv, opts.joint || 0)); } return out; };
+  const A = ring(a, r0), B = ring(bp, r1);
+  for (let i = 0; i < segs; i++) { b.tri(mat, A[i], B[i + 1], B[i]); b.tri(mat, A[i], A[i + 1], B[i + 1]); }
+  if (opts.capA) ellipsoid(b, mat, a, [r0, r0, r0], { ...opts, segs, rings: 3, from: 0, to: 0.5 });
+  if (opts.capB) ellipsoid(b, mat, bp, [r1, r1, r1], { ...opts, segs, rings: 3, from: 0.5, to: 1 });
 }

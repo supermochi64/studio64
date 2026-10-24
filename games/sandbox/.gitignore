@@ -3,3 +3,4 @@ filesystem/
 build/
 *.z64
 shots/
+*.eeprom

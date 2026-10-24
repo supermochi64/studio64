@@ -142,6 +142,13 @@ for (const word of SIGNS) {
   });
 }
 
+// the people's default palette (the game puts each person's own colours in its place)
+def('palette', 8, 4, (c) => {
+  c.rect(0, 0, 8, 4, [0, 0, 0, 0]);
+  const cols = ['#70462a', '#653f26', '#f6f6f0', '#2ea040', '#3a5a96', '#fafafa', '#bbbbbb', '#0e0e10', '#2ea040', '#258033', '#fafafa', '#221814', '#6e2824', '#2ea040', '#241e1c', '#0e0e10'];
+  cols.forEach((h, i) => c.setRaw(i % 8, Math.floor(i / 8), hex(h)));
+});
+
 // the HUD's font: ASCII 32..127 in 8x8 cells, 16 a row (white, tinted by the game)
 def('font', 128, 48, (c) => {
   c.rect(0, 0, 128, 48, [0, 0, 0, 0]);

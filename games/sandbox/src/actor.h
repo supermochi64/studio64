@@ -16,6 +16,7 @@ static inline V3 actor_chest(const Actor *a) { return v3_add(a->pos, (V3){0, 1.2
 static inline V3 actor_head(const Actor *a) { return v3_add(a->pos, (V3){0, 1.68f * a->look.height, 0}); }
 bool actor_can_act(const Actor *a);  // standing or running (can shoot, enter a car, talk)
 Look look_for(int kind, int gang);
+void actor_dance(Actor *a);   // the victory dance (a mission passed)
 int actor_index(const Actor *a);
 // called when someone dies or is hit (ai.c, game logic)
 extern void (*g_on_actor_damaged)(Actor *a, Actor *by, float dmg, bool died);
