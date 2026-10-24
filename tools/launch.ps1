@@ -12,12 +12,26 @@ try { [Net.ServicePointManager]::SecurityProtocol = [Net.ServicePointManager]::S
 $Root = Split-Path -Parent (Split-Path -Parent $MyInvocation.MyCommand.Path)
 Set-Location -LiteralPath $Root
 
+# What the launcher did, line by line in .setup\launcher.log (with .NET: Get-Date and Add-Content come
+# from a module that is not always loadable; the console's output can be held back when it goes to a file)
+$LogFile = Join-Path $Root '.setup\launcher.log'
+try {
+  New-Item -ItemType Directory -Force -Path (Split-Path -Parent $LogFile) | Out-Null
+  [System.IO.File]::WriteAllText($LogFile, '')
+} catch { $LogFile = $null }
+function Log([string]$Text) {
+  if (-not $LogFile) { return }
+  try { [System.IO.File]::AppendAllText($LogFile, [DateTime]::Now.ToString('HH:mm:ss') + ' ' + $Text + "`r`n") } catch { }
+}
+Log "launcher: Windows PowerShell $($PSVersionTable.PSVersion), $env:PROCESSOR_ARCHITECTURE, in $Root"
+
 $NodeVersion = '24.21.0'
 $Runtime = Join-Path $Root '.runtime'
 $NodeDir = Join-Path $Runtime 'node'
 
-function Say([string]$Text) { Write-Host "  $Text" }
+function Say([string]$Text) { Write-Host "  $Text"; Log $Text }
 function Stop-Launcher([string]$Text, [string]$Fix) {
+  Log "stopped: $Text $Fix"
   Write-Host ''
   Write-Host "  $Text" -ForegroundColor Red
   if ($Fix) { Write-Host "  $Fix" }
@@ -75,6 +89,7 @@ if ($Mode -ne 'private') {
 }
 $Private = Join-Path $NodeDir 'node.exe'
 if (-not $Node -and $Mode -ne 'system' -and (Test-Node $Private)) { $Node = $Private }
+Log "Node.js: mode $Mode, found: $Node"
 
 if (-not $Node) {
   if ($Mode -eq 'system') { Stop-Launcher 'Node.js 18 or newer was not found (STUDIO_NODE=system).' 'Install it from https://nodejs.org' }
@@ -99,8 +114,10 @@ if (-not $Node) {
     }
     if (-not $ok) { Stop-Launcher 'Downloading Node.js failed.' 'Check your internet connection, then start Studio 64 again.' }
     Move-Item -LiteralPath $Part -Destination $Zip -Force
+    Log 'downloaded'
   }
   $Got = Get-Sha256 $Zip
+  Log "checksum $Got"
   if ($Got -ne $Sum.ToUpper()) {
     Remove-Item -LiteralPath $Zip -Force -ErrorAction SilentlyContinue
     Stop-Launcher 'The Node.js download was damaged (its checksum does not match).' 'Start Studio 64 again to download it once more.'
@@ -119,6 +136,7 @@ if (-not $Node) {
     # (.NET, not Expand-Archive: that one comes from a module too, like Get-FileHash)
     try { Add-Type -AssemblyName System.IO.Compression.FileSystem; [System.IO.Compression.ZipFile]::ExtractToDirectory($Zip, $Tmp); $unpacked = $true } catch { $unpacked = $false }
   }
+  Log "unpacked: $unpacked"
   if (-not $unpacked) { Stop-Launcher 'Unpacking Node.js failed.' 'Check that there is free disk space, then start Studio 64 again.' }
   Move-Item -LiteralPath (Join-Path $Tmp $Name) -Destination $NodeDir
   Remove-Item -LiteralPath $Tmp -Recurse -Force -ErrorAction SilentlyContinue
@@ -132,17 +150,20 @@ if (-not $Node) {
 # not ask about it every time (this only touches the Studio 64 folder)
 $Unblocked = Join-Path $Runtime 'unblocked'
 if (-not (Test-Path -LiteralPath $Unblocked)) {
+  Log 'unblocking the folder'
   try {
     Get-ChildItem -LiteralPath $Root -Recurse -File -ErrorAction SilentlyContinue | Unblock-File -ErrorAction SilentlyContinue
     New-Item -ItemType Directory -Force -Path $Runtime | Out-Null
     Set-Content -LiteralPath $Unblocked -Value 'Studio 64: the files of this folder were unblocked once' -ErrorAction SilentlyContinue
-  } catch { }
+  } catch { Log "unblocking: $($_.Exception.Message)" }
+  Log 'unblocked'
 }
 
 $env:STUDIO_LAUNCHER = '1'
 Say 'Starting Studio 64...'
 & $Node (Join-Path $Root 'tools\start.mjs') @args
 $rc = $LASTEXITCODE
+Log "start.mjs ended: code $rc"
 if ($rc -and $rc -ne 0 -and $rc -ne 130 -and $rc -ne -1073741510) {   # (-1073741510: the window was closed / Ctrl+C)
   Stop-Launcher "Studio 64 stopped with an error (code $rc)." 'The messages above say what went wrong. Start Studio 64 again to retry.'
 }
