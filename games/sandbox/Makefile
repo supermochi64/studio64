@@ -27,7 +27,9 @@ GLB = $(wildcard assets/*.glb assets/city/*.glb)
 PNG = $(wildcard assets/*.png)
 FS_MODELS = $(patsubst assets/%.glb,filesystem/%.t3dm,$(GLB))
 FS_SPRITES = $(patsubst assets/%.png,filesystem/%.sprite,$(PNG))
-FS_DATA = filesystem/world.bin filesystem/font1.font64 filesystem/font2.font64 filesystem/font3.font64
+MUS = $(wildcard assets/audio/mus_*.wav)
+FS_MUSIC = $(patsubst assets/audio/%.wav,filesystem/%.wav64,$(MUS))
+FS_DATA = filesystem/voices.bin filesystem/world.bin filesystem/font1.font64 filesystem/font2.font64 filesystem/font3.font64
 
 all: assets/.stamp
 	@$(MAKE) --no-print-directory $(ROM)
@@ -59,7 +61,17 @@ filesystem/world.bin: assets/world.bin
 	@cp $< $@
 	@$(N64_BINDIR)/mkasset -c 2 -o filesystem $@
 
-$(BUILD_DIR)/$(NAME).dfs: $(FS_MODELS) $(FS_SPRITES) $(FS_DATA)
+# music: VADPCM streams (the jingle plays once, the rest loop)
+filesystem/%.wav64: assets/audio/%.wav
+	@mkdir -p filesystem
+	@echo "    [AUDIO] $@"
+	@$(N64_AUDIOCONV) --wav-compress 1 --wav-loop $(if $(findstring passed,$*),false,true) -o filesystem "$<" > /dev/null
+
+filesystem/voices.bin: assets/voices.bin
+	@mkdir -p filesystem
+	@cp $< $@
+
+$(BUILD_DIR)/$(NAME).dfs: $(FS_MODELS) $(FS_SPRITES) $(FS_DATA) $(FS_MUSIC)
 $(BUILD_DIR)/$(NAME).elf: $(SRC:%.c=$(BUILD_DIR)/%.o)
 
 $(ROM): N64_ROM_TITLE = "SANDBOX"

@@ -148,6 +148,11 @@ static void game_step(const Pad *pad) {
     bool siren = false; V3 sp = {0};
     for (int i = 0; i < MAX_VEHICLES; i++) { Vehicle *v = &g.vehicles[i]; if (v->used && v->siren && v->seat[0] && v3_dist(v->pos, p->pos) < 80) { siren = true; sp = v->pos; } }
     sound_siren(siren, sp);
+    // the music: a war or a big chase, else the beach, else the city by day or by night
+    int blk = world_block(p->pos.x, p->pos.z);
+    bool beach = blk >= 0 && g_world.dmap[blk] == 'B';
+    bool night = g_hour < 6.0f || g_hour >= 20.0f;
+    sound_music(g.war || g.wanted >= 3 ? MUS_WAR : beach && !night ? MUS_BEACH : night ? MUS_NIGHT : MUS_DAY);
   }
 }
 
@@ -225,6 +230,7 @@ int main(void) {
 #endif
     acc = minf(acc + real, DT * 2);
     if (state == S_TITLE) {
+      sound_music(MUS_TITLE);
       input_update(&pad);
       titleT += real;
       float a = titleT * 0.08f;

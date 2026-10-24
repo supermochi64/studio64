@@ -1,5 +1,6 @@
-// Sound: every effect is synthesised at start-up (no sound files), played on the mixer with distance
-// and side from the camera. The car radio plays a beat made the same way.
+// Sound: the effects are synthesised at start-up; the music (wav64 streams) and the voices (one bank of
+// clips) are synthesised offline by tools/audio.mjs. Everything plays on the mixer with distance and
+// side from the camera.
 #pragma once
 #include "common.h"
 
@@ -16,10 +17,14 @@ enum {
   VO_HEREWEGO, VO_LETSGO, VO_SNORE, VO_SCREAM, VO_HEY, VO_YO, VO_FREEZE, VO_COMEON, VO_HMM, VO_WOOHOO,
   VO_COUNT
 };
-// music (tools/audio.mjs): the city by day and by night, a gang war, the title, the car radio
-enum { MUS_NONE = -1, MUS_DAY, MUS_NIGHT, MUS_WAR, MUS_TITLE, MUS_RADIO, MUS_PASSED, MUS_COUNT };
+// music (tools/audio.mjs): the city by day and by night, a gang war, the title, the car radio, the
+// mission-passed jingle, the beach
+enum { MUS_NONE = -1, MUS_DAY, MUS_NIGHT, MUS_WAR, MUS_TITLE, MUS_RADIO, MUS_PASSED, MUS_BEACH, MUS_COUNT };
+extern float g_musicVolume;
 void sound_voice(int vo, V3 at, float pitch);
-void sound_music(int track);     // crossfades; MUS_PASSED plays once, then the previous comes back
+void sound_music(int track);
+int sound_music_now(void);       // the track playing (MUS_NONE if none)
+extern int g_voicesPlayed;     // crossfades; MUS_PASSED plays once, then the previous comes back
 
 void sound_init(void);
 void sound_update(void);                 // once a frame (fills the audio buffers)

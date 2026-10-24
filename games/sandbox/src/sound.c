@@ -2,15 +2,16 @@
 #include "render.h"
 
 #define RATE 22050
-#define CH_RADIO 0
-#define CH_ENGINE 1
-#define CH_SIREN 2
-#define CH_FIRST_SFX 3
-#define CH_COUNT 14
+#define CH_MUSIC 0      // two stereo slots (0-1, 2-3) that crossfade
+#define CH_ENGINE 4
+#define CH_SIREN 5
+#define CH_FIRST_VOICE 6
+#define CH_FIRST_SFX 10
+#define CH_COUNT 24
 
 typedef struct { int16_t *data; int len; bool loop; waveform_t wave; } Sample;
-static Sample s_snd[SND_COUNT], s_engine, s_siren, s_radio;
-static int s_next = CH_FIRST_SFX;
+static Sample s_snd[SND_COUNT], s_engine, s_siren, s_voice[VO_COUNT];
+static int s_next = CH_FIRST_SFX, s_nextVoice = CH_FIRST_VOICE;
 static bool s_ok;
 
 static void wv_read(void *ctx, samplebuffer_t *sbuf, int wpos, int wlen, bool seeking) {
@@ -18,6 +19,16 @@ static void wv_read(void *ctx, samplebuffer_t *sbuf, int wpos, int wlen, bool se
   int16_t *dst = samplebuffer_append(sbuf, wlen);
   for (int i = 0; i < wlen; i++) { int p = wpos + i; dst[i] = s->loop ? s->data[p % s->len] : (p < s->len ? s->data[p] : 0); }
 }
+
+// ---- music: the wanted track fades in on one slot while the last one fades out on the other ----
+static wav64_t s_mus[MUS_COUNT];
+static int s_slot[2] = {MUS_NONE, MUS_NONE};
+static float s_slotVol[2];
+static int s_cur;
+static int s_base = MUS_NONE;
+static bool s_radioOn;
+static float s_passedTime;
+float g_musicVolume = 0.5f;
 
 static uint32_t s_seed = 1234567;
 static float noise(void) { s_seed = s_seed * 1103515245u + 12345u; return ((int)(s_seed >> 9) & 0xffff) / 32768.0f - 1.0f; }
@@ -65,36 +76,6 @@ static void make_noise(Sample *s, float len, float cut, float decay, float attac
   }
 }
 
-static void make_radio(Sample *s) {
-  // two bars at 92 bpm: kick, snare, hats and a bass line (our own little beat)
-  float beat = 60.0f / 92.0f, bars = 2;
-  alloc(s, beat * 4 * bars, true);
-  const float bass[8] = {41.2f, 41.2f, 49.0f, 41.2f, 55.0f, 49.0f, 36.7f, 41.2f};
-  float lp = 0;
-  for (int i = 0; i < s->len; i++) {
-    float t = (float)i / RATE;
-    float b = t / beat;                          // beats
-    float bt = fmodf(b, 1.0f) * beat;            // time in the beat
-    int bi = (int)b;
-    float v = 0;
-    // kick on 1 and 3 (and the "and" of 3), snare on 2 and 4
-    float kt = fmodf(b, 2.0f) * beat;
-    if (bi % 2 == 0 || (fmodf(b, 4.0f) > 2.5f && fmodf(b, 4.0f) < 3.0f)) v += sinf(TAU * (50 + 120 * expf(-bt * 30)) * bt) * expf(-bt * 9) * 0.9f;
-    (void)kt;
-    if (bi % 2 == 1) { lp += (noise() - lp) * 0.5f; v += lp * expf(-bt * 14) * 0.7f; }
-    // hats every eighth
-    float et = fmodf(b * 2, 1.0f) * beat / 2;
-    v += noise() * expf(-et * 60) * 0.18f;
-    // bass: an eighth-note line
-    int ei = ((int)(b * 2)) % 8;
-    float f = bass[ei];
-    v += (fmodf(t * f, 1.0f) < 0.5f ? 0.35f : -0.35f) * expf(-et * 3) * 0.6f;
-    // a chord stab on the offbeat of 4
-    if (fmodf(b, 4.0f) > 3.5f) { float st = (fmodf(b, 4.0f) - 3.5f) * beat; v += (sinf(TAU * 220 * t) + sinf(TAU * 277 * t) + sinf(TAU * 330 * t)) * 0.12f * expf(-st * 6); }
-    put(s, i, v * 0.7f);
-  }
-}
-
 void sound_init(void) {
   audio_init(RATE, 4);
   mixer_init(CH_COUNT);
@@ -131,11 +112,64 @@ void sound_init(void) {
   // the siren: a slow wail
   alloc(&s_siren, 2.0f, true);
   { float ph = 0; for (int i = 0; i < s_siren.len; i++) { float t = (float)i / RATE; float f = 700 + 400 * sinf(t * PI); ph += f / RATE; put(&s_siren, i, (fmodf(ph, 1) < 0.5f ? 0.25f : -0.25f)); } }
-  make_radio(&s_radio);
+  // the voices: one bank of 16-bit clips made by tools/audio.mjs
+  {
+    int size = 0;
+    uint8_t *bank = asset_load("rom:/voices.bin", &size);
+    int n = (bank[4] << 24) | (bank[5] << 16) | (bank[6] << 8) | bank[7];
+    int16_t *pcm = (int16_t *)(bank + 8 + n * 8);
+    for (int i = 0; i < n && i < VO_COUNT; i++) {
+      uint32_t *e = (uint32_t *)(bank + 8 + i * 8);
+      Sample *v = &s_voice[i];
+      v->data = pcm + e[0]; v->len = e[1]; v->loop = false;
+      v->wave = (waveform_t){.name = "vo", .bits = 16, .channels = 1, .frequency = RATE, .len = v->len, .loop_len = 0, .read = wv_read, .ctx = v};
+    }
+  }
+  static const char *MUS_FILES[MUS_COUNT] = {"day", "night", "war", "title", "radio", "passed", "beach"};
+  for (int i = 0; i < MUS_COUNT; i++) {
+    char fn[48]; snprintf(fn, sizeof fn, "rom:/mus_%s.wav64", MUS_FILES[i]);
+    wav64_open(&s_mus[i], fn);
+  }
   s_ok = true;
 }
 
-void sound_update(void) { if (s_ok) mixer_try_play(); }
+static int music_wanted(void) {
+  if (s_passedTime > 0) return MUS_PASSED;
+  if (s_radioOn) return MUS_RADIO;
+  return s_base;
+}
+
+void sound_update(void) {
+  if (!s_ok) return;
+  const float dt = 1.0f / 30;
+  if (s_passedTime > 0) s_passedTime -= dt;
+  int want = music_wanted();
+  if (want != s_slot[s_cur]) {
+    int other = s_cur ^ 1;
+    if (s_slot[other] != want) {
+      if (s_slot[other] != MUS_NONE) mixer_ch_stop(CH_MUSIC + other * 2);
+      s_slot[other] = want; s_slotVol[other] = 0;
+      if (want != MUS_NONE) wav64_play(&s_mus[want], CH_MUSIC + other * 2);
+    }
+    s_cur = other;
+  }
+  for (int k = 0; k < 2; k++) {
+    if (s_slot[k] == MUS_NONE) continue;
+    bool on = k == s_cur;
+    // the jingle cuts in quickly; everything else crossfades over about a second
+    float rate = (s_slot[s_cur] == MUS_PASSED || s_slot[k] == MUS_PASSED) ? 6.0f : 1.2f;
+    s_slotVol[k] = on ? minf(1, s_slotVol[k] + dt * rate) : maxf(0, s_slotVol[k] - dt * rate);
+    int ch = CH_MUSIC + k * 2;
+    if ((!on && s_slotVol[k] <= 0) || !mixer_ch_playing(ch)) {
+      if (mixer_ch_playing(ch)) mixer_ch_stop(ch);
+      if (!on) { s_slot[k] = MUS_NONE; continue; }
+      if (s_slot[k] == MUS_PASSED) { s_passedTime = 0; continue; }  // the jingle ended
+    }
+    float v = s_slotVol[k] * g_musicVolume * (s_slot[k] == MUS_PASSED ? 1.4f : 1.0f);
+    mixer_ch_set_vol(ch, v, v);
+  }
+  mixer_try_play();
+}
 
 static void place(int ch, V3 at, float vol) {
   V3 d = v3_sub(at, g_view.eye);
@@ -176,12 +210,21 @@ void sound_siren(bool on, V3 at) {
   if (!mixer_ch_playing(CH_SIREN)) mixer_ch_play(CH_SIREN, &s_siren.wave);
   place(CH_SIREN, at, 0.5f);
 }
-void sound_radio(bool on) {
-  if (!s_ok) return;
-  if (!on) { if (mixer_ch_playing(CH_RADIO)) mixer_ch_stop(CH_RADIO); return; }
-  if (!mixer_ch_playing(CH_RADIO)) { mixer_ch_play(CH_RADIO, &s_radio.wave); mixer_ch_set_vol(CH_RADIO, 0.4f, 0.4f); }
-}
+void sound_radio(bool on) { s_radioOn = on; }
 
-// (voices and music: tools/audio.mjs makes them; until they are loaded, nothing plays)
-void sound_voice(int vo, V3 at, float pitch) { (void)vo; (void)at; (void)pitch; }
-void sound_music(int track) { (void)track; }
+void sound_voice(int vo, V3 at, float pitch) {
+  if (!s_ok || vo < 0 || vo >= VO_COUNT || !s_voice[vo].data) return;
+  if (v3_dist(at, g_view.eye) > 60) return;
+  int ch = s_nextVoice;
+  s_nextVoice = s_nextVoice + 1 >= CH_FIRST_SFX ? CH_FIRST_VOICE : s_nextVoice + 1;
+  mixer_ch_play(ch, &s_voice[vo].wave);
+  g_voicesPlayed++;
+  place(ch, at, 0.95f);
+  mixer_ch_set_freq(ch, RATE * pitch);
+}
+int sound_music_now(void) { int t = s_slot[s_cur]; return t != MUS_NONE && mixer_ch_playing(CH_MUSIC + s_cur * 2) ? t : MUS_NONE; }
+int g_voicesPlayed;
+void sound_music(int track) {
+  if (track == MUS_PASSED) { s_passedTime = 6.0f; return; }
+  s_base = track;
+}

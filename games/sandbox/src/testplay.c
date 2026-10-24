@@ -1,4 +1,5 @@
 #include "testplay.h"
+#include "sound.h"
 #ifdef TESTPLAY
 #include "game.h"
 #include "actor.h"
@@ -88,6 +89,8 @@ static bool run_test(int n, int t) {
       if (t < 50) return false;
       check("jump: height", s_peak > 1.7f && s_peak < 2.8f, "%.2f m", s_peak);
       check("jump: landed", p->onGround, "state %.0f", p->state);
+      check("sound: the music plays", sound_music_now() != MUS_NONE, "track %.0f", sound_music_now());
+      check("sound: the hero shouts", g_voicesPlayed > 0, "%.0f lines", g_voicesPlayed);
       return true;
     case 3: return triple(t);
     case 4: // long jump: run, Z, A

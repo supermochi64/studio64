@@ -10,6 +10,7 @@ import { City, WORLD, LINES, DMAP, GANG_OF, DISTRICT_NAMES } from './city.mjs';
 import { Canvas } from './lib/png.mjs';
 import { writeModels } from './models.mjs';
 import { writeFonts } from './fonts.mjs';
+import { buildAudio } from './audio.mjs';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const OUT = path.resolve(HERE, '..', 'assets');
@@ -115,4 +116,11 @@ console.log(`assets: ${textures.length} textures, ${files} chunk models (${tris}
 if (stats) {
   const per = [...city.chunks.values()].map((c) => [`${c.cx},${c.cz}`, c.detail.b.triangleCount, c.lod.b.triangleCount]).sort((a, b) => b[1] - a[1]).slice(0, 12);
   console.log(per.map((p) => p.join(' ')).join('\n'));
+}
+
+// the music and voices (only when their sources changed: they take a few seconds)
+{
+  const src = ['audio.mjs', 'lib/synth.mjs'].map((f) => fs.statSync(path.join(HERE, f)).mtimeMs);
+  const out = path.join(OUT, 'voices.bin');
+  if (!fs.existsSync(out) || fs.statSync(out).mtimeMs < Math.max(...src)) buildAudio(OUT);
 }
