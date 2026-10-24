@@ -100,6 +100,10 @@ jobs:
             # (what the launcher said, here in the log: the artifact needs a login to download)
             echo "---- launcher.log"; cat "$RUNNER_TEMP/launcher.log" || true
             echo "---- launcher.err"; cat "$RUNNER_TEMP/launcher.err" || true
+            echo "---- npm packages: $(ls "$FOLDER/Studio 64/node_modules" 2>/dev/null | wc -l)"
+            echo "---- setup log"; tail -30 "$FOLDER/Studio 64/.setup/setup.log" 2>/dev/null || true
+            echo "---- processes"
+            if [ "$RUNNER_OS" = Windows ]; then tasklist //v | grep -i -E "node|powershell|cmd.exe|npm" || true; else ps aux | grep -i -E "node|npm" | grep -v grep || true; fi
             exit 1
           fi
           grep -q "Node.js is ready" "$RUNNER_TEMP/launcher.log"
