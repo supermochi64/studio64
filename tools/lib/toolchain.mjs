@@ -172,6 +172,8 @@ export async function extraTrustedCAs(url, trustedRoots = ROOT_CERTS) {
   const extra = [];
   for (const peerCert of chain.slice(1)) { // [0] is the leaf: never a CA we would add
     const cert = new X509Certificate(peerCert.raw);
+    const now = Date.now();
+    if (now < Date.parse(cert.validFrom) || now > Date.parse(cert.validTo)) continue; // (out of date: no link)
     if (cert.ca && trustedRoots.some((root) => { try { return cert.checkIssued(root) && cert.verify(root.publicKey); } catch { return false; } })) {
       extra.push(pemOf(peerCert.raw));
     }
@@ -681,6 +683,8 @@ if src_idx is not None:
         tmp = tempfile.NamedTemporaryFile(mode='w', suffix='.s', delete=False)
         tmp.write(fixed); tmp.close()
         cmd[src_idx] = tmp.name
+        try: sys.exit(subprocess.call(cmd))
+        finally: os.unlink(tmp.name)
 sys.exit(subprocess.call(cmd))
 `;
 export function needBinutils() {
@@ -691,10 +695,10 @@ export function writeBinutilsWrappers(emsdk, python) {
   const bin = path.join(emsdk, 'upstream', 'bin');
   const clang = path.join(bin, 'clang');
   // GNU as syntax (.section/.align, used by the one file this runs on) only parses on an
-  // ELF/GNU-environment target: x86_64 when this clang has it, else aarch64 (always there: Wasm's
-  // own build requirement).
+  // ELF/GNU-environment target: x86_64 when this clang has it, else aarch64 (an Apple Silicon
+  // build has only that and Wasm). --print-targets names the backend "x86-64", with a hyphen.
   const targets = quiet(clang, ['--print-targets']).out;
-  const asTarget = /^\s*x86_64\s/m.test(targets) ? 'x86_64-unknown-linux-gnu' : 'aarch64-unknown-linux-gnu';
+  const asTarget = /^\s*x86-64\s/m.test(targets) ? 'x86_64-unknown-linux-gnu' : 'aarch64-unknown-linux-gnu';
   const q = (s) => `'${s.replace(/'/g, `'\\''`)}'`;
   fs.mkdirSync(BIN(), { recursive: true });
   const write = (name, body) => { const f = path.join(BIN(), name); fs.writeFileSync(f, `#!/bin/sh\n# Studio 64: ${name} from the Emscripten SDK's LLVM (tools/lib/toolchain.mjs)\n${body}\n`); fs.chmodSync(f, 0o755); };

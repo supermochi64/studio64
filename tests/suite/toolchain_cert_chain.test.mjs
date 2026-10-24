@@ -48,6 +48,7 @@ function getWithAgent(url, agent) {
 }
 
 await suite('toolchain certificate chain fallback', async (t) => {
+  try { execFileSync('openssl', ['version'], { stdio: 'ignore' }); } catch { t.log('no openssl here: skipped'); return; }
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 's64chain-'));
   const otherDir = fs.mkdtempSync(path.join(os.tmpdir(), 's64chain-other-'));
   let server;
