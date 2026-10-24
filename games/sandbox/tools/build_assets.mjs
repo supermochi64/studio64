@@ -26,16 +26,53 @@ const city = new City(64).build();
 // ---- the chunk models ----
 let tris = 0, maxTris = 0, files = 0;
 const chunkFlags = new Uint8Array(WORLD.chunks * WORLD.chunks);
+const GROUP_NAMES = ['q0', 'q1', 'q2', 'q3', 'f0', 'f1', 'f2', 'f3']; // src/stream.c draws them by these names
+const prepare = (c, builder, shade) => {
+  // shading baked into the vertex colours: walls darken toward the ground (the light the street and
+  // the neighbours block), the way the console's games paint their levels
+  if (shade) for (const g of builder.groups.values()) {
+    for (let v = 0; v < g.pos.length / 3; v++) {
+      if (Math.abs(g.nrm[v * 3 + 1]) > 0.6) continue;
+      const x = g.pos[v * 3], y = g.pos[v * 3 + 1], z = g.pos[v * 3 + 2];
+      const ground = Math.max(0, city.heightAt(x, z));
+      const t = Math.max(0, Math.min(1, (y - ground) / 3.2)), f = 0.66 + 0.34 * t * t * (3 - 2 * t);
+      for (let k = 0; k < 3; k++) g.col[v * 4 + k] *= Math.pow(f, 2.2); // (the colours are linear)
+    }
+  }
+  // faces that look down at the ground from just above it can never be seen: drop them
+  for (const g of builder.groups.values()) {
+    const keep = [];
+    for (let t = 0; t < g.idx.length; t += 3) {
+      const [a, b, c] = [g.idx[t], g.idx[t + 1], g.idx[t + 2]];
+      const ny = (g.nrm[a * 3 + 1] + g.nrm[b * 3 + 1] + g.nrm[c * 3 + 1]) / 3;
+      if (ny < -0.7) {
+        const low = [a, b, c].every((v) => g.pos[v * 3 + 1] <= Math.max(0, city.heightAt(g.pos[v * 3], g.pos[v * 3 + 2])) + 0.4);
+        if (low) continue;
+      }
+      keep.push(a, b, c);
+    }
+    g.idx = keep;
+  }
+  // see-through materials last, so they blend over what is behind them
+  builder.groups = new Map([...builder.groups.entries()].sort(([a], [b]) => (a.name === 'shadow') - (b.name === 'shadow')));
+  // vertices relative to the chunk's centre (the model is placed there): keeps the integers small
+  for (const g of builder.groups.values()) for (let i = 0; i < g.pos.length; i += 3) { g.pos[i] -= c.ox; g.pos[i + 2] -= c.oz; }
+};
 for (const c of city.chunks.values()) {
-  for (const [kind, part] of [['d', c.detail], ['l', c.lod]]) {
-    if (part.b.empty) continue;
-    // vertices relative to the chunk's centre (the model is placed there): keeps the integers small
-    for (const g of part.b.groups.values()) for (let i = 0; i < g.pos.length; i += 3) { g.pos[i] -= c.ox; g.pos[i + 2] -= c.oz; }
-    part.g.mesh(`c${kind}`, part.b);
-    part.g.save(path.join(OUT, 'city', `${kind}${c.cx}_${c.cz}.glb`));
+  const parts = c.detail.parts.map((b, i) => [GROUP_NAMES[i], b]).filter(([, b]) => !b.empty);
+  if (parts.length) {
+    let n = 0;
+    for (const [name, b] of parts) { prepare(c, b, true); c.detail.g.mesh(name, b); n += b.triangleCount; }
+    c.detail.g.save(path.join(OUT, 'city', `d${c.cx}_${c.cz}.glb`));
+    files++; tris += n; maxTris = Math.max(maxTris, n);
+    chunkFlags[c.cz * WORLD.chunks + c.cx] |= 1;
+  }
+  if (!c.lod.b.empty) {
+    prepare(c, c.lod.b, false);
+    c.lod.g.mesh('cl', c.lod.b);
+    c.lod.g.save(path.join(OUT, 'city', `l${c.cx}_${c.cz}.glb`));
     files++;
-    if (kind === 'd') { tris += part.b.triangleCount; maxTris = Math.max(maxTris, part.b.triangleCount); }
-    chunkFlags[c.cz * WORLD.chunks + c.cx] |= kind === 'd' ? 1 : 2;
+    chunkFlags[c.cz * WORLD.chunks + c.cx] |= 2;
   }
 }
 
@@ -114,7 +151,7 @@ const models = writeModels(OUT);
 const ms = Date.now() - t0;
 console.log(`assets: ${textures.length} textures, ${files} chunk models (${tris} detailed triangles, at most ${maxTris} in a chunk), ${boxes.length} boxes, ${city.streetNodes.length}/${city.streetEdges.length} street nodes/edges, ${city.walkNodes.length}/${city.walkEdges.length} walk nodes/edges, ${city.spots.length} spots, world.bin ${(world.length / 1024).toFixed(0)} KB, ${models.length} models, ${ms} ms`);
 if (stats) {
-  const per = [...city.chunks.values()].map((c) => [`${c.cx},${c.cz}`, c.detail.b.triangleCount, c.lod.b.triangleCount]).sort((a, b) => b[1] - a[1]).slice(0, 12);
+  const per = [...city.chunks.values()].map((c) => [`${c.cx},${c.cz}`, c.detail.parts.reduce((n, b) => n + b.triangleCount, 0), c.lod.b.triangleCount]).sort((a, b) => b[1] - a[1]).slice(0, 12);
   console.log(per.map((p) => p.join(' ')).join('\n'));
 }
 

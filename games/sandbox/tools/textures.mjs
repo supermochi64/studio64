@@ -2,6 +2,7 @@
 // 32x32 and repeat. Vertex colours tint the light ones (stucco, metal), so a few textures make many
 // looks.
 import { Canvas, rng, hex, mix, shade } from './lib/png.mjs';
+import { Paint, hexc, mixc, shadec } from './lib/paint.mjs';
 
 // 5x7 pixel font for signs and the HUD's own glyphs (our own design)
 export const FONT5x7 = {
@@ -50,95 +51,311 @@ export const textWidth = (text, scale = 1) => text.length * 6 * scale - scale;
 const T = {};
 const def = (name, w, h, fn) => { T[name] = { w, h, fn }; };
 
-def('asphalt', 32, 32, (c, r) => { c.rect(0, 0, 32, 32, hex('#56585c')); c.noise(r, 0.06); for (let i = 0; i < 14; i++) c.set(Math.floor(r() * 32), Math.floor(r() * 32), hex('#45474b')); });
-// across a 2-lane street: kerb edge lines, double yellow in the middle (u runs across the road)
-def('road2', 32, 32, (c, r) => {
-  c.rect(0, 0, 32, 32, hex('#56585c')); c.noise(r, 0.06);
-  c.rect(1, 0, 1, 32, hex('#d8d8d0')); c.rect(30, 0, 1, 32, hex('#d8d8d0'));
-  c.rect(15, 0, 1, 32, hex('#e0b830')); c.rect(16, 0, 1, 32, hex('#e0b830'));
+// ---- the world's textures: painted (tools/lib/paint.mjs), soft and seamless ----
+const paint = (name, w, h, fn) => { T[name] = { w, h, paint: fn }; };
+const H = hexc;
+const WHITE_ = [255, 255, 255];
+
+// asphalt: dark, slightly mottled, with fine aggregate and a few darker patches
+function asphalt(p, base = '#505257') {
+  p.fill(H(base)).mottle(0.09, 3, 3).mottle(0.05, 10, 2);
+  p.patches(H('#3e4044', 255), 3, 0.64, 0.06, 0.35);
+  p.speckle(90, [H('#6a6c70'), H('#3a3c40'), H('#7a7a78')], [0.15, 0.4], 0.55);
+}
+// a painted road line that has worn a little
+function roadLine(p, x0, y0, x1, y1, col) {
+  p.rect(x0, y0, x1, y1, (x, y) => { const w = p.fbm(x, y, 8, 2); return [col[0], col[1], col[2], 255 * (w > 0.3 ? 0.97 : 0.8)]; }, { soft: 0.35 });
+}
+paint('asphalt', 32, 32, (p) => asphalt(p));
+paint('road2', 32, 32, (p) => {
+  asphalt(p);
+  roadLine(p, 1.0, 0, 2.0, 32, H('#e6e4dc')); roadLine(p, 30.0, 0, 31.0, 32, H('#e6e4dc'));
+  roadLine(p, 14.5, 0, 15.5, 32, H('#ecbc2c')); roadLine(p, 16.5, 0, 17.5, 32, H('#ecbc2c'));
 });
-// a 4-lane avenue: double yellow, white dashes between the lanes (v repeats every 8 m)
-def('road4', 32, 32, (c, r) => {
-  c.rect(0, 0, 32, 32, hex('#525458')); c.noise(r, 0.06);
-  c.rect(0, 0, 1, 32, hex('#d8d8d0')); c.rect(31, 0, 1, 32, hex('#d8d8d0'));
-  c.rect(15, 0, 1, 32, hex('#e0b830')); c.rect(16, 0, 1, 32, hex('#e0b830'));
-  c.rect(8, 0, 1, 14, hex('#d8d8d0')); c.rect(23, 0, 1, 14, hex('#d8d8d0'));
+paint('road4', 32, 32, (p) => {
+  asphalt(p, '#4d4f54');
+  roadLine(p, 0.2, 0, 1.0, 32, H('#e6e4dc')); roadLine(p, 31.0, 0, 31.8, 32, H('#e6e4dc'));
+  roadLine(p, 14.6, 0, 15.4, 32, H('#ecbc2c')); roadLine(p, 16.6, 0, 17.4, 32, H('#ecbc2c'));
+  roadLine(p, 7.6, 1, 8.4, 14, H('#e6e4dc')); roadLine(p, 23.6, 1, 24.4, 14, H('#e6e4dc'));
 });
-def('crosswalk', 32, 32, (c, r) => { c.rect(0, 0, 32, 32, hex('#56585c')); c.noise(r, 0.05); for (let x = 1; x < 32; x += 6) c.rect(x, 3, 3, 26, hex('#d8d8d0')); });
-def('sidewalk', 32, 32, (c, r) => { c.rect(0, 0, 32, 32, hex('#b8b4aa')); c.noise(r, 0.05); c.rect(0, 0, 32, 1, hex('#9a968e')); c.rect(0, 0, 1, 32, hex('#9a968e')); c.rect(0, 16, 32, 1, hex('#a29e96')); c.rect(16, 0, 1, 32, hex('#a29e96')); });
-def('concrete', 32, 32, (c, r) => { c.rect(0, 0, 32, 32, hex('#a8a59e')); c.noise(r, 0.07, 2); });
-def('grass', 32, 32, (c, r) => { c.rect(0, 0, 32, 32, hex('#5f8f3c')); c.noise(r, 0.1); for (let i = 0; i < 60; i++) c.set(Math.floor(r() * 32), Math.floor(r() * 32), r() < 0.5 ? hex('#4c7a2e') : hex('#78a84c')); });
-def('dirt', 32, 32, (c, r) => { c.rect(0, 0, 32, 32, hex('#8d6e4c')); c.noise(r, 0.1, 2); });
-def('sand', 32, 32, (c, r) => { c.rect(0, 0, 32, 32, hex('#e2cf98')); c.noise(r, 0.06); });
-def('stucco', 32, 32, (c, r) => { c.rect(0, 0, 32, 32, hex('#f0ece4')); c.noise(r, 0.04); });
-// a house wall bay (3 m wide x 3 m): stucco with a window and its frame (tinted by vertex colour)
-def('housewin', 32, 32, (c, r) => {
-  c.rect(0, 0, 32, 32, hex('#f0ece4')); c.noise(r, 0.035);
-  c.rect(8, 7, 16, 14, hex('#ffffff')); c.rect(9, 8, 14, 12, hex('#3a4c62'));
-  c.rect(9, 8, 14, 1, hex('#5a7090')); c.rect(15, 8, 2, 12, hex('#ffffff')); c.rect(9, 14, 14, 1, hex('#ffffff'));
-  c.rect(7, 21, 18, 2, hex('#d8d0c4'));
+paint('crosswalk', 32, 32, (p) => { asphalt(p); for (let x = 1; x < 32; x += 6) roadLine(p, x, 3, x + 3.2, 29, H('#ecebe4')); });
+paint('stripe', 32, 32, (p) => { asphalt(p); roadLine(p, 15, 0, 17, 32, H('#ecebe4')); });
+// pavement slabs with their joints, each slab a little different
+paint('sidewalk', 32, 32, (p) => {
+  p.fill(H('#c4bfb4'));
+  for (const [x, y] of [[0, 0], [16, 0], [0, 16], [16, 16]]) { const f = 0.95 + p.r() * 0.08; p.rect(x, y, x + 16, y + 16, shadec(H('#c4bfb4'), f), { soft: 0.2 }); }
+  p.mottle(0.06, 4, 3).mottle(0.03, 16, 2);
+  p.patches(H('#9a958c'), 4, 0.66, 0.05, 0.25);
+  for (const v of [0, 16]) { p.rect(0, v - 0.35, 32, v + 0.35, H('#8a857c', 230)); p.rect(0, v + 0.35, 32, v + 0.9, H('#e4e0d8', 120)); p.rect(v - 0.35, 0, v + 0.35, 32, H('#8a857c', 230)); p.rect(v + 0.35, 0, v + 0.9, 32, H('#e4e0d8', 120)); }
+  p.speckle(20, [H('#9e998f'), H('#d8d4cc')], [0.2, 0.5], 0.5);
 });
-def('housedoor', 32, 32, (c, r) => { c.rect(0, 0, 32, 32, hex('#f0ece4')); c.noise(r, 0.035); c.rect(10, 6, 12, 26, hex('#ffffff')); c.rect(11, 7, 10, 25, hex('#6a4a30')); c.rect(13, 10, 6, 7, hex('#5a3c26')); c.rect(18, 20, 2, 2, hex('#e0c060')); });
-def('garage', 32, 32, (c, r) => { c.rect(0, 0, 32, 32, hex('#e8e4dc')); for (let y = 2; y < 32; y += 5) c.rect(0, y, 32, 1, hex('#b8b4ac')); c.noise(r, 0.03); });
-// office tower: one floor x one window bay (3.5 m x 4 m)
-def('office', 32, 32, (c, r) => {
-  c.rect(0, 0, 32, 32, hex('#d8d8d8'));
-  c.rect(2, 4, 28, 24, hex('#5d7d9c')); c.rect(2, 4, 28, 3, hex('#8eb0cc')); c.rect(15, 4, 2, 24, hex('#c8c8c8'));
-  for (let i = 0; i < 8; i++) c.set(3 + Math.floor(r() * 26), 8 + Math.floor(r() * 18), hex('#7896b4'));
-});
-def('office2', 32, 32, (c, r) => {
-  c.rect(0, 0, 32, 32, hex('#c4b49c'));
-  for (let x = 2; x < 32; x += 10) c.rect(x, 6, 7, 20, hex('#34465a'));
-  for (let x = 2; x < 32; x += 10) c.rect(x, 6, 7, 2, hex('#6a86a0'));
-});
-def('brick', 32, 32, (c, r) => {
-  c.rect(0, 0, 32, 32, hex('#9a4e38'));
-  for (let y = 0; y < 32; y += 4) { c.rect(0, y, 32, 1, hex('#c8b8a8')); for (let x = (y / 4) % 2 ? 4 : 0; x < 32; x += 8) c.rect(x, y, 1, 4, hex('#c8b8a8')); }
-  c.noise(r, 0.06);
-});
-def('brickwin', 32, 32, (c, r) => {
-  T.brick.fn(c, r);
-  c.rect(8, 6, 16, 16, hex('#e8e0d0')); c.rect(9, 7, 14, 14, hex('#3a4656')); c.rect(15, 7, 2, 14, hex('#e8e0d0')); c.rect(7, 22, 18, 2, hex('#d0c8b8'));
-});
-def('shopfront', 32, 32, (c, r) => {
-  c.rect(0, 0, 32, 32, hex('#e8e4dc'));
-  c.rect(1, 8, 30, 24, hex('#2e3e4e')); c.rect(1, 8, 30, 2, hex('#6c8aa6')); c.rect(12, 14, 8, 18, hex('#1e2a36'));
-  c.rect(0, 0, 32, 6, hex('#ffffff'));
-});
-def('roof', 32, 32, (c, r) => { c.rect(0, 0, 32, 32, hex('#a8543a')); for (let y = 0; y < 32; y += 4) c.rect(0, y, 32, 1, hex('#7e3c2a')); for (let y = 0; y < 32; y += 4) for (let x = (y / 4) % 2 ? 2 : 0; x < 32; x += 4) c.rect(x, y, 1, 4, hex('#8e4430')); c.noise(r, 0.05); });
-def('roofflat', 32, 32, (c, r) => { c.rect(0, 0, 32, 32, hex('#8a8680')); c.noise(r, 0.1); });
-def('metal', 32, 32, (c, r) => { c.rect(0, 0, 32, 32, hex('#e0e0e0')); for (let x = 0; x < 32; x += 4) { c.rect(x, 0, 1, 32, hex('#b0b0b0')); c.rect(x + 1, 0, 1, 32, hex('#f8f8f8')); } c.noise(r, 0.03); });
-def('wood', 32, 32, (c, r) => { c.rect(0, 0, 32, 32, hex('#9c7448')); for (let y = 0; y < 32; y += 8) c.rect(0, y, 32, 1, hex('#6e4e2e')); c.noise(r, 0.08); });
-def('hedge', 32, 32, (c, r) => { c.rect(0, 0, 32, 32, hex('#3d6e2c')); c.noise(r, 0.14, 2); });
-def('leaves', 32, 32, (c, r) => {
-  c.rect(0, 0, 32, 32, [0, 0, 0, 0]);
-  for (let i = 0; i < 260; i++) { const x = Math.floor(r() * 32), y = Math.floor(r() * 32); const d = Math.hypot(x - 16, y - 16); if (d < 15 - r() * 3) c.setRaw(x, y, r() < 0.5 ? hex('#3f7a2c') : hex('#5a9a3a')); }
-});
-// a palm frond, across the texture: a stem with leaflets (alpha cut)
-def('frond', 32, 32, (c, r) => {
-  c.rect(0, 0, 32, 32, [0, 0, 0, 0]);
-  for (let x = 0; x < 32; x++) {
-    c.setRaw(x, 16, hex('#6a8a30'));
-    const len = Math.round(13 * Math.sin((x / 32) * Math.PI)) + 1;
-    for (let k = 1; k < len; k++) { if ((x + k) % 3 === 0) continue; c.setRaw(x, 16 - k, hex(k % 2 ? '#4c8a2a' : '#5e9e36')); c.setRaw(x, 16 + k, hex(k % 2 ? '#468024' : '#58962e')); }
+paint('concrete', 32, 32, (p) => { p.fill(H('#aeaaa1')).mottle(0.08, 3, 3).mottle(0.04, 12, 2); p.patches(H('#8e8a82'), 3, 0.65, 0.07, 0.3); p.speckle(40, [H('#c4c0b8'), H('#8c8880')], [0.15, 0.35], 0.5); });
+// grass: soft clumps of light and shade, little blades and the odd flower
+paint('grass', 32, 32, (p) => {
+  p.fill(H('#5b9638')).mottle(0.12, 3, 3);
+  p.patches(H('#79b148'), 4, 0.56, 0.08, 0.55);
+  p.patches(H('#3f7629'), 3, 0.62, 0.08, 0.45);
+  for (let k = 0; k < 220; k++) {
+    const x = p.r() * 32, y = p.r() * 32, l = 0.9 + p.r() * 1.3, dx = (p.r() - 0.5) * 0.9;
+    const c = p.r() < 0.5 ? H('#86bf54', 180) : H('#3b6e26', 170);
+    p.line(x, y, x + dx, y - l, 0.32, c, 0.3);
   }
+  for (let k = 0; k < 5; k++) { const x = p.r() * 32, y = p.r() * 32; p.circle(x, y, 0.5, p.r() < 0.5 ? H('#f4f0d8') : H('#f2d04a'), 0.3); }
 });
-def('bark', 32, 32, (c, r) => { c.rect(0, 0, 32, 32, hex('#8a6a48')); for (let y = 0; y < 32; y += 3) c.rect(0, y, 32, 1, hex('#6a4e34')); c.noise(r, 0.06); });
-def('chainlink', 32, 32, (c, r) => { c.rect(0, 0, 32, 32, [0, 0, 0, 0]); for (let i = 0; i < 32; i++) { c.setRaw(i, i, hex('#b0b4b8')); c.setRaw(31 - i, i, hex('#b0b4b8')); } c.rect(0, 0, 32, 2, hex('#9ca0a4')); });
-def('water', 32, 32, (c, r) => { c.rect(0, 0, 32, 32, hex('#2a6a9a', 190)); for (let i = 0; i < 40; i++) { const x = Math.floor(r() * 32), y = Math.floor(r() * 32); c.rect(x, y, 3, 1, hex('#5a9aca', 200)); } });
-def('container', 32, 32, (c, r) => { c.rect(0, 0, 32, 32, hex('#e8e8e8')); for (let x = 1; x < 32; x += 3) c.rect(x, 0, 1, 32, hex('#b4b4b4')); c.rect(0, 0, 32, 2, hex('#c8c8c8')); c.rect(0, 30, 32, 2, hex('#a0a0a0')); });
-def('graffiti', 32, 32, (c, r) => { c.rect(0, 0, 32, 32, [0, 0, 0, 0]); for (let k = 0; k < 5; k++) { let x = 4 + r() * 24, y = 6 + r() * 20; for (let i = 0; i < 30; i++) { x += (r() - 0.5) * 3; y += (r() - 0.5) * 3; c.rect(Math.floor(x), Math.floor(y), 2, 2, [255, 255, 255, 255]); } } });
-def('court', 32, 32, (c, r) => { c.rect(0, 0, 32, 32, hex('#3c6e8e')); c.noise(r, 0.03); });
-def('stripe', 32, 32, (c, r) => { c.rect(0, 0, 32, 32, hex('#56585c')); c.noise(r, 0.05); c.rect(15, 0, 2, 32, hex('#e8e8e0')); });
+paint('dirt', 32, 32, (p) => { p.fill(H('#8c6c4a')).mottle(0.14, 3, 4); p.patches(H('#6e523a'), 4, 0.6, 0.08, 0.4); p.speckle(60, [H('#a8896a'), H('#5e4630'), H('#b49c80')], [0.2, 0.6], 0.7); });
+paint('sand', 32, 32, (p) => {
+  p.fill(H('#e8d6a0')).mottle(0.05, 3, 3);
+  p.map((x, y, c) => { const f = 1 + 0.045 * Math.sin((y + p.fbm(x, y, 3, 2) * 9) * 0.8 * Math.PI / 2); return [c[0] * f, c[1] * f, c[2] * f, 255]; });
+  p.speckle(40, [H('#c8b47e'), H('#fff4d0')], [0.15, 0.35], 0.6);
+});
+paint('stucco', 32, 32, (p) => { p.fill(H('#f1ebe0')).mottle(0.05, 4, 3).mottle(0.025, 16, 2); p.speckle(25, [H('#dcd4c6')], [0.2, 0.4], 0.5); });
+// window glass: the sky reflected, darker below, with a soft diagonal sheen
+function glass(p, x0, y0, x1, y1, top = '#a8c8e2', bottom = '#34506c') {
+  if (top) p.vgrad(x0, y0, x1, y1, H(top), H(bottom), { soft: 0.3 });
+  const w = x1 - x0, h = y1 - y0;
+  p.poly([[x0 + w * 0.15, y1], [x0 + w * 0.4, y1], [x0 + w * 0.85, y0], [x0 + w * 0.6, y0]], [255, 255, 255, 50], 0.8);
+  p.poly([[x0 + w * 0.45, y1], [x0 + w * 0.52, y1], [x0 + w * 0.97, y0], [x0 + w * 0.9, y0]], [255, 255, 255, 40], 0.5);
+  p.rect(x0, y0, x1, y0 + Math.min(1.2, h * 0.1), [20, 30, 40, 90], { soft: 0.5 }); // the frame's shadow
+}
+// a house wall bay (3 m x 3 m): a framed window with curtains, a sill and a flower box
+paint('housewin', 32, 32, (p) => {
+  p.fill(H('#f1ebe0')).mottle(0.05, 4, 3);
+  p.rect(7.6, 7.2, 24.8, 22.2, [60, 50, 40, 60], { r: 0.8, soft: 1.2 });       // shadow on the wall
+  p.rect(7, 6.4, 25, 21.6, H('#fbfaf6'), { r: 0.6 }); p.bevel(7, 6.4, 25, 21.6, 0.6, 1, { a: 0.25 });
+  glass(p, 8.6, 8, 23.4, 20);
+  p.rect(8.6, 8, 11.2, 20, (x, y) => shadec(H('#ead8b4'), 0.92 + 0.1 * Math.sin(x * 5)), { soft: 0.3 });
+  p.rect(20.8, 8, 23.4, 20, (x, y) => shadec(H('#ead8b4'), 0.92 + 0.1 * Math.sin(x * 5)), { soft: 0.3 });
+  p.rect(15.4, 8, 16.6, 20, H('#fbfaf6')); p.rect(8.6, 13.4, 23.4, 14.4, H('#fbfaf6'));
+  p.rect(6, 21.2, 26, 22.8, H('#e4ddd0'), { r: 0.3 }); p.bevel(6, 21.2, 26, 22.8, 0.4, 1, { a: 0.3 });
+  p.rect(6.6, 22.8, 25.4, 24, [40, 30, 20, 70], { soft: 0.8 });
+  // the flower box
+  p.rect(8.5, 22.8, 23.5, 25.2, H('#7a5232'), { r: 0.4 }); p.bevel(8.5, 22.8, 23.5, 25.2, 0.4, 1, { a: 0.3 });
+  for (let k = 0; k < 16; k++) p.circle(9 + p.r() * 14, 22.4 + p.r() * 0.8, 0.7 + p.r() * 0.4, H('#4f8a32'), 0.4);
+  for (let k = 0; k < 10; k++) p.circle(9.5 + p.r() * 13, 21.9 + p.r() * 0.9, 0.5, [H('#e8485a'), H('#f6d04a'), H('#ffffff'), H('#e070c0')][k % 4], 0.3);
+});
+paint('housedoor', 32, 32, (p) => {
+  p.fill(H('#f1ebe0')).mottle(0.05, 4, 3);
+  p.rect(9.4, 5.4, 23, 32, [60, 50, 40, 60], { soft: 1.2 });
+  p.rect(9, 4.6, 23, 32, H('#fbfaf6')); p.bevel(9, 4.6, 23, 32, 0.6, 1, { a: 0.25 });
+  p.vgrad(10.4, 6, 21.6, 32, H('#83593a'), H('#6a4529'));
+  p.map((x, y, c) => (x > 10.4 && x < 21.6 && y > 6 ? [c[0] * (1 + 0.05 * Math.sin(x * 3 + p.fbm(x, y, 4, 2) * 5)), c[1] * (1 + 0.05 * Math.sin(x * 3)), c[2], 255] : undefined));
+  for (const [x0, y0, x1, y1] of [[11.6, 7.4, 15.6, 15.5], [16.4, 7.4, 20.4, 15.5], [11.6, 17, 15.6, 30.5], [16.4, 17, 20.4, 30.5]]) p.bevel(x0, y0, x1, y1, 0.5, -1, { a: 0.35 });
+  glass(p, 12.2, 8, 19.8, 11.4, '#c8dcea', '#56708a');
+  p.circle(19.8, 19.6, 0.65, H('#e8c45a'), 0.3); p.circle(19.6, 19.4, 0.25, H('#fff2b8'), 0.2);
+  // a porch light
+  p.rect(5.2, 9.5, 6.8, 13.2, H('#2e2e30'), { r: 0.4 }); p.rect(5.5, 10, 6.5, 12.6, H('#ffe9a8'), { r: 0.3 });
+});
+paint('garage', 32, 32, (p) => {
+  p.fill(H('#ece8e0'));
+  for (let y = 1; y < 32; y += 7.75) { p.vgrad(0, y, 32, y + 7.75, H('#f6f3ec'), H('#d8d4cc'), { soft: 0.2 }); p.bevel(0.6, y + 0.4, 31.4, y + 7.3, 0.5, 1, { a: 0.28 }); }
+  for (let x = 2.5; x < 30; x += 7.5) glass(p, x, 2.4, x + 5.5, 6.6, '#b4ccdc', '#4a5e72');
+  p.rect(0, 0, 32, 1.2, [40, 40, 40, 80]);
+  p.mottle(0.03, 6, 2);
+});
+// an office tower bay (one floor, one window bay): a glass curtain wall and the floor's band
+paint('office', 32, 32, (p) => {
+  p.fill(H('#d8dbe0'));
+  glass(p, 1.2, 3.4, 30.8, 26.6, '#a6cbe8', '#3c5f84');
+  for (let k = 0; k < 4; k++) p.ellipse(4 + p.r() * 24, 6 + p.r() * 8, 3 + p.r() * 3, 1 + p.r(), [255, 255, 255, 45], 1.2); // clouds
+  for (const x of [0.6, 16, 31.4]) { p.rect(x - 0.7, 3, x + 0.7, 27, H('#c8ccd2')); p.rect(x - 0.7, 3, x - 0.2, 27, [255, 255, 255, 90]); }
+  p.rect(1, 9.4, 31, 10.2, H('#c8ccd2'));
+  p.vgrad(0, 26.6, 32, 32, H('#76869a'), H('#5a687a')); p.bevel(0, 26.6, 32, 32, 0.6, 1, { a: 0.3 });
+  p.rect(0, 0, 32, 3.4, H('#e2e5ea')); p.rect(0, 2.8, 32, 3.4, [30, 40, 50, 70]);
+});
+// a stone office front: three punched windows with sills and lintels
+paint('office2', 32, 32, (p) => {
+  p.fill(H('#cdbb9f')).mottle(0.06, 4, 3).mottle(0.03, 14, 2);
+  for (let x = 1.6; x < 32; x += 10.6) {
+    p.rect(x - 0.4, 5.6, x + 7.8, 7.0, H('#e0d2bc')); p.bevel(x - 0.4, 5.6, x + 7.8, 7.0, 0.3, 1, { a: 0.3 });
+    p.rect(x + 0.4, 7.4, x + 7.4, 25.4, [40, 30, 20, 80], { soft: 0.9 });
+    glass(p, x, 7, x + 7, 25, '#90b0cc', '#283a50');
+    p.rect(x + 3.2, 7, x + 3.8, 25, H('#ece4d6')); p.rect(x, 15.2, x + 7, 15.8, H('#ece4d6'));
+    p.rect(x - 0.6, 25, x + 7.6, 26.6, H('#e0d2bc')); p.bevel(x - 0.6, 25, x + 7.6, 26.6, 0.3, 1, { a: 0.3 });
+    p.rect(x - 0.4, 26.6, x + 7.4, 27.6, [40, 30, 20, 60], { soft: 0.6 });
+  }
+  p.rect(0, 0, 32, 1.6, H('#b8a688')); p.rect(0, 1.6, 32, 2.2, [40, 30, 20, 60]);
+});
+// bricks: each a slightly different clay, with recessed mortar
+function bricks(p) {
+  p.fill(H('#cbbfae')).mottle(0.06, 8, 2);
+  const cols = ['#a4553c', '#9a4c36', '#ad5f45', '#8f4632', '#b2654a', '#9c5240'];
+  for (let row = 0; row < 8; row++) {
+    const y = row * 4, off = row % 2 ? 4 : 0;
+    for (let x = -off; x < 32; x += 8) {
+      const c = H(cols[Math.floor(p.r() * cols.length)]);
+      p.rect(x + 0.45, y + 0.45, x + 7.55, y + 3.6, c, { r: 0.45, soft: 0.4 });
+      p.rect(x + 0.6, y + 0.5, x + 7.4, y + 1.1, [255, 220, 190, 45], { soft: 0.4 });
+      p.rect(x + 0.6, y + 3.0, x + 7.4, y + 3.6, [40, 15, 5, 50], { soft: 0.4 });
+    }
+  }
+  p.mottle(0.07, 4, 3);
+  p.patches(H('#5a3a2e'), 3, 0.66, 0.08, 0.2);
+}
+paint('brick', 32, 32, bricks);
+paint('brickwin', 32, 32, (p) => {
+  bricks(p);
+  p.rect(7.2, 6.8, 24.8, 22.6, [30, 20, 15, 90], { soft: 1 });
+  p.rect(6.4, 4.2, 25.6, 6.6, H('#dcd2c2')); p.bevel(6.4, 4.2, 25.6, 6.6, 0.4, 1, { a: 0.3 });
+  p.rect(7.4, 6.6, 24.6, 22, H('#3c5a46'));
+  glass(p, 8.4, 7.4, 23.6, 21.2, '#9cb6c8', '#2a3a4a');
+  p.rect(15.5, 7.4, 16.5, 21.2, H('#3c5a46')); p.rect(8.4, 13.8, 23.6, 14.8, H('#3c5a46'));
+  p.rect(6.4, 22, 25.6, 24, H('#dcd2c2')); p.bevel(6.4, 22, 25.6, 24, 0.4, 1, { a: 0.3 });
+  p.rect(6.8, 24, 25.2, 25, [30, 20, 15, 80], { soft: 0.6 });
+});
+// a shop front: the sign band, a lit display with goods on shelves, the door
+paint('shopfront', 32, 32, (p) => {
+  p.fill(H('#e8e4dc'));
+  p.vgrad(0, 0, 32, 6.4, H('#fbf9f4'), H('#e4e0d8')); p.bevel(0, 0, 32, 6.4, 0.5, 1, { a: 0.3 });
+  p.rect(0, 6.4, 32, 7.4, [30, 30, 30, 120], { soft: 0.5 });
+  p.vgrad(1, 7.4, 31, 29.6, H('#f6dfa8'), H('#7a6650'));
+  for (const sy of [14.5, 20.5, 26.5]) {
+    p.rect(1, sy, 31, sy + 0.8, H('#4a3c30'));
+    for (let x = 1.6; x < 30.6; x += 1.3 + p.r() * 0.8) { const h = 1.6 + p.r() * 2.6; p.rect(x, sy - h, x + 0.9 + p.r() * 0.6, sy, H(['#e24a3c', '#3c8ae0', '#f2c43c', '#58b84a', '#f0f0f0', '#c060c8', '#f08a30'][Math.floor(p.r() * 7)]), { r: 0.2, soft: 0.3 }); }
+  }
+  p.rect(12, 11, 20, 32, (x, y) => mixc(H('#3e5266'), H('#1e2a36'), (y - 11) / 21));
+  p.rect(18.4, 19, 19.2, 24, H('#d8d8d8'), { r: 0.3 });
+  glass(p, 1, 7.4, 31, 29.6, null, null);
+  for (const x of [0.6, 11.6, 20.4, 31.4]) { p.rect(x - 0.6, 7.4, x + 0.6, 32, H('#585c62')); p.rect(x - 0.6, 7.4, x - 0.2, 32, [255, 255, 255, 60]); }
+  p.rect(0, 29.6, 32, 32, H('#6e7278'));
+});
+// clay barrel tiles in overlapping rows
+paint('roof', 32, 32, (p) => {
+  p.fill(H('#8a3e28'));
+  for (let row = 0; row < 4; row++) {
+    const y = row * 8;
+    for (let x = 0; x < 32; x += 4) {
+      const tone = 0.9 + p.r() * 0.18;
+      p.rect(x, y, x + 4, y + 8.6, (px, py) => { const u = (px - x) / 4; const s = 0.62 + 0.5 * Math.sin(u * Math.PI); return shadec(H('#bc6040'), s * tone * (1 - 0.18 * ((py - y) / 8.6))); }, { soft: 0.3 });
+    }
+    p.rect(0, y + 7.6, 32, y + 8.6, [40, 15, 5, 110], { soft: 0.6 });
+  }
+  p.mottle(0.06, 4, 2);
+  p.patches(H('#6a5a3a'), 3, 0.7, 0.06, 0.25);
+});
+paint('roofflat', 32, 32, (p) => { p.fill(H('#8c8882')).mottle(0.08, 3, 3); p.speckle(260, [H('#a8a49c'), H('#6c6862'), H('#9a948a')], [0.15, 0.32], 0.8); p.patches(H('#6e6a64'), 3, 0.64, 0.08, 0.3); });
+paint('metal', 32, 32, (p) => {
+  p.fill(H('#dcdcdc'));
+  p.map((x, y, c) => { const f = 0.84 + 0.2 * Math.sin((x / 4) * Math.PI * 2); return [c[0] * f, c[1] * f, c[2] * f, 255]; });
+  p.mottle(0.04, 4, 3); p.patches(H('#a07a5a'), 3, 0.72, 0.06, 0.25);
+});
+paint('wood', 32, 32, (p) => {
+  p.fill(H('#9c7448'));
+  for (let y = 0; y < 32; y += 8) { const tone = 0.9 + p.r() * 0.2; p.rect(0, y, 32, y + 8, (x, yy) => shadec(H('#a27a4c'), tone * (1 + 0.08 * Math.sin(yy * 2.1 + x * 0.15 + p.fbm(x, yy, 4, 2) * 9))), { soft: 0.2 }); p.rect(0, y, 32, y + 0.7, H('#4e3620')); p.rect(0, y + 0.7, 32, y + 1.3, [255, 230, 190, 50]); }
+  for (let k = 0; k < 8; k++) p.circle(2 + Math.floor(p.r() * 4) * 8, 3 + Math.floor(p.r() * 4) * 8, 0.35, H('#3e2c1c'), 0.2);
+  p.mottle(0.05, 6, 2);
+});
+// leafy clumps: dark under, light on top
+function leafy(p, dark, mid, light, n = 150) {
+  for (let k = 0; k < n; k++) { const x = p.r() * 32, y = p.r() * 32, r = 1 + p.r() * 1.4; p.circle(x, y, r, H(dark), 0.6); p.circle(x - 0.35, y - 0.4, r * 0.75, H(mid), 0.6); p.circle(x - 0.6, y - 0.7, r * 0.35, H(light), 0.5); }
+}
+paint('hedge', 32, 32, (p) => { p.fill(H('#2f5a22')); leafy(p, '#2f5a22', '#467e30', '#6aa244', 170); });
+paint('leaves', 32, 32, (p) => {
+  p.clear();
+  for (let k = 0; k < 34; k++) {
+    const a = p.r() * Math.PI * 2, d = Math.sqrt(p.r()) * 11.5;
+    const x = 16 + Math.cos(a) * d, y = 16 + Math.sin(a) * d, r = 2.4 + p.r() * 2.2;
+    const lit = 1 - (y - 4) / 30;
+    p.circle(x, y, r, shadec(H('#2f6624'), 0.9 + lit * 0.2), 0.5);
+    p.circle(x - r * 0.25, y - r * 0.3, r * 0.65, shadec(H('#4c8c34'), 0.9 + lit * 0.25), 0.5);
+    p.circle(x - r * 0.45, y - r * 0.5, r * 0.3, shadec(H('#78b44c'), 0.9 + lit * 0.2), 0.4);
+  }
+  for (let k = 0; k < 60; k++) { const a = p.r() * Math.PI * 2, d = 12 + p.r() * 3; p.circle(16 + Math.cos(a) * d, 16 + Math.sin(a) * d, 0.7 + p.r() * 0.6, H('#3e7a2c'), 0.3); }
+}, true);
+paint('frond', 32, 32, (p) => {
+  p.clear();
+  // leaflets: thin, arching out from the midrib toward the tip, with gaps between them
+  for (let x = 0.4, k = 0; x < 31; x += 1.6, k++) {
+    const len = 13.8 * Math.pow(Math.sin(((x + 2) / 34) * Math.PI), 0.8) + 0.6;
+    for (const side of [-1, 1]) {
+      if ((k + (side > 0 ? 1 : 0)) % 5 === 0) continue;
+      const tip = [x + 3.2, 16 + side * len];
+      const mid = [x + 1.0, 16 + side * len * 0.55];
+      const c = mixc(H('#3a7624'), H('#72ae40'), side > 0 ? 0.2 + p.r() * 0.2 : 0.6 + p.r() * 0.3);
+      p.line(x, 16, mid[0], mid[1], 0.95, c, 0.3); p.line(mid[0], mid[1], tip[0], tip[1], 0.6, c, 0.3);
+    }
+  }
+  p.line(0, 16, 32, 16, 0.8, H('#8a9a40'), 0.3);
+}, true);
+paint('bark', 32, 32, (p) => {
+  p.fill(H('#8c6c4a'));
+  for (let y = 0; y < 32; y += 4) { p.vgrad(0, y, 32, y + 4, H('#a2805a'), H('#6a4e34'), { soft: 0.2 }); p.rect(0, y + 3.4, 32, y + 4, [40, 25, 10, 120], { soft: 0.4 }); }
+  p.map((x, y, c) => { const f = 1 + 0.08 * Math.sin(x * 1.7 + p.fbm(x, y, 4, 2) * 6); return [c[0] * f, c[1] * f, c[2] * f, 255]; });
+  p.mottle(0.06, 6, 2);
+});
+paint('chainlink', 32, 32, (p) => {
+  p.clear();
+  for (let k = -32; k < 64; k += 8) { p.line(k, 0, k + 32, 32, 0.55, H('#b4b8bc'), 0.3); p.line(k + 32, 0, k, 32, 0.55, H('#a4a8ac'), 0.3); }
+  p.rect(0, 0, 32, 1.6, H('#9ca0a4')); p.rect(0, 0, 32, 0.6, H('#d0d4d8'));
+}, true);
+paint('water', 32, 32, (p) => {
+  p.fill(H('#2a6c9c')).mottle(0.12, 3, 3);
+  p.map((x, y, c) => {
+    const n = p.fbm(x, y, 3, 2) * 10;
+    const w = Math.abs(Math.sin((x + n) * 0.39) * Math.sin((y - n) * 0.33));
+    const a = Math.pow(1 - w, 10) * 0.6;
+    return mixc(c, H('#9cd2ee'), a);
+  });
+});
+paint('container', 32, 32, (p) => {
+  p.fill(H('#e4e4e4'));
+  p.map((x, y, c) => { const f = 0.86 + 0.16 * Math.sin((x / 3.2) * Math.PI * 2); return [c[0] * f, c[1] * f, c[2] * f, 255]; });
+  p.rect(0, 0, 32, 2, H('#d0d0d0')); p.bevel(0, 0, 32, 2, 0.4, 1, { a: 0.3 }); p.rect(0, 30, 32, 32, H('#a8a8a8'));
+  p.mottle(0.05, 4, 3); p.patches(H('#8a6a50'), 3, 0.72, 0.06, 0.25);
+});
+paint('graffiti', 32, 32, (p) => {
+  p.clear();
+  for (let k = 0; k < 4; k++) {
+    let x = 4 + p.r() * 22, y = 8 + p.r() * 14, a = p.r() * 6;
+    for (let i = 0; i < 18; i++) { const nx = x + Math.cos(a) * 1.4, ny = y + Math.sin(a) * 1.4; p.line(x, y, nx, ny, 2.2, [255, 255, 255, 255], 0.4); x = nx; y = ny; a += (p.r() - 0.5) * 1.6; }
+  }
+}, true);
+// a tower's lobby: tall glass between stone piers, a revolving-door frame in the middle
+paint('lobby', 32, 32, (p) => {
+  p.fill(H('#d6d0c4')).mottle(0.05, 4, 3);
+  glass(p, 3, 3, 29, 31, '#d8e4ec', '#3a4e62');
+  p.vgrad(3, 12, 29, 31, [255, 236, 190, 60], [255, 220, 160, 20]);    // warm light from inside
+  for (const x of [3, 10.5, 16, 21.5, 29]) { p.rect(x - 0.5, 3, x + 0.5, 31, H('#3a3e44')); }
+  p.rect(3, 10.5, 29, 11.3, H('#3a3e44'));
+  p.rect(0, 0, 3, 32, H('#cfc8ba')); p.rect(29, 0, 32, 32, H('#cfc8ba')); p.bevel(0, 0, 3, 32, 0.5, 1, { a: 0.3 }); p.bevel(29, 0, 32, 32, 0.5, 1, { a: 0.3 });
+  p.rect(0, 0, 32, 3, H('#c2baa8')); p.rect(0, 2.4, 32, 3.2, [30, 30, 30, 70]);
+  p.rect(13.4, 21, 14.0, 25, H('#d8d8d8')); p.rect(18, 21, 18.6, 25, H('#d8d8d8'));
+});
+// a canvas awning: stripes (tinted by the vertex colour) with a scalloped edge at the bottom
+paint('awning', 32, 32, (p) => {
+  p.fill(H('#f6f2ea'));
+  for (let x = 0; x < 32; x += 8) p.rect(x, 0, x + 4, 32, H('#ffffff'));
+  for (let x = 4; x < 32; x += 8) p.rect(x, 0, x + 4, 32, H('#9c9c9c'));
+  p.map((x, y, c) => { const f = 0.88 + 0.12 * (1 - y / 32) + 0.04 * Math.sin(x * 0.8); return [c[0] * f, c[1] * f, c[2] * f, 255]; });
+  p.rect(0, 27, 32, 28, [0, 0, 0, 60]);
+});
+// the grille of a rooftop air conditioner
+paint('vent', 32, 32, (p) => {
+  p.fill(H('#c8cacc')).mottle(0.04, 4, 2);
+  p.rect(3, 3, 29, 29, H('#8e9296'), { r: 1 });
+  for (let y = 4.5; y < 28; y += 2) { p.rect(4, y, 28, y + 0.9, H('#5c6064')); p.rect(4, y + 0.9, 28, y + 1.3, H('#b4b8bc')); }
+  p.bevel(0, 0, 32, 32, 0.8, 1, { a: 0.35 });
+  p.patches(H('#a07a5a'), 3, 0.74, 0.06, 0.25);
+});
+paint('court', 32, 32, (p) => { p.fill(H('#3c7098')).mottle(0.05, 4, 3).mottle(0.03, 12, 2); });
 
 // shop signs: 64x16, white letters on colour bands are tinted by the board's vertex colour
 export const SIGNS = ['BURGERS', 'TACOS', 'PIZZA', 'MARKET', 'LIQUOR', 'DINER', 'AUTO', 'GAS', 'DONUTS', 'BARBER', 'PAWN', 'MOTEL', 'BAR', 'LAUNDRY', 'CLINIC', 'ARMS', 'POLICE', 'BANK', 'CAFE', 'GYM'];
 for (const word of SIGNS) {
-  def(`sign_${word.toLowerCase()}`, 64, 16, (c) => {
-    c.rect(0, 0, 64, 16, hex('#ffffff'));
-    c.rect(0, 0, 64, 1, hex('#c8c8c8')); c.rect(0, 15, 64, 1, hex('#a0a0a0'));
-    const w = textWidth(word, 1);
-    drawText(c, word, Math.floor((64 - w) / 2), 4, hex('#202020'), 1);
+  // a painted board: a light face (tinted by the vertex colour), a frame, rounded letters with a shadow
+  paint(`sign_${word.toLowerCase()}`, 64, 16, (p) => {
+    p.vgrad(0, 0, 64, 16, H('#ffffff'), H('#e2e2e2'));
+    p.bevel(0, 0, 64, 16, 0.9, 1, { a: 0.4 });
+    const sc = word.length <= 6 ? 1.5 : word.length <= 8 ? 1.25 : 1.05;
+    const w = (word.length * 6 - 1) * sc, x0 = (64 - w) / 2, y0 = (16 - 7 * sc) / 2;
+    const glyphs = (dx, dy, c) => [...word].forEach((ch, k) => {
+      const g = FONT5x7[ch] || FONT5x7[' '];
+      for (let j = 0; j < 7; j++) for (let i = 0; i < 5; i++) if (g[j][i] === '1') {
+        const x = x0 + (k * 6 + i) * sc + dx, y = y0 + j * sc + dy;
+        p.rect(x - 0.08 * sc, y - 0.08 * sc, x + 1.08 * sc, y + 1.08 * sc, c, { r: 0.4 * sc, soft: 0.35 });
+      }
+    });
+    glyphs(0.5, 0.6, [0, 0, 0, 70]);
+    glyphs(0, 0, H('#1c1c20'));
   });
 }
 
@@ -171,8 +388,9 @@ export function writeTextures(dir) {
   const out = [];
   let seed = 7;
   for (const [name, t] of Object.entries(T)) {
-    const c = new Canvas(t.w, t.h);
-    t.fn(c, rng(seed++ * 977));
+    let c;
+    if (t.paint) { const p = new Paint(t.w, t.h, { seed: seed++ * 977 }); t.paint(p); c = p.toCanvas(); }
+    else { c = new Canvas(t.w, t.h); t.fn(c, rng(seed++ * 977)); }
     c.save(`${dir}/${name}.png`);
     out.push(name);
   }

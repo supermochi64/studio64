@@ -54,6 +54,9 @@ V3 world_push(float *x, float *z, float r, float y0, float y1);
 V3 world_push_rect(float *x, float *z, float yaw, float hx, float hz, float y0, float y1, float *depth);
 // first hit of the segment from -> to (walls, floors, the terrain); t in 0..1
 bool world_raycast(V3 from, V3 to, float *t, V3 *normal);
+bool world_raycast_ex(V3 from, V3 to, float *t, V3 *normal, bool camera);
+// the camera's: ignores thin, low and small things
+bool world_raycast_cam(V3 from, V3 to, float *t, V3 *normal);
 static inline bool world_los(V3 a, V3 b) { float t; return !world_raycast(a, b, &t, NULL); }
 // the block (0..80) containing a point, or -1
 int world_block(float x, float z);

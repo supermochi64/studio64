@@ -262,7 +262,9 @@ static bool ray_box(const Box *b, V3 o, V3 d, float tmax, float *tOut, V3 *nOut)
   return true;
 }
 
-bool world_raycast(V3 from, V3 to, float *tOut, V3 *nOut) {
+bool world_raycast_cam(V3 from, V3 to, float *tOut, V3 *nOut) { return world_raycast_ex(from, to, tOut, nOut, true); }
+bool world_raycast(V3 from, V3 to, float *tOut, V3 *nOut) { return world_raycast_ex(from, to, tOut, nOut, false); }
+bool world_raycast_ex(V3 from, V3 to, float *tOut, V3 *nOut, bool camera) {
   World *w = &g_world;
   V3 d = v3_sub(to, from);
   float len = v3_len(d);
@@ -283,6 +285,8 @@ bool world_raycast(V3 from, V3 to, float *tOut, V3 *nOut) {
         Box *b = &w->boxes[w->gidx[k]];
         if (b->stamp == s_stamp) continue;
         b->stamp = s_stamp;
+        // the camera looks past fences, kerbs and street furniture (as a platformer's camera does)
+        if (camera && ((b->flags & (BOX_THIN | BOX_LOW | BOX_NOCAM)) || b->y1 - b->y0 < 2.5f)) continue;
         float t; V3 n;
         if (ray_box(b, from, d, best, &t, &n)) { if (t < best) { best = t; bn = n; hit = true; } }
       }

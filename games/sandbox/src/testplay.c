@@ -14,11 +14,12 @@
 extern float g_hour;
 extern float g_perf[3], g_perfDraw[5];
 extern bool g_profile;
+extern float g_perfCity[3];
 static void perf_parts(void) {
   int np = 0, nv = 0;
   for (int i = 0; i < MAX_ACTORS; i++) np += g.actors[i].used;
   for (int i = 0; i < MAX_VEHICLES; i++) nv += g.vehicles[i].used;
-  debugf("PERF parts (GPU): city %.1f, vehicles %.1f, people %.1f, fx %.1f, hud %.1f ms; %d people, %d vehicles\n", g_perfDraw[0] / 1000, g_perfDraw[1] / 1000, g_perfDraw[2] / 1000, g_perfDraw[3] / 1000, g_perfDraw[4] / 1000, np, nv);
+  debugf("PERF parts (GPU): city %.1f, vehicles %.1f, people %.1f, fx %.1f, hud %.1f ms; %d people, %d vehicles; city %d tris, %d objects in %d blocks (far %.1f, near %.1f, small %.1f ms)\n", g_perfDraw[0] / 1000, g_perfDraw[1] / 1000, g_perfDraw[2] / 1000, g_perfDraw[3] / 1000, g_perfDraw[4] / 1000, np, nv, stream_drawn_tris(), stream_drawn_objects(), stream_drawn_blocks(), g_perfCity[0] / 1000, g_perfCity[1] / 1000, g_perfCity[2] / 1000);
 }
 
 // one test after the other; each runs its frames with `t` (frames since its start) and returns true
@@ -82,7 +83,7 @@ static bool run_test(int n, int t) {
       check("run: 1.5 s covers ground", v3_dist_xz(p->pos, s_start) > 8, "%.1f m", v3_dist_xz(p->pos, s_start));
       return true;
     case 2: // a single jump
-      if (t == 0) { s_start = p->pos; s_peak = 0; }
+      if (t == 0) { place_player(-64, -170, 0); s_start = P()->pos; s_peak = 0; }
       if (t == 2) s_pad.a = true;
       if (t > 2 && t < 20) s_pad.a = true; // held: full height
       s_peak = maxf(s_peak, p->pos.y - s_start.y);

@@ -22,6 +22,8 @@ const until = opt('--until', null); // stop early when a log line matches this r
 const ARES = process.env.ARES || path.join(os.homedir(), 'n64/ares/build/rundir/bin/ares');
 const DISP = `:${process.env.DISPLAY_NUM || 77}`;
 fs.mkdirSync(out, { recursive: true });
+for (const f of fs.readdirSync(out)) if (f.endsWith('.png')) fs.rmSync(path.join(out, f)); // no stale pictures
+let inFlight = 0;
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const env = { ...process.env, DISPLAY: DISP };
@@ -35,14 +37,17 @@ try { execFileSync('xdpyinfo', ['-display', DISP], { stdio: 'ignore' }); } catch
 const ares = spawn(ARES, ['--system', 'Nintendo 64', '--no-file-prompt', rom], { env, stdio: ['ignore', 'pipe', 'pipe'] });
 let log = '';
 let started = 0;
+let partial = ''; // a line split across two reads
 const onData = (d) => {
   const s = d.toString();
   log += s;
   if (!started && /Loaded /.test(s)) started = Date.now();
-  for (const line of s.split('\n')) {
+  const lines = (partial + s).split('\n');
+  partial = lines.pop();
+  for (const line of lines) {
     if (/^(TEST|FAIL|PASS|PERF|ASSERT|PANIC|SHOT)/.test(line)) console.log(line);
     const m = /^SHOT (\w+)/.exec(line);
-    if (m) setTimeout(() => shot(`${m[1]}.png`), 150); // the frame after the line
+    if (m) { inFlight++; setTimeout(() => { shot(`${m[1]}.png`); inFlight--; }, 150); } // the frame after the line
   }
 };
 ares.stdout.on('data', onData);
@@ -58,7 +63,7 @@ function shot(name, tries = 4) {
     execFileSync('convert', [file, '-crop', `750x576+${Number(g.X) + 108}+${Number(g.Y) + 71}`, '+repage', file]);
   } catch (e) {
     // X sometimes refuses a capture mid-frame: try again a moment later
-    if (tries > 1) { setTimeout(() => shot(name, tries - 1), 120); return file; }
+    if (tries > 1) { inFlight++; setTimeout(() => { shot(name, tries - 1); inFlight--; }, 120); return file; }
     console.error('screenshot failed', e.message.split('\n')[0]);
   }
   return file;
@@ -75,6 +80,7 @@ while (Date.now() - begin < seconds * 1000) {
   await sleep(100);
 }
 for (const t of pending) console.log('shot', shot(`shot_${t}.png`));
+for (let k = 0; k < 50 && inFlight > 0; k++) await sleep(100); // let the last pictures finish
 ares.kill('SIGKILL');
 if (xvfb) xvfb.kill();
 fs.writeFileSync(path.join(out, 'emu.log'), log);

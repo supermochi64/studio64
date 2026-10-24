@@ -62,7 +62,7 @@ void camera_update(V3 target, float heading, float speed, int mode, V3 aimAt, co
   // keep the eye out of walls: pull it in front of what is between
   float t; V3 n;
   V3 from = v3_add(target, (V3){0, height, 0});
-  if (world_raycast(from, eye, &t, &n)) eye = v3_lerp(from, eye, maxf(0.05f, t - 0.08f));
+  if (world_raycast_cam(from, eye, &t, &n)) eye = v3_lerp(from, eye, maxf(0.05f, t - 0.08f));
   float floor = world_floor(eye.x, eye.z, eye.y + 0.2f, NULL);
   if (eye.y < floor + 0.4f) eye.y = floor + 0.4f;
   if (eye.y < WATER_Y + 0.3f) eye.y = WATER_Y + 0.3f;

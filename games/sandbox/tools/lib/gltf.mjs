@@ -25,7 +25,7 @@ const tileAxis = (size) => ({ mask: Math.round(Math.log2(size)), shift: 0, low: 
  * opts.layer     'opaque' | 'cutout' (alpha test) | 'blend' (transparent)
  * opts.fog       true: the level fog covers it
  * opts.cull      false: two-sided
- * opts.filter    'point' | 'bilinear'
+ * opts.filter    'bilinear' (the default) | 'point'
  * opts.prim      true: multiply by the primitive colour (set at draw time: tints, flashes)
  */
 function f3dExtras(opts) {
@@ -54,7 +54,7 @@ function f3dExtras(opts) {
       rdp_settings: {
         g_zbuffer: 1, g_shade: 1, g_cull_front: 0, g_cull_back: opts.cull === false ? 0 : 1,
         g_fog: opts.fog === false ? 0 : 1, g_lighting: opts.lit ? 1 : 0, g_tex_gen: 0,
-        g_shade_smooth: 1, g_mdsft_text_filt: opts.filter === 'bilinear' ? 2 : 0,
+        g_shade_smooth: 1, g_mdsft_text_filt: opts.filter === 'point' || opts.texRef ? 0 : 2,
         g_mdsft_cycletype: opts.prim ? 1 : 0, g_mdsft_alpha_compare: 0,
         set_rendermode: 0,
       },
@@ -65,6 +65,8 @@ function f3dExtras(opts) {
 }
 
 /** Collects triangles per material (and per bone, for skinned models). */
+const lin = (v) => Math.pow(Math.max(0, Math.min(255, v)) / 255, 2.2);
+
 export class MeshBuilder {
   constructor() { this.groups = new Map(); }
   group(mat) {
@@ -75,7 +77,8 @@ export class MeshBuilder {
   vert(mat, p, n, c, uv = [0, 0], joint = 0) {
     const g = this.group(mat);
     g.pos.push(p[0], p[1], p[2]); g.nrm.push(n[0], n[1], n[2]);
-    g.col.push(c[0] / 255, c[1] / 255, c[2] / 255, (c[3] ?? 255) / 255);
+    // glTF colours are linear (gltf_to_t3d converts them back to gamma): store ours, given in sRGB, as linear
+    g.col.push(lin(c[0]), lin(c[1]), lin(c[2]), (c[3] ?? 255) / 255);
     g.uv.push(uv[0], uv[1]); g.joint.push(joint);
     return g.pos.length / 3 - 1;
   }

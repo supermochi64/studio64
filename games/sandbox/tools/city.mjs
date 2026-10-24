@@ -9,7 +9,7 @@
 //   - map.png: the map for the radar and the pause screen
 //
 // Axes: +x east, +z south (north is -z, the top of the map), y up. Meters.
-import { Gltf, MeshBuilder, box, boxRotated, cylinder } from './lib/gltf.mjs';
+import { Gltf, MeshBuilder, box, boxRotated, cylinder, ellipsoid } from './lib/gltf.mjs';
 import { rng } from './lib/png.mjs';
 
 export const WORLD = { min: -672, size: 1344, chunk: 64, chunks: 21, hcell: 4 };
@@ -52,6 +52,8 @@ const MATS = {
   leaves: { tex: 'leaves.png', layer: 'cutout', cull: false }, frond: { tex: 'frond.png', layer: 'cutout', cull: false },
   chainlink: { tex: 'chainlink.png', layer: 'cutout', cull: false }, container: { tex: 'container.png' }, court: { tex: 'court.png' },
   graffiti: { tex: 'graffiti.png', layer: 'cutout' }, plain: {}, plain2: { cull: false },
+  lobby: { tex: 'lobby.png' }, awning: { tex: 'awning.png', cull: false }, vent: { tex: 'vent.png' },
+  shadow: { layer: 'blend', fog: false }, // soft contact shadows (vertex alpha: fog would take the alpha, and they are only drawn near)
 };
 
 // ---- collision box flags (world.bin; the game's world.h has the same numbers) ----
@@ -88,14 +90,58 @@ export class City {
     const key = `${cx},${cz}`;
     if (!this.chunks.has(key)) {
       const mk = () => { const g = new Gltf(); return { g, b: new MeshBuilder(), m: (name) => g.material(name, MATS[name]) }; };
-      this.chunks.set(key, { cx, cz, detail: mk(), lod: mk(), ox: WORLD.min + cx * WORLD.chunk + WORLD.chunk / 2, oz: WORLD.min + cz * WORLD.chunk + WORLD.chunk / 2 });
+      const detail = mk(); detail.parts = Array.from({ length: 8 }, () => new MeshBuilder());
+      this.chunks.set(key, { cx, cz, detail, lod: mk(), ox: WORLD.min + cx * WORLD.chunk + WORLD.chunk / 2, oz: WORLD.min + cz * WORLD.chunk + WORLD.chunk / 2 });
     }
     return this.chunks.get(key);
   }
   /** Draw into the detailed model of the chunk that holds (x, z): fn(builder, material) */
-  emit(x, z, fn) { const c = this.chunkOf(x, z); fn(c.detail.b, c.detail.m); }
+  // the detailed model is kept in four quadrants (32 m), each culled on its own by the game
+  quadrant(c, x, z) { return (x >= c.ox ? 1 : 0) + (z >= c.oz ? 2 : 0); }
+  emit(x, z, fn) { const c = this.chunkOf(x, z); fn(c.detail.parts[this.quadrant(c, x, z)], c.detail.m); }
+  /** Small things (street furniture, clutter, decals): drawn only close to the camera */
+  fine(x, z, fn) { const c = this.chunkOf(x, z); fn(c.detail.parts[4 + this.quadrant(c, x, z)], c.detail.m); }
   lod(x, z, fn) { const c = this.chunkOf(x, z); fn(c.lod.b, c.lod.m); }
   both(x, z, fn) { this.emit(x, z, fn); this.lod(x, z, fn); }
+
+  // a soft shadow on the ground round a footprint (centre, half extents, yaw): darkest at the wall
+  shadowRect(cx, cz, hx, hz, yaw, y, width = 1.5, alpha = 0.42) {
+    const c = Math.cos(yaw), s = Math.sin(yaw);
+    const P = (lx, lz) => [cx + lx * c + lz * s, y, cz - lx * s + lz * c];
+    const ein = [[-hx, hz], [hx, hz], [hx, -hz], [-hx, -hz]];
+    const eout = [[-hx - width, hz + width], [hx + width, hz + width], [hx + width, -hz - width], [-hx - width, -hz - width]];
+    const dark = [0, 0, 0, Math.round(alpha * 255)], clear = [0, 0, 0, 0];
+    this.fine(cx, cz, (b, m) => {
+      for (let k = 0; k < 4; k++) {
+        const k1 = (k + 1) % 4;
+        const q = [P(...ein[k]), P(...eout[k]), P(...eout[k1]), P(...ein[k1])];
+        b.quad(m('shadow'), q, { colors: [dark, clear, clear, dark], normal: [0, 1, 0] });
+      }
+    });
+  }
+  // a rooftop air conditioner
+  acUnit(x, z, y, yaw = 0) {
+    const w = 1.2 + this.r() * 0.6;
+    this.fine(x, z, (b, m) => {
+      boxRotated(b, m('vent'), [x, y + 0.55, z], [w / 2, 0.55, 0.6], yaw, { color: [236, 236, 236, 255] });
+      boxRotated(b, m('plain'), [x, y + 1.14, z], [w / 2 + 0.05, 0.05, 0.65], yaw, { color: [150, 154, 158, 255] });
+    });
+  }
+  // a water tank on legs (old towers) and an antenna mast
+  waterTank(x, z, y) {
+    this.emit(x, z, (b, m) => {
+      for (const [dx, dz] of [[-1, -1], [1, -1], [1, 1], [-1, 1]]) box(b, m('plain'), [x + dx * 1.1 - 0.08, y, z + dz * 1.1 - 0.08], [x + dx * 1.1 + 0.08, y + 2.2, z + dz * 1.1 + 0.08], { color: [70, 60, 52, 255] });
+      cylinder(b, m('wood'), x, z, y + 2.2, y + 5.2, 1.6, 10, { color: [214, 190, 160, 255], cap: false });
+      cylinder(b, m('plain'), x, z, y + 5.2, y + 6.4, 1.7, 10, { color: [92, 78, 66, 255], rTop: 0.15 });
+    });
+  }
+  antenna(x, z, y, h) {
+    this.emit(x, z, (b, m) => {
+      box(b, m('plain'), [x - 0.12, y, z - 0.12], [x + 0.12, y + h, z + 0.12], { color: [200, 204, 208, 255] });
+      for (let k = 1; k < 4; k++) box(b, m('plain'), [x - 0.9 + k * 0.1, y + h * (k / 4), z - 0.04], [x + 0.9 - k * 0.1, y + h * (k / 4) + 0.08, z + 0.04], { color: [200, 204, 208, 255] });
+      box(b, m('plain'), [x - 0.2, y + h, z - 0.2], [x + 0.2, y + h + 0.4, z + 0.2], { color: [255, 60, 50, 255], shadeSides: false });
+    });
+  }
 
   solid(cx, cz, hx, hz, y0, y1, opts = {}) {
     this.boxes.push({ cx, cz, hx, hz, y0, y1, yaw: opts.yaw || 0, flags: opts.flags || 0, r0: opts.r0 ?? y1, r1: opts.r1 ?? y1, kind: opts.kind || 0 });
@@ -165,29 +211,48 @@ export class City {
     };
     for (const s of this.segments) mark(Math.min(s.x0, s.x1) - (s.x0 === s.x1 ? s.half : 0), Math.min(s.z0, s.z1) - (s.z0 === s.z1 ? s.half : 0), Math.max(s.x0, s.x1) + (s.x0 === s.x1 ? s.half : 0), Math.max(s.z0, s.z1) + (s.z0 === s.z1 ? s.half : 0));
     for (const p of this.pads) mark(p.x0, p.z0, p.x1, p.z1);
-    for (let j = 0; j < n; j++) for (let i = 0; i < n; i++) {
-      if (covered[j * n + i]) continue;
+    const cell = (i, j) => {
       const hs = [this.heights[this.hIndex(i, j)], this.heights[this.hIndex(i + 1, j)], this.heights[this.hIndex(i + 1, j + 1)], this.heights[this.hIndex(i, j + 1)]];
-      if (Math.max(...hs) < WATER_Y - 6) continue; // deep under water: nobody sees it
-      const x0 = WORLD.min + i * 4, z0 = WORLD.min + j * 4;
       const g = this.ground[j * n + i];
       const avg = (hs[0] + hs[1] + hs[2] + hs[3]) / 4;
       const mat = g === GROUND.SAND || (avg < 0.6 && g !== GROUND.GRASS) ? 'sand' : avg > 18 ? (((i * 7 + j * 3) % 5) ? 'grass' : 'dirt') : 'grass';
       // baked light from the slope (sun from the south-east)
       const nx = (hs[0] - hs[1] + hs[3] - hs[2]) / 8, nz = (hs[0] - hs[3] + hs[1] - hs[2]) / 8;
       const lit = Math.max(0.55, Math.min(1.15, 0.92 + nx * 0.5 + nz * 0.6));
+      const flat = hs[0] === hs[1] && hs[1] === hs[2] && hs[2] === hs[3];
+      return { hs, mat, lit, flat };
+    };
+    for (let j = 0; j < n; j++) for (let i = 0; i < n; i++) {
+      if (covered[j * n + i]) continue;
+      const C = cell(i, j);
+      const { hs, mat, lit } = C;
+      if (Math.max(...hs) < WATER_Y - 6) continue; // deep under water: nobody sees it
+      const x0 = WORLD.min + i * 4, z0 = WORLD.min + j * 4;
       const col = [Math.round(255 * lit), Math.round(255 * lit), Math.round(250 * lit), 255].map((v) => Math.min(255, v));
-      const p = [[x0, hs[0], z0], [x0, hs[3], z0 + 4], [x0 + 4, hs[2], z0 + 4], [x0 + 4, hs[1], z0]];
-      const u0 = i % 8, v0 = j % 8;
-      const uvq = [[u0, v0], [u0, v0 + 1], [u0 + 1, v0 + 1], [u0 + 1, v0]];
-      this.emit(x0 + 2, z0 + 2, (b, m) => b.quad(m(mat), p, { color: col, uv: uvq }));
-      if (((i % 2) === 0) && ((j % 2) === 0)) {
-        // the far model: 8 m quads, no texture
-        const H = (a, b) => this.heights[this.hIndex(Math.min(this.hn - 1, i + a), Math.min(this.hn - 1, j + b))];
-        const ph = [[x0, H(0, 0), z0], [x0, H(0, 2), z0 + 8], [x0 + 8, H(2, 2), z0 + 8], [x0 + 8, H(2, 0), z0]];
-        const base = mat === 'sand' ? [226, 207, 152] : mat === 'dirt' ? [141, 110, 76] : [95, 143, 60];
-        this.lod(x0 + 4, z0 + 4, (b, m) => b.quad(m('plain'), ph, { color: [...base.map((v) => Math.round(v * lit)), 255] }));
+      // flat ground: one long quad over the run of cells like it (to the next 32 m line)
+      let run = 1;
+      if (C.flat) while (run < 8 && (i + run) % 8 !== 0 && i + run < n && !covered[j * n + i + run]) {
+        const D = cell(i + run, j);
+        if (!D.flat || D.mat !== mat || D.hs[0] !== hs[0]) break;
+        run++;
       }
+      const p = [[x0, hs[0], z0], [x0, hs[3], z0 + 4], [x0 + 4 * run, run > 1 ? hs[0] : hs[2], z0 + 4], [x0 + 4 * run, run > 1 ? hs[0] : hs[1], z0]];
+      const u0 = i % 8, v0 = j % 8;
+      const uvq = [[u0, v0], [u0, v0 + 1], [u0 + run, v0 + 1], [u0 + run, v0]];
+      this.emit(x0 + 2, z0 + 2, (b, m) => b.quad(m(mat), p, { color: col, uv: uvq }));
+      for (let k = 0; k < run; k++) {
+        const ii = i + k;
+        if (((ii % 2) === 0) && ((j % 2) === 0)) {
+          // the far model: 8 m quads, no texture
+          const xx = WORLD.min + ii * 4;
+          const H = (a, b) => this.heights[this.hIndex(Math.min(this.hn - 1, ii + a), Math.min(this.hn - 1, j + b))];
+          const ph = [[xx, H(0, 0), z0], [xx, H(0, 2), z0 + 8], [xx + 8, H(2, 2), z0 + 8], [xx + 8, H(2, 0), z0]];
+          const cm = k === 0 ? C : cell(ii, j);
+          const base = cm.mat === 'sand' ? [226, 207, 152] : cm.mat === 'dirt' ? [141, 110, 76] : [95, 143, 60];
+          this.lod(xx + 4, z0 + 4, (b, m) => b.quad(m('plain'), ph, { color: [...base.map((v) => Math.round(v * cm.lit)), 255] }));
+        }
+      }
+      i += run - 1;
     }
   }
 
@@ -264,22 +329,53 @@ export class City {
       if (N[e.a].deg > 2) pieces.push([s0, s0 + cw, 'crosswalk']);
       pieces.push([N[e.a].deg > 2 ? s0 + cw : s0, N[e.b].deg > 2 ? s1 - cw : s1, t]);
       if (N[e.b].deg > 2) pieces.push([s1 - cw, s1, 'crosswalk']);
+      // a frame along the street: s along it, t across (local -> world)
+      const P = (sAlong, tAcross, y = 0.02) => horiz ? [A.x + sAlong, y, A.z + tAcross] : [A.x - tAcross, y, A.z + sAlong];
+      const strip = (s0_, s1_, t0, t1, col, y = 0.05) => {
+        const q = [P(s0_, t0, y), P(s0_, t1, y), P(s1_, t1, y), P(s1_, t0, y)];
+        const cx = horiz ? A.x + (s0_ + s1_) / 2 : A.x, cz = horiz ? A.z : A.z + (s0_ + s1_) / 2;
+        this.emit(cx, cz, (bb, m) => bb.quad(m('plain'), q, { color: col }));
+      };
+      const w = e.half;
       for (const [p0, p1, mat] of pieces) {
         // in pieces of at most 32 m (texture coordinates stay small; chunks get their own part)
         for (let q = p0; q < p1 - 0.01; q += 32) {
           const q1 = Math.min(p1, q + 32);
-          const w = e.half;
           let quad;
           if (horiz) quad = [[A.x + q, 0.02, A.z - w], [A.x + q, 0.02, A.z + w], [A.x + q1, 0.02, A.z + w], [A.x + q1, 0.02, A.z - w]];
           else quad = [[A.x + w, 0.02, A.z + q], [A.x - w, 0.02, A.z + q], [A.x - w, 0.02, A.z + q1], [A.x + w, 0.02, A.z + q1]];
-          // u across the road (0..1), v along it (one repeat per 8 m; crosswalks: across stripes)
-          const rep = mat === 'crosswalk' ? [[0, 0], [w / 3, 0], [w / 3, 1], [0, 1]] : [[0, 0], [1, 0], [1, (q1 - q) / 8], [0, (q1 - q) / 8]];
-          const uv = mat === 'crosswalk' ? [[0, 0], [0, (2 * w) / 6], [1, (2 * w) / 6], [1, 0]] : rep;
+          // the surface: asphalt tiled every 4 m in world space
+          const ox = Math.floor(Math.min(...quad.map((pt) => pt[0])) / 32) * 32, oz = Math.floor(Math.min(...quad.map((pt) => pt[2])) / 32) * 32;
+          const uv = quad.map((pt) => [(pt[0] - ox) / 4, (pt[2] - oz) / 4]);
           const cx = horiz ? A.x + (q + q1) / 2 : A.x, cz = horiz ? A.z : A.z + (q + q1) / 2;
-          this.emit(cx, cz, (b, m) => b.quad(m(mat), quad, { color: WHITE, uv }));
-          this.lod(cx, cz, (b, m) => b.quad(m('plain'), quad, { color: [86, 88, 92, 255] }));
+          this.emit(cx, cz, (bb, m) => bb.quad(m('asphalt'), quad, { color: WHITE, uv }));
+          this.lod(cx, cz, (bb, m) => bb.quad(m('plain'), quad, { color: [86, 88, 92, 255] }));
+          // the markings: crisp painted strips
+          const wht = [222, 220, 212, 255], yel = [232, 184, 44, 255];
+          if (mat === 'crosswalk') {
+            for (let t = -w + 0.9; t < w - 0.9; t += 1.2) strip(q + 0.2, q1 - 0.2, t, t + 0.6, wht);
+            continue;
+          }
+          strip(q, q1, -w + 0.45, -w + 0.6, wht); strip(q, q1, w - 0.6, w - 0.45, wht);
+          if (e.kind !== 'local' && e.kind !== 'culdesac') { strip(q, q1, -0.24, -0.1, yel); strip(q, q1, 0.1, 0.24, yel); }
+          else for (let d = Math.ceil(q / 6) * 6; d < q1 - 2; d += 6) strip(d, d + 2.4, -0.07, 0.07, yel);
+          if (e.lanes === 2) for (const t of [-w / 2, w / 2]) for (let d = Math.ceil(q / 9) * 9; d < q1 - 3; d += 9) strip(d, d + 3, t - 0.07, t + 0.07, wht);
+          // the odd manhole and patched asphalt
+          const rr = rng(Math.floor(A.x * 7 + A.z * 13 + q));
+          if (rr() < 0.5) {
+            const sm = q + 4 + rr() * Math.max(1, q1 - q - 8), tm = (rr() < 0.5 ? -1 : 1) * w * 0.5;
+            const c = P(sm, tm, 0.045);
+            this.fine(c[0], c[2], (bb, m) => { const pts = []; for (let k = 0; k < 10; k++) { const an = -(k / 10) * Math.PI * 2; pts.push([c[0] + Math.sin(an) * 0.42, 0.045, c[2] + Math.cos(an) * 0.42]); } for (let k = 0; k < 10; k++) bb.triangle(m('plain2'), [c, pts[k], pts[(k + 1) % 10]], { colors: [[70, 70, 72, 255], [52, 52, 54, 255], [52, 52, 54, 255]] }); });
+          }
+          if (rr() < 0.35) {
+            const sm = q + rr() * Math.max(1, q1 - q - 5), tm = (rr() - 0.5) * w;
+            strip(sm, sm + 2 + rr() * 3, tm, tm + 1.2 + rr() * 2, [70, 72, 76, 255], 0.035);
+          }
         }
       }
+      // stop lines before the crossings
+      if (N[e.a].deg > 2) strip(s0 + cw + 0.3, s0 + cw + 0.7, 0.3, w - 0.6, [222, 220, 212, 255]);
+      if (N[e.b].deg > 2) strip(s1 - cw - 0.7, s1 - cw - 0.3, -w + 0.6, -0.3, [222, 220, 212, 255]);
     }
     // intersections: plain asphalt squares
     N.forEach((n, i) => {
@@ -298,7 +394,7 @@ export class City {
       }
       const h = this.nodeHalf(i);
       const q = [[n.x - h, 0.02, n.z - h], [n.x - h, 0.02, n.z + h], [n.x + h, 0.02, n.z + h], [n.x + h, 0.02, n.z - h]];
-      this.emit(n.x, n.z, (b, m) => b.quad(m('asphalt'), q, { color: WHITE, uv: [[0, 0], [0, h / 4], [h / 4, h / 4], [h / 4, 0]] }));
+      this.emit(n.x, n.z, (b, m) => b.quad(m('asphalt'), q, { color: WHITE, uv: q.map((pt) => [(pt[0] - Math.floor(n.x / 32) * 32) / 4, (pt[2] - Math.floor(n.z / 32) * 32) / 4]) }));
       this.lod(n.x, n.z, (b, m) => b.quad(m('plain'), q, { color: [86, 88, 92, 255] }));
       // traffic lights at big crossings
       if (n.deg >= 4 && h >= 8) for (const [sx, sz, yaw] of [[1, 1, 0], [-1, -1, Math.PI], [1, -1, Math.PI / 2], [-1, 1, -Math.PI / 2]]) this.trafficLight(n.x + sx * (h + 1.5), n.z + sz * (h + 1.5), yaw);
@@ -408,17 +504,42 @@ export class City {
       { ax: p.x0 + 0.8, az: p.z0 + 6, bx: p.x0 + 0.8, bz: p.z1 - 6, yaw: -Math.PI / 2 },
       { ax: p.x1 - 0.8, az: p.z0 + 6, bx: p.x1 - 0.8, bz: p.z1 - 6, yaw: Math.PI / 2 },
     ];
+    const hood = p.kind === 'R' || p.kind === 'K' || p.kind === 'V' || p.kind === 'Y' || p.kind === 'S';
+    const busy = p.kind === 'D' || p.kind === 'C';
     sides.forEach((s, i) => {
       const len = Math.hypot(s.bx - s.ax, s.bz - s.az);
       const n = Math.floor(len / 26);
+      const at = (t, off = 0) => { const x = s.ax + (s.bx - s.ax) * t, z = s.az + (s.bz - s.az) * t; return [x - Math.sin(s.yaw) * off, z - Math.cos(s.yaw) * off]; };
+      let prevPole = null;
+      const poles = hood && i < 2;
       for (let k = 0; k <= n; k++) {
         const t = n ? k / n : 0.5;
-        const x = s.ax + (s.bx - s.ax) * t, z = s.az + (s.bz - s.az) * t;
-        if ((k + i) % 2 === 0) this.lamp(x, z, s.yaw);
+        const [x, z] = at(t);
+        if (poles) prevPole = this.powerPole(x, z, s.yaw, prevPole);
+        else if ((k + i) % 2 === 0) this.lamp(x, z, s.yaw);
         else if (r() < 0.25) this.hydrant(x, z);
         else if (r() < 0.2) this.trashcan(x, z);
         if (p.kind === 'B' || p.kind === 'R' || p.kind === 'K' || p.kind === 'Y') { if (r() < 0.25) this.palm(x + (s.bz - s.az ? 0 : 3), z + (s.bx - s.ax ? 0 : 3), r() * 6); }
         if (r() < 0.35) this.spot(SPOT.PED, x, z, s.yaw);
+        if (k === n) break;
+        // between the lights: what this kind of street has
+        const along = Math.atan2(s.bx - s.ax, s.bz - s.az);
+        void along;
+        if (busy) {
+          const [mx, mz] = at((k + 0.5) / n);
+          const pick = (k * 7 + i * 3 + p.bx + p.bz) % 5;
+          if (pick === 0) this.busStop(...at((k + 0.5) / n, 0.9), s.yaw + Math.PI);
+          else if (pick === 1) { this.newsBoxes(...at((k + 0.35) / n, 0.5), s.yaw); this.trashcan(...at((k + 0.65) / n, 0.2)); }
+          else if (pick === 2) { this.planterTree(mx, mz); }
+          else if (pick === 3) { this.phoneBooth(...at((k + 0.4) / n, 0.6), s.yaw); this.bench(...at((k + 0.65) / n, 1.0), s.yaw + Math.PI); }
+          else this.planterTree(mx, mz);
+          if (p.kind === 'C') for (let q = 0.2; q < 0.95; q += 0.3) this.parkingMeter(...at((k + q) / n, -0.25));
+        } else if (hood) {
+          const [mx, mz] = at((k + 0.5) / n);
+          if (r() < 0.3) this.hydrant(mx, mz);
+          else if (r() < 0.25) this.trashcan(mx, mz);
+          else if (r() < 0.2 && i >= 2) this.bench(...at((k + 0.5) / n, 1.0), s.yaw + Math.PI);
+        }
       }
     });
   }
@@ -435,11 +556,11 @@ export class City {
     this.solid(x, z, 0.12, 0.12, PAD_Y, 6.2, { flags: BOX.THIN, kind: 3 }); // (kind 3: a pole to climb)
   }
   hydrant(x, z) {
-    this.emit(x, z, (b, m) => { cylinder(b, m('plain'), x, z, PAD_Y, 0.75, 0.15, 6, { color: [196, 40, 36, 255] }); box(b, m('plain'), [x - 0.22, 0.45, z - 0.06], [x + 0.22, 0.55, z + 0.06], { color: [176, 36, 30, 255] }); });
+    this.fine(x, z, (b, m) => { cylinder(b, m('plain'), x, z, PAD_Y, 0.75, 0.15, 6, { color: [196, 40, 36, 255] }); box(b, m('plain'), [x - 0.22, 0.45, z - 0.06], [x + 0.22, 0.55, z + 0.06], { color: [176, 36, 30, 255] }); });
     this.solid(x, z, 0.18, 0.18, PAD_Y, 0.75, { kind: 1 });
   }
   trashcan(x, z) {
-    this.emit(x, z, (b, m) => cylinder(b, m('plain'), x, z, PAD_Y, 1.0, 0.3, 6, { color: [60, 90, 70, 255] }));
+    this.fine(x, z, (b, m) => cylinder(b, m('plain'), x, z, PAD_Y, 1.0, 0.3, 6, { color: [60, 90, 70, 255] }));
     this.solid(x, z, 0.3, 0.3, PAD_Y, 1.0);
   }
   palm(x, z, seed) {
@@ -576,9 +697,28 @@ export class City {
           b.triangle(m('roof'), [Cc, D, Q1], { color: [...roofCol.slice(0, 3).map((v) => Math.round(v * 0.7)), 255], uv: [[0, 0], [3, 0], [1.5, 2]] });
         }
       }
-      // porch step
-      b.quad(m('concrete'), [P(-1.2, g + 0.12, hd + 1.4), P(1.2, g + 0.12, hd + 1.4), P(1.2, g + 0.12, hd), P(-1.2, g + 0.12, hd)], { color: WHITE });
+      // porch step, a little canopy on two posts over the door
+      const st = [P(-1.3, g + 0.14, hd + 1.4), P(1.3, g + 0.14, hd + 1.4), P(1.3, g + 0.14, hd), P(-1.3, g + 0.14, hd)];
+      b.quad(m('concrete'), st, { color: WHITE });
+      b.quad(m('plain'), [P(-1.3, g, hd + 1.4), P(1.3, g, hd + 1.4), P(1.3, g + 0.14, hd + 1.4), P(-1.3, g + 0.14, hd + 1.4)], { color: [150, 146, 138, 255] });
+      const cy = g + 2.55;
+      b.quad(m('roof'), [P(-1.5, cy, hd + 1.5), P(1.5, cy, hd + 1.5), P(1.5, cy + 0.45, hd), P(-1.5, cy + 0.45, hd)], { color: roofCol, uv: [[0, 0.5], [1, 0.5], [1, 0], [0, 0]] });
+      b.quad(m('plain'), [P(1.5, cy, hd + 1.5), P(-1.5, cy, hd + 1.5), P(-1.5, cy + 0.45, hd), P(1.5, cy + 0.45, hd)], { color: [240, 236, 228, 255] });
+      for (const sx of [-1.3, 1.3]) { const c0 = P(sx, 0, hd + 1.3); box(b, m('plain'), [c0[0] - 0.07, g, c0[2] - 0.07], [c0[0] + 0.07, cy, c0[2] + 0.07], { color: [250, 250, 246, 255], faces: ['n', 's', 'e', 'w'] }); }
+      // the chimney
+      if (!two && r() < 0.55) {
+        const ch = P(-hw * 0.55, 0, -hd * 0.2);
+        box(b, m('brick'), [ch[0] - 0.45, top, ch[2] - 0.45], [ch[0] + 0.45, top + 2.6, ch[2] + 0.45], { color: WHITE, uvScale: 1.5, faces: ['n', 's', 'e', 'w'] });
+        box(b, m('plain'), [ch[0] - 0.55, top + 2.6, ch[2] - 0.55], [ch[0] + 0.55, top + 2.8, ch[2] + 0.55], { color: [120, 110, 100, 255] });
+      }
+      // the eaves' fascia board
+      if (!(two || false)) for (const [a, bb] of [[[-hw - ov, hd + ov], [hw + ov, hd + ov]], [[hw + ov, -hd - ov], [-hw - ov, -hd - ov]]]) b.quad(m('plain'), [P(a[0], top - 0.22, a[1]), P(bb[0], top - 0.22, bb[1]), P(bb[0], top + 0.02, bb[1]), P(a[0], top + 0.02, a[1])], { color: [246, 244, 238, 255] });
     });
+    this.shadowRect(x, z, hw, hd, yaw, g + 0.025, 1.2, 0.34);
+    { // a mailbox by the kerb
+      const mb = P(-hw + 0.8, 0, hd + 3.0);
+      this.fine(mb[0], mb[2], (b, m) => { box(b, m('plain'), [mb[0] - 0.05, g, mb[2] - 0.05], [mb[0] + 0.05, g + 1.0, mb[2] + 0.05], { color: [110, 80, 56, 255] }); boxRotated(b, m('plain'), [mb[0], g + 1.12, mb[2]], [0.13, 0.12, 0.25], yaw, { color: [[60, 70, 90, 255], [200, 60, 50, 255], [240, 240, 236, 255]][Math.floor(r() * 3)] }); });
+    }
     this.lod(x, z, (b, m) => {
       const q = [P(-hw, g, -hd), P(hw, g, -hd), P(hw, g, hd), P(-hw, g, hd)];
       const minx = Math.min(...q.map((p) => p[0])), maxx = Math.max(...q.map((p) => p[0])), minz = Math.min(...q.map((p) => p[2])), maxz = Math.max(...q.map((p) => p[2]));
@@ -656,9 +796,19 @@ export class City {
       const sl = Math.min(len - 1, 8), sm = 0.5 * (len - sl);
       const sa = [ax + dx * sm + nx * 0.1, az + dz * sm + nz * 0.1], sb = [ax + dx * (sm + sl) + nx * 0.1, az + dz * (sm + sl) + nz * 0.1];
       b.quad(m(`sign_${word.toLowerCase()}`), [[sa[0], g + 3.5, sa[1]], [sb[0], g + 3.5, sb[1]], [sb[0], g + 4.6, sb[1]], [sa[0], g + 4.6, sa[1]]], { color: [255, 230 - Math.floor(r() * 120), 140 + Math.floor(r() * 110), 255].map(Math.round), uv: [[0, 1], [1, 1], [1, 0], [0, 0]] });
-      const ac = [[200, 40, 40, 255], [40, 110, 60, 255], [40, 70, 150, 255], [220, 160, 40, 255]][Math.floor(r() * 4)];
-      b.quad(m('plain2'), [[ax + nx * 1.6, g + 2.8, az + nz * 1.6], [bx + nx * 1.6, g + 2.8, bz + nz * 1.6], [bx, g + 3.4, bz], [ax, g + 3.4, az]], { color: ac });
+      const ac = [[214, 52, 48, 255], [52, 132, 76, 255], [52, 92, 176, 255], [232, 170, 50, 255], [200, 90, 150, 255]][Math.floor(r() * 5)];
+      // a striped awning (sloped, with a hanging valance) over the windows either side of the door
+      const ar = Math.max(1, Math.round(len / 2));
+      b.quad(m('awning'), [[ax + nx * 1.5, g + 2.75, az + nz * 1.5], [bx + nx * 1.5, g + 2.75, bz + nz * 1.5], [bx, g + 3.35, bz], [ax, g + 3.35, az]], { color: ac, uv: [[0, 0.85], [ar, 0.85], [ar, 0], [0, 0]] });
+      b.quad(m('awning'), [[ax + nx * 1.5, g + 2.45, az + nz * 1.5], [bx + nx * 1.5, g + 2.45, bz + nz * 1.5], [bx + nx * 1.5, g + 2.75, bz + nz * 1.5], [ax + nx * 1.5, g + 2.75, az + nz * 1.5]], { color: ac.map((v, i) => (i < 3 ? Math.round(v * 0.85) : v)), uv: [[0, 1], [ar, 1], [ar, 0.85], [0, 0.85]] });
+      // the parapet and its coping
+      box(b, m('plain'), [x0 - 0.15, g + h, z0 - 0.15], [x1 + 0.15, g + h + 0.6, z1 + 0.15], { color: brick ? [176, 160, 140, 255] : col.map((v, i) => (i < 3 ? Math.round(v * 0.85) : v)), faces: ['top', 'n', 's', 'e', 'w'] });
+      // a base course along the front
+      b.quad(m('plain'), [[ax + nx * 0.04, g, az + nz * 0.04], [bx + nx * 0.04, g, bz + nz * 0.04], [bx + nx * 0.04, g + 0.35, bz + nz * 0.04], [ax + nx * 0.04, g + 0.35, az + nz * 0.04]], { color: [96, 98, 104, 255] });
     });
+    const scx = (x0 + x1) / 2, scz = (z0 + z1) / 2;
+    this.shadowRect(scx, scz, (x1 - x0) / 2, (z1 - z0) / 2, 0, g + 0.025, 1.3, 0.36);
+    for (let k = 0; k < 1 + Math.floor(r() * 2); k++) this.acUnit(x0 + 1.5 + r() * (x1 - x0 - 3), z0 + 1.5 + r() * (z1 - z0 - 3), g + h, r() < 0.5 ? 0 : Math.PI / 2);
     this.lod((x0 + x1) / 2, (z0 + z1) / 2, (b, m) => box(b, m('plain'), [x0, g, z0], [x1, g + h, z1], { color: col, faces: ['top', 'n', 's', 'e', 'w'], colors: { top: [138, 134, 128, 255] } }));
     this.solid((x0 + x1) / 2, (z0 + z1) / 2, (x1 - x0) / 2, (z1 - z0) / 2, g, g + h);
     const cx = (x0 + x1) / 2, cz = (z0 + z1) / 2;
@@ -727,19 +877,45 @@ export class City {
   tower(x0, z0, x1, z1, h, r) {
     const g = PAD_Y;
     const kind = r() < 0.55 ? 'office' : 'office2';
-    const col = kind === 'office' ? [220 + Math.floor(r() * 35), 225 + Math.floor(r() * 30), 235, 255] : PASTELS[Math.floor(r() * PASTELS.length)];
-    this.emit((x0 + x1) / 2, (z0 + z1) / 2, (b, m) => {
-      box(b, m(kind), [x0, g, z0], [x1, g + h, z1], { color: col.map((v, i) => (i < 3 ? Math.min(255, v) : v)), uvScale: [3.5, 4], faces: ['n', 's', 'e', 'w'] });
-      b.quad(m('roofflat'), [[x0, g + h, z0], [x0, g + h, z1], [x1, g + h, z1], [x1, g + h, z0]], { color: WHITE, uv: [[0, 0], [0, (z1 - z0) / 6], [(x1 - x0) / 6, (z1 - z0) / 6], [(x1 - x0) / 6, 0]] });
-      // a rooftop box (lift room), and a lobby band
-      const mx = (x0 + x1) / 2, mz = (z0 + z1) / 2;
-      box(b, m('plain'), [mx - 3, g + h, mz - 3], [mx + 3, g + h + 3, mz + 3], { color: [150, 150, 150, 255], faces: ['top', 'n', 's', 'e', 'w'] });
-      box(b, m('plain'), [x0 - 0.2, g, z0 - 0.2], [x1 + 0.2, g + 4.5, z1 + 0.2], { color: [90, 96, 104, 255], faces: ['n', 's', 'e', 'w'] });
-    });
-    this.lod((x0 + x1) / 2, (z0 + z1) / 2, (b, m) => box(b, m('plain'), [x0, g, z0], [x1, g + h, z1], { color: kind === 'office' ? [120, 150, 180, 255] : [180, 160, 130, 255], faces: ['top', 'n', 's', 'e', 'w'] }));
-    this.solid((x0 + x1) / 2, (z0 + z1) / 2, (x1 - x0) / 2 + 0.2, (z1 - z0) / 2 + 0.2, g, g + h);
+    const col = kind === 'office' ? [210 + Math.floor(r() * 45), 220 + Math.floor(r() * 35), 235, 255] : PASTELS[Math.floor(r() * PASTELS.length)];
+    const trim = kind === 'office' ? [196, 198, 204, 255] : [Math.round(col[0] * 0.78), Math.round(col[1] * 0.76), Math.round(col[2] * 0.72), 255];
     const mx = (x0 + x1) / 2, mz = (z0 + z1) / 2;
-    this.solid(mx, mz, 3, 3, g + h, g + h + 3);
+    const lobbyH = 4.5;
+    // tall towers step back: the upper part is narrower
+    const setback = h > 44 && Math.min(x1 - x0, z1 - z0) > 16 ? Math.min(3.5, (Math.min(x1 - x0, z1 - z0) - 10) / 4) : 0;
+    const h1 = setback ? Math.round((h * (0.55 + r() * 0.15)) / 4) * 4 : h;
+    this.emit(mx, mz, (b, m) => {
+      // the lobby: glass between stone piers, a canopy over the entrances
+      box(b, m('lobby'), [x0 + 0.3, g, z0 + 0.3], [x1 - 0.3, g + lobbyH, z1 - 0.3], { color: WHITE, uvScale: [4, lobbyH], faces: ['n', 's', 'e', 'w'] });
+      box(b, m('plain'), [x0 - 0.25, g + lobbyH, z0 - 0.25], [x1 + 0.25, g + lobbyH + 0.5, z1 + 0.25], { color: trim, faces: ['top', 'bottom', 'n', 's', 'e', 'w'] });
+      for (const [cx, cz, ax] of [[mx, z1, 'z'], [mx, z0, 'z'], [x1, mz, 'x'], [x0, mz, 'x']]) {
+        const half = ax === 'z' ? [3, 1.6] : [1.6, 3];
+        const off = ax === 'z' ? [0, Math.sign(cz - mz) * 1.6] : [Math.sign(cx - mx) * 1.6, 0];
+        box(b, m('plain'), [cx + off[0] - half[0], g + 3.3, cz + off[1] - half[1]], [cx + off[0] + half[0], g + 3.55, cz + off[1] + half[1]], { color: [70, 74, 80, 255], colors: { bottom: [250, 240, 210, 255] } });
+      }
+      // the shaft (and its setback), corner piers, a cornice at each top
+      const shaft = (ax0, az0, ax1, az1, yb, yt) => {
+        box(b, m(kind), [ax0, yb, az0], [ax1, yt, az1], { color: col, uvScale: [3.5, 4], vTop: 0, faces: ['n', 's', 'e', 'w'] });
+        for (const [px, pz] of [[ax0, az0], [ax1, az0], [ax1, az1], [ax0, az1]]) box(b, m('plain'), [px - 0.45, yb, pz - 0.45], [px + 0.45, yt + 0.2, pz + 0.45], { color: trim, faces: ['n', 's', 'e', 'w'] });
+        box(b, m('plain'), [ax0 - 0.5, yt, az0 - 0.5], [ax1 + 0.5, yt + 0.9, az1 + 0.5], { color: trim, faces: ['top', 'bottom', 'n', 's', 'e', 'w'] });
+        b.quad(m('roofflat'), [[ax0, yt + 0.6, az0], [ax0, yt + 0.6, az1], [ax1, yt + 0.6, az1], [ax1, yt + 0.6, az0]], { color: WHITE, uv: [[0, 0], [0, (az1 - az0) / 6], [(ax1 - ax0) / 6, (az1 - az0) / 6], [(ax1 - ax0) / 6, 0]] });
+      };
+      shaft(x0, z0, x1, z1, g + lobbyH + 0.5, g + h1);
+      if (setback) shaft(x0 + setback, z0 + setback, x1 - setback, z1 - setback, g + h1 + 0.9, g + h);
+      // the lift room on top
+      box(b, m('plain'), [mx - 3, g + h + 0.6, mz - 3], [mx + 3, g + h + 3.4, mz + 3], { color: [168, 166, 160, 255], faces: ['top', 'n', 's', 'e', 'w'] });
+    });
+    // roof clutter: air conditioners, a water tank or an antenna
+    const top = g + h + 0.6, ix0 = x0 + setback + 1.5, ix1 = x1 - setback - 1.5, iz0 = z0 + setback + 1.5, iz1 = z1 - setback - 1.5;
+    for (let k = 0; k < 3; k++) { const ax = ix0 + r() * (ix1 - ix0), az = iz0 + r() * (iz1 - iz0); if (Math.abs(ax - mx) > 4 || Math.abs(az - mz) > 4) this.acUnit(ax, az, top, r() < 0.5 ? 0 : Math.PI / 2); }
+    if (kind === 'office2' && r() < 0.6) this.waterTank(ix0 + 2, iz0 + 2, top);
+    if (h > 60 || r() < 0.3) this.antenna(mx + 1.5, mz + 1.5, g + h + 3.4, 6 + r() * 8);
+    if (setback) for (let k = 0; k < 2; k++) this.acUnit(x0 + 1.5 + r() * (setback - 1), mz + (r() - 0.5) * (z1 - z0) * 0.6, g + h1 + 1.5);
+    this.shadowRect(mx, mz, (x1 - x0) / 2 + 0.3, (z1 - z0) / 2 + 0.3, 0, g + 0.025, 2.2, 0.38);
+    this.lod(mx, mz, (b, m) => { box(b, m('plain'), [x0, g, z0], [x1, g + h1, z1], { color: kind === 'office' ? [120, 150, 180, 255] : [180, 160, 130, 255], faces: ['top', 'n', 's', 'e', 'w'] }); if (setback) box(b, m('plain'), [x0 + setback, g + h1, z0 + setback], [x1 - setback, g + h, z1 - setback], { color: kind === 'office' ? [130, 160, 190, 255] : [190, 170, 140, 255], faces: ['top', 'n', 's', 'e', 'w'] }); });
+    this.solid(mx, mz, (x1 - x0) / 2 + 0.5, (z1 - z0) / 2 + 0.5, g, g + h1 + 0.9);
+    if (setback) this.solid(mx, mz, (x1 - x0) / 2 - setback, (z1 - z0) / 2 - setback, g + h1, g + h + 0.6);
+    this.solid(mx, mz, 3, 3, g + h, g + h + 3.4);
   }
 
   downtown(p, inner) {
@@ -842,10 +1018,106 @@ export class City {
       this.spot(SPOT.PED, mx + 8, mz); this.spot(SPOT.PED, mx, mz + 8); this.spot(SPOT.PICKUP, mx + 5, mz + 5, 0, 1);
     }
   }
-  bench(x, z) {
-    this.emit(x, z, (b, m) => { box(b, m('wood'), [x - 1, 0.5, z - 0.25], [x + 1, 0.6, z + 0.25], { color: WHITE }); box(b, m('plain'), [x - 0.9, PAD_Y, z - 0.2], [x - 0.8, 0.5, z + 0.2], { color: [60, 60, 60, 255] }); box(b, m('plain'), [x + 0.8, PAD_Y, z - 0.2], [x + 0.9, 0.5, z + 0.2], { color: [60, 60, 60, 255] }); });
-    this.solid(x, z, 1, 0.25, PAD_Y, 0.6);
-    this.spot(SPOT.BENCH, x, z);
+  bench(x, z, yaw = 0) {
+    // a park bench: wooden slats on cast-iron ends, a backrest (local -z is the back)
+    const c = Math.cos(yaw), sn = Math.sin(yaw);
+    const W = (lx, ly, lz) => [x + lx * c + lz * sn, ly, z - lx * sn + lz * c];
+    this.fine(x, z, (b, m) => {
+      for (const lz of [-0.12, 0.02, 0.16]) boxRotated(b, m('wood'), W(0, 0.5, lz), [1.0, 0.03, 0.055], yaw, { color: [236, 210, 180, 255], uvScale: 1 });
+      for (const ly of [0.7, 0.86]) boxRotated(b, m('wood'), W(0, ly, -0.24), [1.0, 0.055, 0.025], yaw, { color: [236, 210, 180, 255], uvScale: 1 });
+      for (const lx of [-0.85, 0.85]) {
+        boxRotated(b, m('plain'), W(lx, 0.3, 0.12), [0.03, 0.17, 0.03], yaw, { color: [44, 48, 46, 255] });
+        boxRotated(b, m('plain'), W(lx, 0.45, -0.22), [0.03, 0.45, 0.03], yaw, { color: [44, 48, 46, 255] });
+        boxRotated(b, m('plain'), W(lx, 0.47, -0.04), [0.035, 0.025, 0.24], yaw, { color: [44, 48, 46, 255] });
+      }
+    });
+    this.solid(x, z, 1, 0.3, PAD_Y, 0.6, { yaw });
+    this.spot(SPOT.BENCH, x, z, yaw);
+  }
+  // ---- street furniture (local +z points at the street, x runs along the kerb) ----
+  frame(x, z, yaw) { const c = Math.cos(yaw), s = Math.sin(yaw); return (lx, ly, lz) => [x + lx * c + lz * s, ly, z - lx * s + lz * c]; }
+  busStop(x, z, yaw) {
+    const W = this.frame(x, z, yaw), g = PAD_Y;
+    this.emit(x, z, (b, m) => {
+      boxRotated(b, m('plain'), W(0, 2.55, -0.1), [1.7, 0.08, 0.85], yaw, { color: [60, 66, 74, 255], colors: { bottom: [210, 214, 220, 255] } });
+      for (const lx of [-1.6, 1.6]) for (const lz of [-0.8, 0.6]) boxRotated(b, m('plain'), W(lx, g + 1.2, lz), [0.05, 1.25, 0.05], yaw, { color: [70, 76, 84, 255] });
+      boxRotated(b, m('plain'), W(0, g + 1.35, -0.82), [1.55, 1.0, 0.02], yaw, { color: [170, 206, 226, 255] });              // the glass back
+      boxRotated(b, m('plain'), W(1.58, g + 1.35, -0.1), [0.02, 1.0, 0.65], yaw, { color: [150, 190, 214, 255] });         // a glass end
+      boxRotated(b, m('sign_cafe'), W(-0.8, g + 1.5, -0.79), [0.55, 0.7, 0.01], yaw, { color: [255, 220, 120, 255], faces: ['s'] }); // a poster
+      boxRotated(b, m('wood'), W(0.2, g + 0.45, -0.55), [1.1, 0.04, 0.2], yaw, { color: [220, 190, 160, 255] });
+      // the stop's sign on its pole
+      boxRotated(b, m('plain'), W(2.3, g + 1.4, 0.5), [0.04, 1.4, 0.04], yaw, { color: [110, 114, 120, 255] });
+      boxRotated(b, m('plain'), W(2.3, g + 2.7, 0.5), [0.3, 0.3, 0.03], yaw, { color: [40, 120, 200, 255], shadeSides: false });
+    });
+    this.solid(...[W(0, 0, -0.82)].map((p) => [p[0], p[2]])[0], 1.6, 0.06, g, g + 2.6, { yaw, flags: BOX.THIN });
+    this.spot(SPOT.BENCH, ...[W(0.2, 0, -0.4)].map((p) => [p[0], p[2]])[0], yaw);
+  }
+  newsBoxes(x, z, yaw) {
+    const W = this.frame(x, z, yaw), g = PAD_Y;
+    const cols = [[200, 46, 40, 255], [40, 90, 170, 255], [236, 190, 40, 255], [50, 140, 80, 255], [240, 240, 236, 255]];
+    const n = 2 + Math.floor(this.r() * 2);
+    this.fine(x, z, (b, m) => {
+      for (let k = 0; k < n; k++) {
+        const lx = (k - (n - 1) / 2) * 0.55, col = cols[Math.floor(this.r() * cols.length)];
+        boxRotated(b, m('plain'), W(lx, g + 0.55, 0), [0.24, 0.42, 0.22], yaw, { color: col });
+        boxRotated(b, m('plain'), W(lx, g + 0.72, 0.225), [0.18, 0.14, 0.005], yaw, { color: [52, 66, 84, 255], faces: ['s'], shadeSides: false });
+        boxRotated(b, m('plain'), W(lx, g + 0.06, 0), [0.2, 0.07, 0.18], yaw, { color: [60, 60, 60, 255] });
+      }
+    });
+    this.solid(x, z, n * 0.3, 0.25, g, g + 1.0, { yaw });
+  }
+  parkingMeter(x, z) {
+    const g = PAD_Y;
+    this.fine(x, z, (b, m) => { cylinder(b, m('plain'), x, z, g, g + 1.1, 0.035, 5, { color: [90, 94, 98, 255], cap: false }); box(b, m('plain'), [x - 0.1, g + 1.1, z - 0.08], [x + 0.1, g + 1.42, z + 0.08], { color: [150, 156, 160, 255] }); box(b, m('plain'), [x - 0.07, g + 1.24, z + 0.081], [x + 0.07, g + 1.36, z + 0.09], { color: [210, 220, 170, 255], faces: ['s'], shadeSides: false }); });
+  }
+  phoneBooth(x, z, yaw) {
+    const W = this.frame(x, z, yaw), g = PAD_Y;
+    this.emit(x, z, (b, m) => {
+      for (const [lx, lz] of [[-0.45, -0.45], [0.45, -0.45], [0.45, 0.45], [-0.45, 0.45]]) boxRotated(b, m('plain'), W(lx, g + 1.1, lz), [0.04, 1.1, 0.04], yaw, { color: [180, 40, 36, 255] });
+      boxRotated(b, m('plain'), W(0, g + 2.25, 0), [0.5, 0.1, 0.5], yaw, { color: [180, 40, 36, 255] });
+      boxRotated(b, m('plain'), W(0, g + 1.15, 0), [0.43, 0.85, 0.43], yaw, { color: [168, 200, 220, 255], faces: ['n', 'e', 'w'] });
+      boxRotated(b, m('plain'), W(0, g + 2.25, 0.505), [0.4, 0.07, 0.005], yaw, { color: [250, 250, 250, 255], faces: ['s'], shadeSides: false });
+    });
+    this.solid(x, z, 0.5, 0.5, g, g + 2.35, { yaw });
+  }
+  planterTree(x, z) {
+    const g = PAD_Y;
+    this.emit(x, z, (b, m) => { box(b, m('concrete'), [x - 0.75, g, z - 0.75], [x + 0.75, g + 0.5, z + 0.75], { color: [214, 208, 196, 255], faces: ['n', 's', 'e', 'w', 'top'], uvScale: 1.5 }); b.quad(m('dirt'), [[x - 0.62, g + 0.46, z - 0.62], [x - 0.62, g + 0.46, z + 0.62], [x + 0.62, g + 0.46, z + 0.62], [x + 0.62, g + 0.46, z - 0.62]], { color: WHITE, uv: [[0, 0], [0, 0.4], [0.4, 0.4], [0.4, 0]] }); });
+    this.solid(x, z, 0.75, 0.75, g, g + 0.5);
+    this.tree(x, z, this.r() * 9, 0.75);
+  }
+  // a wooden utility pole with a street light on an arm; the wires run to the previous pole
+  powerPole(x, z, yaw, prev) {
+    const W = this.frame(x, z, yaw), g = PAD_Y, h = 9.2;
+    this.emit(x, z, (b, m) => {
+      cylinder(b, m('wood'), x, z, g, g + h, 0.15, 5, { color: [150, 118, 88, 255], rTop: 0.12, cap: false });
+      boxRotated(b, m('wood'), W(0, g + h - 0.7, 0), [1.3, 0.07, 0.07], yaw, { color: [140, 108, 80, 255] });
+
+      // the light on its arm over the street
+      const tip = W(0, 0, 2.2);
+      boxRotated(b, m('plain'), W(0, g + 6.3, 1.1), [0.04, 0.04, 1.1], yaw, { color: [110, 114, 118, 255] });
+      boxRotated(b, m('plain'), [tip[0], g + 6.2, tip[2]], [0.18, 0.08, 0.32], yaw, { color: [110, 114, 118, 255], colors: { bottom: [255, 244, 200, 255] } });
+
+      // the wires: three, sagging between the poles
+      if (prev) for (const lx of [-1.1, 0, 1.1]) {
+        const a = W(lx, g + h - 0.45, 0), pb = prev(lx, g + h - 0.45, 0);
+        const N = 4, sag = 0.7;
+        for (let k = 0; k < N; k++) {
+          const t0 = k / N, t1 = (k + 1) / N;
+          const P0 = [a[0] + (pb[0] - a[0]) * t0, a[1] - sag * 4 * t0 * (1 - t0), a[2] + (pb[2] - a[2]) * t0];
+          const P1 = [a[0] + (pb[0] - a[0]) * t1, a[1] - sag * 4 * t1 * (1 - t1), a[2] + (pb[2] - a[2]) * t1];
+          b.quad(m('plain2'), [P0, P1, [P1[0], P1[1] + 0.05, P1[2]], [P0[0], P0[1] + 0.05, P0[2]]], { color: [40, 40, 42, 255] });
+        }
+      }
+    });
+    // the small parts: insulators, now and then a transformer
+    const transformer = this.r() < 0.3;
+    this.fine(x, z, (b, m) => {
+      for (const lx of [-1.1, 0, 1.1]) boxRotated(b, m('plain'), W(lx, g + h - 0.55, 0), [0.05, 0.1, 0.05], yaw, { color: [226, 232, 220, 255], faces: ['top', 'n', 's', 'e', 'w'] });
+      if (transformer) cylinder(b, m('plain'), ...[W(0, 0, -0.42)].map((p) => [p[0], p[2]])[0], g + 6.8, g + 7.9, 0.28, 8, { color: [150, 154, 150, 255] });
+    });
+    this.solid(x, z, 0.16, 0.16, g, g + h, { flags: BOX.THIN, kind: 3 });
+    return W;
   }
 
   beachfront(p, inner) {

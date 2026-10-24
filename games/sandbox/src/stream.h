@@ -7,3 +7,5 @@ void stream_update(V3 focus);   // loads/frees (a little per step)
 void stream_draw(void);
 int stream_loaded_count(void);
 int stream_drawn_tris(void);
+int stream_drawn_blocks(void);
+int stream_drawn_objects(void);
