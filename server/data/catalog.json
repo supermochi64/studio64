@@ -696,15 +696,6 @@
 "bhvUnusedFakeStar",
 "bhvStudioPainting",
 "bhvStudioKey",
-"bhvSmsStrollinStu",
-"bhvSmsSwoopinStu",
-"bhvSmsElectrokoopa",
-"bhvSmsElectroShell",
-"bhvSmsHurtbox",
-"bhvSmsPokey",
-"bhvSmsCataquack",
-"bhvSmsShine",
-"bhvSmsBlooper",
 "bhvStudioCar",
 "bhvStudioCarFlame",
 "bhvStudioRace",
@@ -729,7 +720,16 @@
 "bhvTkPedestrian",
 "bhvTkChochin",
 "bhvTkKappa",
-"bhvTkTanuki"
+"bhvTkTanuki",
+"bhvSmsStrollinStu",
+"bhvSmsSwoopinStu",
+"bhvSmsElectrokoopa",
+"bhvSmsElectroShell",
+"bhvSmsHurtbox",
+"bhvSmsPokey",
+"bhvSmsCataquack",
+"bhvSmsShine",
+"bhvSmsBlooper"
 ],
 "entries": [
 {
@@ -14181,177 +14181,6 @@
 },
 {
 "index": 605,
-"id": "sms:pianta",
-"behavior": "bhvSmsPianta",
-"model": "MODEL_NONE",
-"gfx": "sms_moma_geo",
-"prop": false,
-"levels": [],
-"params": [
-"0x00000000",
-"0x00010000",
-"0x00000002"
-],
-"example": null,
-"name": "Pianta"
-},
-{
-"index": 606,
-"id": "sms:pianta_woman",
-"behavior": "bhvSmsPianta",
-"model": "MODEL_NONE",
-"gfx": "sms_mow_geo",
-"prop": false,
-"levels": [],
-"params": [
-"0x00020000",
-"0x00020002"
-],
-"example": null,
-"name": "Pianta (woman)"
-},
-{
-"index": 607,
-"id": "sms:noki",
-"behavior": "bhvSmsPianta",
-"model": "MODEL_NONE",
-"gfx": "sms_marem_geo",
-"prop": false,
-"levels": [],
-"params": [
-"0x00030000",
-"0x00030001",
-"0x00030002"
-],
-"example": null,
-"name": "Noki"
-},
-{
-"index": 608,
-"id": "sms:noki_woman",
-"behavior": "bhvSmsPianta",
-"model": "MODEL_NONE",
-"gfx": "sms_marew_geo",
-"prop": false,
-"levels": [],
-"params": [
-"0x00040000",
-"0x00040002"
-],
-"example": null,
-"name": "Noki (woman)"
-},
-{
-"index": 609,
-"id": "sms:strollin_stu",
-"behavior": "bhvSmsStrollinStu",
-"model": "MODEL_NONE",
-"gfx": "sms_hamukuri_geo",
-"prop": false,
-"levels": [],
-"params": [
-"0x00000000",
-"0x00000001",
-"0x00010000"
-],
-"example": null,
-"name": "Strollin' Stu"
-},
-{
-"index": 610,
-"id": "sms:swoopin_stu",
-"behavior": "bhvSmsSwoopinStu",
-"model": "MODEL_NONE",
-"gfx": "sms_namekuri_geo",
-"prop": false,
-"levels": [],
-"params": [
-"0x00000000",
-"0x00000100",
-"0x00000400"
-],
-"example": null,
-"name": "Swoopin' Stu"
-},
-{
-"index": 611,
-"id": "sms:electrokoopa",
-"behavior": "bhvSmsElectrokoopa",
-"model": "MODEL_NONE",
-"gfx": "sms_dennoko_geo",
-"prop": false,
-"levels": [],
-"params": [
-"0x00000000",
-"0x00000001"
-],
-"example": null,
-"name": "Electrokoopa"
-},
-{
-"index": 612,
-"id": "sms:pokey",
-"behavior": "bhvSmsPokey",
-"model": "MODEL_NONE",
-"gfx": "sms_sambo_geo",
-"prop": false,
-"levels": [],
-"params": [
-"0x00000000",
-"0x00000001"
-],
-"example": null,
-"name": "Pokey (Sunshine)"
-},
-{
-"index": 613,
-"id": "sms:cataquack",
-"behavior": "bhvSmsCataquack",
-"model": "MODEL_NONE",
-"gfx": "sms_poihana_geo",
-"prop": false,
-"levels": [],
-"params": [
-"0x00000000",
-"0x00000100",
-"0x00000001"
-],
-"example": null,
-"name": "Cataquack"
-},
-{
-"index": 614,
-"id": "sms:shine_sprite",
-"behavior": "bhvSmsShine",
-"model": "MODEL_NONE",
-"gfx": "sms_shine_geo",
-"prop": false,
-"levels": [],
-"params": [
-"0x00000000",
-"0x01000000",
-"0x02000000"
-],
-"example": null,
-"name": "Shine Sprite"
-},
-{
-"index": 615,
-"id": "sms:blooper",
-"behavior": "bhvSmsBlooper",
-"model": "MODEL_NONE",
-"gfx": "sms_geso_geo",
-"prop": false,
-"levels": [],
-"params": [
-"0x00000000",
-"0x00000001"
-],
-"example": null,
-"name": "Blooper (Sunshine)"
-},
-{
-"index": 616,
 "id": "vehicle:sportscar",
 "behavior": "bhvStudioCar",
 "model": "MODEL_NONE",
@@ -14365,7 +14194,7 @@
 "name": "Sportscar"
 },
 {
-"index": 617,
+"index": 606,
 "id": "vehicle:racer",
 "behavior": "bhvStudioCar",
 "model": "MODEL_NONE",
@@ -14379,7 +14208,7 @@
 "name": "Race car"
 },
 {
-"index": 618,
+"index": 607,
 "id": "vehicle:drift_king",
 "behavior": "bhvStudioCar",
 "model": "MODEL_NONE",
@@ -14393,7 +14222,7 @@
 "name": "Drift King's car"
 },
 {
-"index": 619,
+"index": 608,
 "id": "vehicle:taxi",
 "behavior": "bhvStudioCar",
 "model": "MODEL_NONE",
@@ -14407,7 +14236,7 @@
 "name": "Taxi"
 },
 {
-"index": 620,
+"index": 609,
 "id": "vehicle:sedan",
 "behavior": "bhvStudioCar",
 "model": "MODEL_NONE",
@@ -14421,7 +14250,7 @@
 "name": "Sedan"
 },
 {
-"index": 621,
+"index": 610,
 "id": "vehicle:bus",
 "behavior": "bhvStudioCar",
 "model": "MODEL_NONE",
@@ -14435,7 +14264,7 @@
 "name": "Bus"
 },
 {
-"index": 622,
+"index": 611,
 "id": "vehicle:shuto_van",
 "behavior": "bhvStudioCar",
 "model": "MODEL_NONE",
@@ -14449,7 +14278,7 @@
 "name": "Delivery van"
 },
 {
-"index": 623,
+"index": 612,
 "id": "vehicle:shuto_cab",
 "behavior": "bhvStudioCar",
 "model": "MODEL_NONE",
@@ -14463,7 +14292,7 @@
 "name": "Tokyo cab"
 },
 {
-"index": 624,
+"index": 613,
 "id": "vehicle:kei",
 "behavior": "bhvStudioCar",
 "model": "MODEL_NONE",
@@ -14477,7 +14306,7 @@
 "name": "Kei car"
 },
 {
-"index": 625,
+"index": 614,
 "id": "vehicle:kei_truck",
 "behavior": "bhvStudioCar",
 "model": "MODEL_NONE",
@@ -14491,7 +14320,7 @@
 "name": "Kei truck"
 },
 {
-"index": 626,
+"index": 615,
 "id": "vehicle:race",
 "behavior": "bhvStudioRace",
 "model": "MODEL_NONE",
@@ -14505,7 +14334,7 @@
 "name": "Race (rival car)"
 },
 {
-"index": 627,
+"index": 616,
 "id": "sg:shotgun",
 "behavior": "bhvStudioShotgun",
 "model": "MODEL_NONE",
@@ -14519,7 +14348,7 @@
 "name": "Shotgun"
 },
 {
-"index": 628,
+"index": 617,
 "id": "sg:gangster",
 "behavior": "bhvStudioGangster",
 "model": "MODEL_NONE",
@@ -14535,7 +14364,7 @@
 "name": "Gangster"
 },
 {
-"index": 629,
+"index": 618,
 "id": "kt:blade",
 "behavior": "bhvKtBlade",
 "model": "MODEL_NONE",
@@ -14549,7 +14378,7 @@
 "name": "Legendary Blade (katana)"
 },
 {
-"index": 630,
+"index": 619,
 "id": "kt:fighter",
 "behavior": "bhvKtFighter",
 "model": "MODEL_NONE",
@@ -14568,7 +14397,7 @@
 "name": "Katana fighter"
 },
 {
-"index": 631,
+"index": 620,
 "id": "kt:duel",
 "behavior": "bhvKtDuel",
 "model": "MODEL_NONE",
@@ -14582,7 +14411,7 @@
 "name": "Katana duel"
 },
 {
-"index": 632,
+"index": 621,
 "id": "tokyo:city",
 "behavior": "bhvTkCity",
 "model": "MODEL_NONE",
@@ -14596,7 +14425,7 @@
 "name": "Tokyo (the whole city)"
 },
 {
-"index": 633,
+"index": 622,
 "id": "tokyo:petals",
 "behavior": "bhvTkPetalEmitter",
 "model": "MODEL_NONE",
@@ -14611,7 +14440,7 @@
 "name": "Falling petals / fireflies"
 },
 {
-"index": 634,
+"index": 623,
 "id": "tokyo:traffic_light",
 "behavior": "bhvTkProp",
 "model": "MODEL_NONE",
@@ -14626,7 +14455,7 @@
 "name": "Traffic light"
 },
 {
-"index": 635,
+"index": 624,
 "id": "tokyo:ped_signal",
 "behavior": "bhvTkProp",
 "model": "MODEL_NONE",
@@ -14640,7 +14469,7 @@
 "name": "Pedestrian signal"
 },
 {
-"index": 636,
+"index": 625,
 "id": "tokyo:screen_big",
 "behavior": "bhvTkProp",
 "model": "MODEL_NONE",
@@ -14654,7 +14483,7 @@
 "name": "Giant screen"
 },
 {
-"index": 637,
+"index": 626,
 "id": "tokyo:screen_2",
 "behavior": "bhvTkProp",
 "model": "MODEL_NONE",
@@ -14668,7 +14497,7 @@
 "name": "Screen"
 },
 {
-"index": 638,
+"index": 627,
 "id": "tokyo:screen_tall",
 "behavior": "bhvTkProp",
 "model": "MODEL_NONE",
@@ -14682,7 +14511,7 @@
 "name": "Tall screen"
 },
 {
-"index": 639,
+"index": 628,
 "id": "tokyo:neon_hotel",
 "behavior": "bhvTkProp",
 "model": "MODEL_NONE",
@@ -14696,7 +14525,7 @@
 "name": "Flickering neon"
 },
 {
-"index": 640,
+"index": 629,
 "id": "tokyo:waterfall",
 "behavior": "bhvTkProp",
 "model": "MODEL_NONE",
@@ -14710,7 +14539,7 @@
 "name": "Waterfall"
 },
 {
-"index": 641,
+"index": 630,
 "id": "tokyo:taxi",
 "behavior": "bhvTkCar",
 "model": "MODEL_NONE",
@@ -14724,7 +14553,7 @@
 "name": "Taxi"
 },
 {
-"index": 642,
+"index": 631,
 "id": "tokyo:kei",
 "behavior": "bhvTkCar",
 "model": "MODEL_NONE",
@@ -14738,7 +14567,7 @@
 "name": "Kei car"
 },
 {
-"index": 643,
+"index": 632,
 "id": "tokyo:bus",
 "behavior": "bhvTkCar",
 "model": "MODEL_NONE",
@@ -14752,7 +14581,7 @@
 "name": "City bus"
 },
 {
-"index": 644,
+"index": 633,
 "id": "tokyo:kei_truck",
 "behavior": "bhvTkCar",
 "model": "MODEL_NONE",
@@ -14766,7 +14595,7 @@
 "name": "Kei truck"
 },
 {
-"index": 645,
+"index": 634,
 "id": "tokyo:train",
 "behavior": "bhvTkTrain",
 "model": "MODEL_NONE",
@@ -14780,7 +14609,7 @@
 "name": "Commuter train"
 },
 {
-"index": 646,
+"index": 635,
 "id": "tokyo:boat",
 "behavior": "bhvTkBoat",
 "model": "MODEL_NONE",
@@ -14794,7 +14623,7 @@
 "name": "Canal boat"
 },
 {
-"index": 647,
+"index": 636,
 "id": "tokyo:crane_jib",
 "behavior": "bhvTkCraneJib",
 "model": "MODEL_NONE",
@@ -14808,7 +14637,7 @@
 "name": "Crane jib"
 },
 {
-"index": 648,
+"index": 637,
 "id": "tokyo:lift",
 "behavior": "bhvTkLift",
 "model": "MODEL_NONE",
@@ -14823,7 +14652,7 @@
 "name": "Glass lift"
 },
 {
-"index": 649,
+"index": 638,
 "id": "tokyo:firefly",
 "behavior": "bhvTkFirefly",
 "model": "MODEL_NONE",
@@ -14837,7 +14666,7 @@
 "name": "Firefly"
 },
 {
-"index": 650,
+"index": 639,
 "id": "tokyo:salaryman",
 "behavior": "bhvTkPedestrian",
 "model": "MODEL_NONE",
@@ -14853,7 +14682,7 @@
 "name": "Salaryman"
 },
 {
-"index": 651,
+"index": 640,
 "id": "tokyo:office_lady",
 "behavior": "bhvTkPedestrian",
 "model": "MODEL_NONE",
@@ -14867,7 +14696,7 @@
 "name": "Office worker"
 },
 {
-"index": 652,
+"index": 641,
 "id": "tokyo:schoolkid",
 "behavior": "bhvTkPedestrian",
 "model": "MODEL_NONE",
@@ -14881,7 +14710,7 @@
 "name": "Schoolkid"
 },
 {
-"index": 653,
+"index": 642,
 "id": "tokyo:sailor",
 "behavior": "bhvTkPedestrian",
 "model": "MODEL_NONE",
@@ -14895,7 +14724,7 @@
 "name": "Sailor uniform"
 },
 {
-"index": 654,
+"index": 643,
 "id": "tokyo:harajuku",
 "behavior": "bhvTkPedestrian",
 "model": "MODEL_NONE",
@@ -14909,7 +14738,7 @@
 "name": "Harajuku style"
 },
 {
-"index": 655,
+"index": 644,
 "id": "tokyo:station_staff",
 "behavior": "bhvTkPedestrian",
 "model": "MODEL_NONE",
@@ -14923,7 +14752,7 @@
 "name": "Station staff"
 },
 {
-"index": 656,
+"index": 645,
 "id": "tokyo:takoyaki",
 "behavior": "bhvTkPedestrian",
 "model": "MODEL_NONE",
@@ -14937,7 +14766,7 @@
 "name": "Takoyaki vendor"
 },
 {
-"index": 657,
+"index": 646,
 "id": "tokyo:miko",
 "behavior": "bhvTkPedestrian",
 "model": "MODEL_NONE",
@@ -14951,7 +14780,7 @@
 "name": "Shrine maiden"
 },
 {
-"index": 658,
+"index": 647,
 "id": "tokyo:builder",
 "behavior": "bhvTkPedestrian",
 "model": "MODEL_NONE",
@@ -14965,7 +14794,7 @@
 "name": "Builder"
 },
 {
-"index": 659,
+"index": 648,
 "id": "tokyo:boatman",
 "behavior": "bhvTkPedestrian",
 "model": "MODEL_NONE",
@@ -14979,7 +14808,7 @@
 "name": "Boatman"
 },
 {
-"index": 660,
+"index": 649,
 "id": "tokyo:yakuza",
 "behavior": "bhvTkPedestrian",
 "model": "MODEL_NONE",
@@ -14993,7 +14822,7 @@
 "name": "Yakuza"
 },
 {
-"index": 661,
+"index": 650,
 "id": "tokyo:drift_king",
 "behavior": "bhvTkPedestrian",
 "model": "MODEL_NONE",
@@ -15007,7 +14836,7 @@
 "name": "The Drift King"
 },
 {
-"index": 662,
+"index": 651,
 "id": "tokyo:stationmaster",
 "behavior": "bhvTkPedestrian",
 "model": "MODEL_NONE",
@@ -15021,7 +14850,7 @@
 "name": "Stationmaster"
 },
 {
-"index": 663,
+"index": 652,
 "id": "tokyo:tuner",
 "behavior": "bhvStaticObject",
 "model": "MODEL_NONE",
@@ -15035,7 +14864,7 @@
 "name": "Tuner car"
 },
 {
-"index": 664,
+"index": 653,
 "id": "tokyo:oni_red",
 "behavior": "bhvGoomba",
 "model": "MODEL_NONE",
@@ -15050,7 +14879,7 @@
 "name": "Oni (red)"
 },
 {
-"index": 665,
+"index": 654,
 "id": "tokyo:oni_blue",
 "behavior": "bhvGoomba",
 "model": "MODEL_NONE",
@@ -15065,7 +14894,7 @@
 "name": "Ao-oni (blue)"
 },
 {
-"index": 666,
+"index": 655,
 "id": "tokyo:chochin",
 "behavior": "bhvTkChochin",
 "model": "MODEL_NONE",
@@ -15080,7 +14909,7 @@
 "name": "Chochin-obake"
 },
 {
-"index": 667,
+"index": 656,
 "id": "tokyo:kappa",
 "behavior": "bhvTkKappa",
 "model": "MODEL_NONE",
@@ -15094,7 +14923,7 @@
 "name": "Kappa"
 },
 {
-"index": 668,
+"index": 657,
 "id": "tokyo:tanuki",
 "behavior": "bhvTkTanuki",
 "model": "MODEL_NONE",
@@ -15108,6 +14937,177 @@
 ],
 "example": null,
 "name": "Tanuki"
+},
+{
+"index": 658,
+"id": "sms:pianta",
+"behavior": "bhvSmsPianta",
+"model": "MODEL_NONE",
+"gfx": "sms_moma_geo",
+"prop": false,
+"levels": [],
+"params": [
+"0x00000000",
+"0x00010000",
+"0x00000002"
+],
+"example": null,
+"name": "Pianta"
+},
+{
+"index": 659,
+"id": "sms:pianta_woman",
+"behavior": "bhvSmsPianta",
+"model": "MODEL_NONE",
+"gfx": "sms_mow_geo",
+"prop": false,
+"levels": [],
+"params": [
+"0x00020000",
+"0x00020002"
+],
+"example": null,
+"name": "Pianta (woman)"
+},
+{
+"index": 660,
+"id": "sms:noki",
+"behavior": "bhvSmsPianta",
+"model": "MODEL_NONE",
+"gfx": "sms_marem_geo",
+"prop": false,
+"levels": [],
+"params": [
+"0x00030000",
+"0x00030001",
+"0x00030002"
+],
+"example": null,
+"name": "Noki"
+},
+{
+"index": 661,
+"id": "sms:noki_woman",
+"behavior": "bhvSmsPianta",
+"model": "MODEL_NONE",
+"gfx": "sms_marew_geo",
+"prop": false,
+"levels": [],
+"params": [
+"0x00040000",
+"0x00040002"
+],
+"example": null,
+"name": "Noki (woman)"
+},
+{
+"index": 662,
+"id": "sms:strollin_stu",
+"behavior": "bhvSmsStrollinStu",
+"model": "MODEL_NONE",
+"gfx": "sms_hamukuri_geo",
+"prop": false,
+"levels": [],
+"params": [
+"0x00000000",
+"0x00000001",
+"0x00010000"
+],
+"example": null,
+"name": "Strollin' Stu"
+},
+{
+"index": 663,
+"id": "sms:swoopin_stu",
+"behavior": "bhvSmsSwoopinStu",
+"model": "MODEL_NONE",
+"gfx": "sms_namekuri_geo",
+"prop": false,
+"levels": [],
+"params": [
+"0x00000000",
+"0x00000100",
+"0x00000400"
+],
+"example": null,
+"name": "Swoopin' Stu"
+},
+{
+"index": 664,
+"id": "sms:electrokoopa",
+"behavior": "bhvSmsElectrokoopa",
+"model": "MODEL_NONE",
+"gfx": "sms_dennoko_geo",
+"prop": false,
+"levels": [],
+"params": [
+"0x00000000",
+"0x00000001"
+],
+"example": null,
+"name": "Electrokoopa"
+},
+{
+"index": 665,
+"id": "sms:pokey",
+"behavior": "bhvSmsPokey",
+"model": "MODEL_NONE",
+"gfx": "sms_sambo_geo",
+"prop": false,
+"levels": [],
+"params": [
+"0x00000000",
+"0x00000001"
+],
+"example": null,
+"name": "Pokey (Sunshine)"
+},
+{
+"index": 666,
+"id": "sms:cataquack",
+"behavior": "bhvSmsCataquack",
+"model": "MODEL_NONE",
+"gfx": "sms_poihana_geo",
+"prop": false,
+"levels": [],
+"params": [
+"0x00000000",
+"0x00000100",
+"0x00000001"
+],
+"example": null,
+"name": "Cataquack"
+},
+{
+"index": 667,
+"id": "sms:shine_sprite",
+"behavior": "bhvSmsShine",
+"model": "MODEL_NONE",
+"gfx": "sms_shine_geo",
+"prop": false,
+"levels": [],
+"params": [
+"0x00000000",
+"0x01000000",
+"0x02000000"
+],
+"example": null,
+"name": "Shine Sprite"
+},
+{
+"index": 668,
+"id": "sms:blooper",
+"behavior": "bhvSmsBlooper",
+"model": "MODEL_NONE",
+"gfx": "sms_geso_geo",
+"prop": false,
+"levels": [],
+"params": [
+"0x00000000",
+"0x00000001"
+],
+"example": null,
+"name": "Blooper (Sunshine)"
 }
 ]
 }

@@ -41,8 +41,17 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
+      # Python only to make the object catalog the ZIP check needs (a fresh checkout has no engine
+      # build); not on PATH, so the launcher still meets a computer without it
+      - uses: actions/setup-python@v5
+        id: py
+        with:
+          python-version: '3.12'
+          update-environment: false
       - name: Make the release ZIP
         shell: bash
+        env:
+          S64_PYTHON: ${{ steps.py.outputs.python-path }}
         run: |
           node tools/make_release_zip.mjs --out "$RUNNER_TEMP/dist"
           npm ci --no-audit --no-fund

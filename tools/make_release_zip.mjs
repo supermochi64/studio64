@@ -125,6 +125,20 @@ if (bad.length) {
 }
 // the base ROM for ROM exports comes with it (as a patch: tools/make_romkit.mjs), for this version
 {
+  // (its version needs the object catalog, which the engine build makes: a fresh checkout makes it here)
+  const gen = path.join(ROOT, 'engine', 'src', 'studio', 'gen', 'catalog.inc.c');
+  if (!fs.existsSync(gen)) {
+    const { systemPython } = await import('./lib/toolchain.mjs');
+    const py = process.env.S64_PYTHON ? { cmd: process.env.S64_PYTHON, pre: [] } : systemPython();
+    if (!py) { console.error('Python 3.10+ is needed to make the object catalog (tools/gen_catalog.py)'); process.exit(1); }
+    fs.mkdirSync(OUT, { recursive: true });
+    const out = fs.mkdtempSync(path.join(OUT, '.catalog-'));
+    const r = spawnSync(py.cmd, [...py.pre, path.join(ROOT, 'tools', 'gen_catalog.py')], { cwd: ROOT, env: { ...process.env, S64_CATALOG_OUT: out }, stdio: 'inherit' });
+    if (r.status !== 0) { console.error('tools/gen_catalog.py failed'); process.exit(1); }
+    fs.mkdirSync(path.dirname(gen), { recursive: true });
+    fs.copyFileSync(path.join(out, 'catalog.inc.c'), gen);
+    fs.rmSync(out, { recursive: true, force: true });
+  }
   const { kitVersion, patchName } = await import('../server/romexport/romkit.js');
   if (!files.includes(`server/romexport/base/${patchName(kitVersion())}`)) {
     console.error(`The ZIP needs the base ROM patch for this version (${patchName(kitVersion())}): run node tools/make_romkit.mjs`);

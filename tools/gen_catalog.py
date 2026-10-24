@@ -13,6 +13,10 @@ from collections import defaultdict, OrderedDict
 ENG = sys.argv[1] if len(sys.argv) > 1 else os.path.join(os.path.dirname(__file__), '..', 'engine')
 OUT_C = os.path.join(ENG, 'src/studio/gen/catalog.inc.c')
 OUT_JSON = os.path.join(os.path.dirname(__file__), '..', 'server/data/catalog.json')
+# (tests: S64_CATALOG_OUT=<dir> writes both there instead; S64_CATALOG_NO_SMS=1 as without a Sunshine disc)
+if os.environ.get('S64_CATALOG_OUT'):
+    OUT_C = os.path.join(os.environ['S64_CATALOG_OUT'], 'catalog.inc.c')
+    OUT_JSON = os.path.join(os.environ['S64_CATALOG_OUT'], 'catalog.json')
 
 def read(p):
     with open(os.path.join(ENG, p), errors='replace') as f:
@@ -94,8 +98,9 @@ for m in re.finditer(r'\b(special_\w+)\s*(?:=\s*(0x[0-9A-Fa-f]+|\d+))?\s*,', re.
 MACRO = re.compile(r'MACRO_OBJECT(?:_WITH_BEH_PARAM)?\(\s*(\w+)\s*,\s*(-?\d+)\s*,\s*(-?\d+)\s*,\s*(-?\d+)\s*,\s*(-?\d+)\s*(?:,\s*([^)]+))?\)')
 SPECIAL = re.compile(r'SPECIAL_OBJECT(?:_WITH_YAW(?:_AND_PARAM)?)?\(\s*(\w+)\s*,\s*(-?\d+)\s*,\s*(-?\d+)\s*,\s*(-?\d+)')
 for lvl in LEVELS:
-    for root, _, files in os.walk(os.path.join(ENG, 'levels', lvl)):
-        for f in files:
+    for root, dirs, files in os.walk(os.path.join(ENG, 'levels', lvl)):
+        dirs.sort()                      # (the same order on every computer: the indices go into ROMs)
+        for f in sorted(files):
             if f == 'macro.inc.c':
                 for m in MACRO.finditer(strip_comments(open(os.path.join(root, f)).read())):
                     pre = macro_map.get(m.group(1))
@@ -224,19 +229,6 @@ for lvl in LEVELS:
                              id='prop:' + re.sub(r'_seg\w+', '', gfx[1]).replace('_geo', ''))
 all_entries = list(entries.values()) + list(props.values())
 
-# characters ported from Super Mario Sunshine (tools/sms/convert.py writes the manifest)
-# (only when they were converted from a disc: without one, gen/ holds the stand-in from stub/)
-SMS_MANIFEST = os.path.join(ENG, 'src/studio/sms/catalog.json')
-SMS_BODIES = os.path.join(ENG, 'src/studio/sms/gen/sms_bodies.h')
-SMS_REAL = os.path.exists(SMS_BODIES) and 'SMS_STUB' not in open(SMS_BODIES).read()
-if os.path.exists(SMS_MANIFEST) and SMS_REAL:
-    for m in json.load(open(SMS_MANIFEST)):
-        for b in [m['bhv']] + m.get('also', []):  # their scripts live in src/studio/sms/sms_behaviors.c
-            if b not in bhv_names:
-                bhv_names.append(b)
-        all_entries.append(dict(id=m['id'], bhv=m['bhv'], model='MODEL_NONE', gfx=('geo', m['gfx'], 'LAYER_OPAQUE'),
-                                level=None, deps=[], params={p: 1 for p in m['params']}, seen={}, example=None, name=m['name']))
-
 # vehicles ported from the Shoggoth World hack (tools/vehicles/extract_cars.py, src/studio/vehicle*.c)
 VEHICLE_MANIFEST = os.path.join(ENG, 'src/studio/vehicles/catalog.json')
 # (shipped in the repository; vehicle_models.c keeps a stand-in for a tree without them)
@@ -283,6 +275,23 @@ if os.path.exists(TOKYO_MANIFEST) and os.path.exists(os.path.join(ENG, 'src/stud
         all_entries.append(dict(id=m['id'], bhv=m['bhv'], model='MODEL_NONE', gfx=('geo', m['gfx'], 'LAYER_OPAQUE') if m.get('gfx') else None,
                                 level=None, deps=[], params={p: 1 for p in m['params']}, seen={}, example=None, name=m['name']))
 
+# characters ported from Super Mario Sunshine (tools/sms/convert.py writes the manifest), last: only
+# computers with the disc have them, so everything before keeps its index without it (the ROM
+# export writes indices, and its base ROM's catalog is this one without them: server/romexport/base.js)
+# (only when they were converted from a disc: without one, gen/ holds the stand-in from stub/)
+SMS_MANIFEST = os.path.join(ENG, 'src/studio/sms/catalog.json')
+SMS_BODIES = os.path.join(ENG, 'src/studio/sms/gen/sms_bodies.h')
+SMS_REAL = os.path.exists(SMS_BODIES) and 'SMS_STUB' not in open(SMS_BODIES).read() and not os.environ.get('S64_CATALOG_NO_SMS')
+SMS_FROM = (len(bhv_names), len(all_entries))   # where the disc's part of each table starts
+SMS_MARK = '    // (from here: only with a Super Mario Sunshine disc)\n'
+if os.path.exists(SMS_MANIFEST) and SMS_REAL:
+    for m in json.load(open(SMS_MANIFEST)):
+        for b in [m['bhv']] + m.get('also', []):  # their scripts live in src/studio/sms/sms_behaviors.c
+            if b not in bhv_names:
+                bhv_names.append(b)
+        all_entries.append(dict(id=m['id'], bhv=m['bhv'], model='MODEL_NONE', gfx=('geo', m['gfx'], 'LAYER_OPAQUE'),
+                                level=None, deps=[], params={p: 1 for p in m['params']}, seen={}, example=None, name=m['name']))
+
 # --- write C -----------------------------------------------------------------
 os.makedirs(os.path.dirname(OUT_C), exist_ok=True)
 with open(OUT_C, 'w') as f:
@@ -297,7 +306,9 @@ with open(OUT_C, 'w') as f:
     f.write('#include "studio/katana_bhv.h"\n')
     f.write('#include "studio/shoggoth/tokyo_data.h"\n')
     f.write('\nconst struct StudioBehavior gStudioBehaviors[] = {\n')
-    for b in bhv_names:
+    for i, b in enumerate(bhv_names):
+        if i == SMS_FROM[0]:
+            f.write(SMS_MARK)
         f.write(f'    {{ "{b}", {b} }},\n')
     f.write('};\nconst s32 gStudioBehaviorCount = sizeof(gStudioBehaviors) / sizeof(gStudioBehaviors[0]);\n\n')
     f.write('static const struct StudioModelRef sStudioDeps[] = {\n')
@@ -310,7 +321,9 @@ with open(OUT_C, 'w') as f:
             n += 1
     f.write('    { 0, 0, 0, NULL }\n};\n\n')
     f.write('const struct StudioCatalogEntry gStudioCatalog[] = {\n')
-    for e, s in zip(all_entries, starts):
+    for i, (e, s) in enumerate(zip(all_entries, starts)):
+        if i == SMS_FROM[1]:
+            f.write(SMS_MARK)
         if e['gfx']:
             kind, sym, layer = e['gfx']
             ref = f'{{ {e["model"]}, {1 if kind == "geo" else 2}, {layer}, {sym} }}'

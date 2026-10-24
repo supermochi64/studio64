@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.1.2-beta (2026-10-24)
+
+- **ROM export on every computer.** The base ROM that comes with Studio 64 only matched computers
+  with the same object catalog as the one it was made on: one with a Super Mario Sunshine disc set
+  up, its folders listed in the same order. Everywhere else the export didn't find it and set out to
+  build the base ROM itself (an N64 compiler download and a long build, which fails on Windows and
+  macOS). The catalog now comes out the same on every computer (the Sunshine characters last, which
+  never go into a ROM anyway), so the shipped base ROM fits everyone's.
+- The automatic setup test on GitHub (Windows, macOS, Linux) runs again: its first step, making the
+  release ZIP from a fresh checkout, had always failed.
+
 ## 0.1.1-beta (2026-10-24)
 
 - **ROM export.** ⋯ menu → *Export ROM hack…* makes a real N64 ROM that plays in emulators, and a
