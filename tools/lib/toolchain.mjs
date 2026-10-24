@@ -505,7 +505,11 @@ export function writeCppWrapper(emsdk) {
   const clang = path.join(emsdk, 'upstream', 'bin', IS_WIN ? 'clang.exe' : 'clang');
   fs.mkdirSync(BIN(), { recursive: true });
   const f = path.join(BIN(), 'cpp');
-  fs.writeFileSync(f, `#!/bin/sh\n# Studio 64: the C preprocessor is the Emscripten SDK's clang (tools/lib/toolchain.mjs)\nexec '${clang.replace(/'/g, `'\\''`)}' -E -P -x c -Wno-trigraphs "$@"\n`);
+  // --target: this clang has no usable default (`clang --version` reports "Target: unknown") and
+  // refuses to run at all without one ("unknown target triple 'unknown'"); wasm32-unknown-emscripten
+  // matches what it is actually built for, though for plain text/macro preprocessing any valid
+  // triple would do.
+  fs.writeFileSync(f, `#!/bin/sh\n# Studio 64: the C preprocessor is the Emscripten SDK's clang (tools/lib/toolchain.mjs)\nexec '${clang.replace(/'/g, `'\\''`)}' --target=wasm32-unknown-emscripten -E -P -x c -Wno-trigraphs "$@"\n`);
   fs.chmodSync(f, 0o755);
   return BIN();
 }
