@@ -14,8 +14,9 @@
 // everything extracted or built from it, node_modules, the setup's downloads), and the developer
 // files too (tests/, .github/, nested .git folders). Then it checks that no file of
 // the game's data slipped in.
-//   node tools/make_release_zip.mjs [--out dir] [--name "Studio 64"] [--check-git]
+//   node tools/make_release_zip.mjs [--out dir] [--name "Studio 64"] [--check-git] [--no-kit-check]
 //   --check-git   also compare the engine/ file list with git's (needs git; for developers)
+//   --no-kit-check  don't check the base ROM patch's version (a checkout without a ROM can't)
 import fs from 'node:fs';
 import path from 'node:path';
 import zlib from 'node:zlib';
@@ -123,27 +124,18 @@ if (bad.length) {
   console.error(`These files come from the game or a build and must not be in the ZIP:\n  ${bad.slice(0, 20).join('\n  ')}`);
   process.exit(1);
 }
-// the base ROM for ROM exports comes with it (as a patch: tools/make_romkit.mjs), for this version
-{
-  // (its version needs the object catalog, which the engine build makes: a fresh checkout makes it here)
-  const gen = path.join(ROOT, 'engine', 'src', 'studio', 'gen', 'catalog.inc.c');
-  if (!fs.existsSync(gen)) {
-    const { systemPython } = await import('./lib/toolchain.mjs');
-    const py = process.env.S64_PYTHON ? { cmd: process.env.S64_PYTHON, pre: [] } : systemPython();
-    if (!py) { console.error('Python 3.10+ is needed to make the object catalog (tools/gen_catalog.py)'); process.exit(1); }
-    fs.mkdirSync(OUT, { recursive: true });
-    const out = fs.mkdtempSync(path.join(OUT, '.catalog-'));
-    const r = spawnSync(py.cmd, [...py.pre, path.join(ROOT, 'tools', 'gen_catalog.py')], { cwd: ROOT, env: { ...process.env, S64_CATALOG_OUT: out }, stdio: 'inherit' });
-    if (r.status !== 0) { console.error('tools/gen_catalog.py failed'); process.exit(1); }
-    fs.mkdirSync(path.dirname(gen), { recursive: true });
-    fs.copyFileSync(path.join(out, 'catalog.inc.c'), gen);
-    fs.rmSync(out, { recursive: true, force: true });
-  }
+// the base ROM for ROM exports comes with it (as a patch: tools/make_romkit.mjs), for this version.
+// (Its version covers what the setup makes from the game, so it can only be checked where Studio 64
+// is set up with a ROM: a fresh checkout, like the GitHub workflow's, passes --no-kit-check.)
+if (!args.includes('--no-kit-check')) {
   const { kitVersion, patchName } = await import('../server/romexport/romkit.js');
   if (!files.includes(`server/romexport/base/${patchName(kitVersion())}`)) {
     console.error(`The ZIP needs the base ROM patch for this version (${patchName(kitVersion())}): run node tools/make_romkit.mjs`);
     process.exit(1);
   }
+} else if (!files.some((f) => /^server\/romexport\/base\/studio64-base-\w+\.bps$/.test(f))) {
+  console.error('The ZIP needs a base ROM patch (server/romexport/base/)');
+  process.exit(1);
 }
 for (const need of ['Start Studio 64.bat', 'Start Studio 64.command', 'start-studio64.sh', 'GETTING STARTED.txt', 'tools/launch.sh', 'tools/launch.ps1', 'tools/start.mjs', 'package.json', 'package-lock.json']) {
   if (!files.includes(need)) { console.error(`The ZIP needs ${need}`); process.exit(1); }
