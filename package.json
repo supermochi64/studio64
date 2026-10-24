@@ -1,6 +1,6 @@
 {
   "name": "studio64",
-  "version": "0.1.0-beta",
+  "version": "0.1.1-beta",
   "license": "MIT",
   "description": "Make your own Super Mario 64 in the browser: a level editor, story, sound studio and playable export, with an optional AI assistant",
   "type": "module",

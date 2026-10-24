@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.1.1-beta (2026-10-24)
 
 - **ROM export.** ⋯ menu → *Export ROM hack…* makes a real N64 ROM that plays in emulators, and a
   `.bps` patch to upload anywhere. Your hub replaces the castle grounds, your levels take the 15
@@ -17,6 +17,10 @@
   pine tier missed one side, and round shapes had a dent on top (fence and lamp posts too).
 - **Custom objects with Toad's model** show up (they were invisible), and a platform on a track placed in
   another level takes its track along instead of flying off to its own level.
+- **Setup on macOS and Linux** (thanks [@mikesherov](https://github.com/mikesherov)): a system
+  Python older than 3.10 is passed over for the setup's own (emsdk needs 3.10); the Emscripten SDK's
+  clang gets the target it needs as the C preprocessor and as the assembler (Apple Silicon has no
+  x86 one); the Zig download completes certificate chains Node can't complete by itself.
 - **Windows setup.** The first build stopped with "The Emscripten SDK was not found" right after
   the setup had installed it: Emscripten 6 starts its tools with `emcc.exe` on Windows, not
   `emcc.bat` any more.

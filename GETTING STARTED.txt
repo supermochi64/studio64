@@ -1,4 +1,4 @@
-STUDIO 64 0.1.0-beta - GETTING STARTED
+STUDIO 64 0.1.1-beta - GETTING STARTED
 ======================================
 
 Make your own Super Mario 64, right in your web browser.

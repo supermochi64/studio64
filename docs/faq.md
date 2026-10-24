@@ -18,10 +18,9 @@ Both. Add, move or delete objects in any original level, reshape its ground with
 brushes, add stars, or build new levels from scratch.
 
 **Does it make a ROM I can play on a console or an emulator?**
-Not directly. Studio 64 exports a playable web game of your hack. It can also export your changes
-to the original levels as level script C for the [SM64 decomp](https://github.com/n64decomp/sm64),
-and you can build a ROM from that yourself. See
-[Projects](projects.md#decomp-export-real-rom-builds).
+Yes. ⋯ menu → **Export ROM hack…** makes a `.z64` for emulators (Project64, mupen64plus,
+RetroArch, simple64) and a `.bps` patch you can share. The ROM needs the Expansion Pak. See
+[ROM export](rom-export.md).
 
 **Can I share my hack?**
 Send the project file (`.s64hack`) to people who have Studio 64 and the game. The playable game

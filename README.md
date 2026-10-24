@@ -6,7 +6,7 @@
 
 **Create anything you ever wanted in Super Mario 64, in real time.**
 
-[![Version 0.1.0-beta](https://img.shields.io/badge/version-0.1.0--beta-f5b301)](CHANGELOG.md)
+[![Version 0.1.1-beta](https://img.shields.io/badge/version-0.1.1--beta-f5b301)](CHANGELOG.md)
 [![MIT license](https://img.shields.io/badge/license-MIT-3b82f6)](LICENSE)
 
 [![Watch the Studio 64 trailer on YouTube](https://img.youtube.com/vi/hcomzBaXxZo/maxresdefault.jpg)](https://www.youtube.com/watch?v=hcomzBaXxZo)
@@ -25,7 +25,7 @@ You need your own US copy of the game. Studio 64 doesn't include it (see [Legal]
 
 ## Get started
 
-Download `studio64-0.1.0-beta.zip` from [Releases](../../releases/latest) and unzip it. Then:
+Download `studio64-0.1.1-beta.zip` from [Releases](../../releases/latest) and unzip it. Then:
 
 **Windows 10/11**: open the `Studio 64` folder and double-click **Start Studio 64**. If Windows says
 "Windows protected your PC", click **More info**, then **Run anyway**.
@@ -78,10 +78,10 @@ the object library too. Setup: [AI providers](docs/ai-providers.md).
 
 ## This is a beta
 
-0.1.0-beta is the first public release. The setup was tested automatically from the release ZIP on
-five Linux distributions (Ubuntu 22.04 and 24.04, Debian 12, Fedora, Arch). The Windows and macOS
-launchers are written and reviewed but haven't run on a real Windows PC or Mac yet. If you try it
-there, I'd love to hear how it went, good or bad.
+0.1.1-beta is the second beta. The setup was tested automatically from the release ZIP on five
+Linux distributions (Ubuntu 22.04 and 24.04, Debian 12, Fedora, Arch). The first people to try it
+on Windows and macOS found setup problems there, and this release fixes the ones reported so far. If
+you try it on Windows or a Mac, I'd love to hear how it went, good or bad.
 
 Found a bug? [Open an issue](../../issues/new/choose) with what you did and what happened. The
 [troubleshooting page](docs/troubleshooting.md) covers the common setup problems.
