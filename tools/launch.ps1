@@ -140,6 +140,7 @@ if (-not (Test-Path -LiteralPath $Unblocked)) {
 }
 
 $env:STUDIO_LAUNCHER = '1'
+Say 'Starting Studio 64...'
 & $Node (Join-Path $Root 'tools\start.mjs') @args
 $rc = $LASTEXITCODE
 if ($rc -and $rc -ne 0 -and $rc -ne 130 -and $rc -ne -1073741510) {   # (-1073741510: the window was closed / Ctrl+C)
