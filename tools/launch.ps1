@@ -44,6 +44,16 @@ switch ($Arch) {
 $Name = "node-v$NodeVersion-win-$Cpu"
 $Url = "https://nodejs.org/dist/v$NodeVersion/$Name.zip"
 
+# SHA-256 of a file with .NET: Get-FileHash comes from a module that is not always loadable (a
+# Windows PowerShell started from PowerShell 7 inherits its module path and does not find it)
+function Get-Sha256([string]$Path) {
+  $stream = [System.IO.File]::OpenRead($Path)
+  try {
+    $sha = [System.Security.Cryptography.SHA256]::Create()
+    return ([BitConverter]::ToString($sha.ComputeHash($stream)) -replace '-', '')
+  } finally { $stream.Dispose() }
+}
+
 function Test-Node([string]$Exe) {
   # (no script on the command line: Windows PowerShell 5.1 drops the double quotes of native arguments)
   if (-not $Exe -or -not (Test-Path -LiteralPath $Exe)) { return $false }
@@ -74,7 +84,7 @@ if (-not $Node) {
     Stop-Launcher "Could not make the folder $Runtime." 'Move the Studio 64 folder to your Documents or Desktop and start it again.'
   }
   $Zip = Join-Path $Downloads "$Name.zip"
-  $Have = (Test-Path -LiteralPath $Zip) -and ((Get-FileHash -LiteralPath $Zip -Algorithm SHA256).Hash -eq $Sum.ToUpper())
+  $Have = (Test-Path -LiteralPath $Zip) -and ((Get-Sha256 $Zip) -eq $Sum.ToUpper())
   if (-not $Have) {
     Remove-Item -LiteralPath $Zip -Force -ErrorAction SilentlyContinue
     $Part = "$Zip.part"
@@ -90,7 +100,7 @@ if (-not $Node) {
     if (-not $ok) { Stop-Launcher 'Downloading Node.js failed.' 'Check your internet connection, then start Studio 64 again.' }
     Move-Item -LiteralPath $Part -Destination $Zip -Force
   }
-  $Got = (Get-FileHash -LiteralPath $Zip -Algorithm SHA256).Hash
+  $Got = Get-Sha256 $Zip
   if ($Got -ne $Sum.ToUpper()) {
     Remove-Item -LiteralPath $Zip -Force -ErrorAction SilentlyContinue
     Stop-Launcher 'The Node.js download was damaged (its checksum does not match).' 'Start Studio 64 again to download it once more.'
@@ -98,7 +108,7 @@ if (-not $Node) {
   $Tmp = "$NodeDir.tmp"
   Remove-Item -LiteralPath $NodeDir, $Tmp -Recurse -Force -ErrorAction SilentlyContinue
   New-Item -ItemType Directory -Force -Path $Tmp | Out-Null
-  # tar.exe (Windows 10 1803+) unpacks zips much faster than Expand-Archive
+  # tar.exe (Windows 10 1803+) unpacks zips much faster than .NET's ZipFile
   $tar = Join-Path $env:SystemRoot 'System32\tar.exe'
   $unpacked = $false
   if (Test-Path -LiteralPath $tar) {
@@ -106,7 +116,8 @@ if (-not $Node) {
     $unpacked = ($LASTEXITCODE -eq 0)
   }
   if (-not $unpacked) {
-    try { Expand-Archive -LiteralPath $Zip -DestinationPath $Tmp -Force; $unpacked = $true } catch { $unpacked = $false }
+    # (.NET, not Expand-Archive: that one comes from a module too, like Get-FileHash)
+    try { Add-Type -AssemblyName System.IO.Compression.FileSystem; [System.IO.Compression.ZipFile]::ExtractToDirectory($Zip, $Tmp); $unpacked = $true } catch { $unpacked = $false }
   }
   if (-not $unpacked) { Stop-Launcher 'Unpacking Node.js failed.' 'Check that there is free disk space, then start Studio 64 again.' }
   Move-Item -LiteralPath (Join-Path $Tmp $Name) -Destination $NodeDir
