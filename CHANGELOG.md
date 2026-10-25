@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.2.1-beta (2026-10-25)
 
 - **Smooth play in the browser.** The game no longer spins the browser's main thread for the rest
   of every frame: the desktop frame limiter's sleep is a busy wait in the browser, so the page
