@@ -67,7 +67,7 @@ struct Actor {
   float grabCool;       // no grabbing ledges and poles for a moment after letting go
   V3 kickNormal;        // the wall hit (a wall kick goes off it)
   bool skidTurn;        // a skid: turning round (true) or braking (false)
-  float dryTime;        // swimming: time since the head was last above water
+  float dryTime, breathLost;        // swimming: time since the head was last above water
   float health, armor, hurt;  // hurt: red flash, decays
   int combo;            // the punch combo stage (0..2)
   float hitTimer;       // a melee hit can land in this window

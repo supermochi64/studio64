@@ -138,6 +138,7 @@ static bool run_test(int n, int t) {
     case 8: // shooting: a pistol, someone in front, R + B
       if (t == 0) {
         place_player(-200, 300, 0);
+        for (int j = 0; j < MAX_ACTORS; j++) if (g.actors[j].used && &g.actors[j] != p) actor_free(&g.actors[j]); // (only the target about)
         weapon_give(p, W_PISTOL, 60);
         V3 a = ahead(9); a.y = world_floor(a.x, a.z, 3, NULL);
         s_other = actor_spawn(AK_CIVILIAN, GANG_NONE, a, PI);

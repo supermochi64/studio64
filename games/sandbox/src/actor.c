@@ -187,7 +187,8 @@ void actor_damage(Actor *a, float dmg, V3 dir, float force, Actor *by) {
 }
 
 // ---- melee ----
-static void melee(Actor *a, float reach, float radius, float dmg, float force, float height) {
+static bool melee(Actor *a, float reach, float radius, float dmg, float force, float height) {
+  bool hit = false;
   V3 f = yaw_dir(a->yaw);
   V3 c = v3_add(a->pos, (V3){f.x * reach, height, f.z * reach});
   for (int i = 0; i < MAX_ACTORS; i++) {
@@ -198,9 +199,11 @@ static void melee(Actor *a, float reach, float radius, float dmg, float force, f
       V3 d = v3_norm((V3){oc.x - a->pos.x, 0, oc.z - a->pos.z});
       actor_damage(o, dmg, d, force, a);
       fx_burst(v3_lerp(c, actor_chest(o), 0.5f), FX_SPARK, 4);
+      hit = true;
     }
   }
   vehicle_melee(c, radius, dmg * 3, f, a);
+  return hit;
 }
 
 // ---- footsteps: soft, and they sound like what is under the feet ----
@@ -302,6 +305,7 @@ static void land(Actor *a, float impact) {
     sound_play(SND_THUD, a->pos);
     return;
   }
+  if (prev == ST_SLIDEKICK) return; // (on the ground: the slide on the back)
   if (prev == ST_DIVE) { actor_set_state(a, ST_BELLYSLIDE); sound_play(SND_THUD, a->pos); return; }
   if (prev == ST_KNOCKED) { actor_set_state(a, ST_DOWN); a->speed = 0; sound_play(SND_THUD, a->pos); return; }
   if (prev == ST_DEAD) { a->speed = 0; return; }
@@ -342,8 +346,16 @@ static bool try_ledge(Actor *a) {
   if (top < a->pos.y + 1.25f || top > a->pos.y + 2.2f) return false;
   if (world_floor(a->pos.x, a->pos.z, a->pos.y + 0.4f, NULL) > top - 1.0f) return false; // (no wall: it's a step)
   if (world_ceiling(px, pz, top + 0.05f) < top + 1.6f) return false;                    // no room on top
-  a->ledgeY = top; a->ledgeAt = (V3){a->pos.x + f.x * (RADIUS + 0.12f), top, a->pos.z + f.z * (RADIUS + 0.12f)};
+  a->ledgeY = top;
   a->pos.y = top - HANG_Y; a->vel = (V3){0, 0, 0}; a->speed = 0; a->sideVel = 0; a->onGround = false;
+  // hands on the edge: in against the wall (the grab can come a little before it)
+  for (int k = 0; k < 8; k++) {
+    float x = a->pos.x + f.x * 0.08f, z = a->pos.z + f.z * 0.08f;
+    V3 w = world_push(&x, &z, RADIUS, a->pos.y + 0.2f, a->pos.y + 1.4f);
+    a->pos.x = x; a->pos.z = z;
+    if (w.x != 0 || w.z != 0) break;
+  }
+  a->ledgeAt = (V3){a->pos.x + f.x * (RADIUS + 0.45f), top, a->pos.z + f.z * (RADIUS + 0.45f)};
   actor_set_state(a, ST_LEDGE);
   return true;
 }
@@ -387,7 +399,7 @@ static void enter_water(Actor *a) {
 // moving and colliding (one frame): walls, floors and ceilings, then gravity (after the move, as the
 // platformer does it: the apex is where the velocity says)
 static void physics(Actor *a) {
-  bool strafe = a->ctl.aim && a->onGround && a->state <= ST_LAND;
+  bool strafe = a->ctl.aim && a->onGround && (a->state == ST_IDLE || a->state == ST_RUN || a->state == ST_LAND);
   if (!strafe && a->state != ST_DEAD && a->state != ST_KNOCKED && a->state != ST_HURT) {
     V3 f = yaw_dir(a->yaw);
     V3 r = yaw_dir(a->yaw + PI / 2);
@@ -411,7 +423,7 @@ static void physics(Actor *a) {
       if (air && a->speed > U(16) && into > a->speed * 0.5f) {
         // hit a wall in the air: a moment to wall kick off it
         a->kickNormal = wall;
-        actor_set_state(a, ST_WALLHIT); a->speed = 0; a->sideVel = 0;
+        actor_set_state(a, ST_WALLHIT); a->speed = 0; a->sideVel = 0; a->vel.y = minf(a->vel.y, 0);
         sound_play(SND_THUD, a->pos);
       } else {
         // slide along it: only the part of the motion into the wall goes
@@ -442,7 +454,8 @@ static void physics(Actor *a) {
     }
     // the floor: falling, anything up to a step above the feet catches them (a ledge's top too)
     float fl = world_floor(a->pos.x, a->pos.z, maxf(y0, a->pos.y) + (a->vel.y <= 0 ? STEP_UP : 0.05f), NULL);
-    if (a->pos.y <= fl && a->vel.y <= 0) { float impact = a->vel.y; a->pos.y = fl; land(a, impact); }
+    if (a->pos.y <= fl && a->vel.y <= 0 && fl < WATER_Y - 1.3f && a->state != ST_VEHICLE) { a->pos.y = fl; enter_water(a); } // into deep water: no landing (no fall damage)
+    else if (a->pos.y <= fl && a->vel.y <= 0) { float impact = a->vel.y; a->pos.y = fl; land(a, impact); }
     else {
       float g = (a->state == ST_LONGJUMP || a->state == ST_SLIDEKICK) ? U(2) : U(4);
       a->vel.y = maxf(U(-75), a->vel.y - g);
@@ -462,9 +475,13 @@ static void swim(Actor *a, Controls *c) {
   float sx = me ? c->rawX : 0, sy = me ? c->rawY : 0;
   bool atTop = a->pos.y >= SWIM_TOP - 0.05f;
   if (me) {
-    a->yaw = wrap_angle(a->yaw - sx * 3.0f * DT);
-    a->pitch = clampf(a->pitch - sy * 1.9f * DT, -1.35f, 1.2f);
-  } else if (stick_mag(c) > 0.05f) a->yaw = approach_angle(a->yaw, stick_yaw(c, a->yaw), 2.5f * DT);
+    // (like the platformer: the stick sets the pitch to swim at; let go and the body levels out)
+    a->yaw = wrap_angle(a->yaw - sx * 1.9f * DT);
+    a->pitch = approach(a->pitch, clampf(-sy * 1.3f, -1.35f, 1.2f), 1.8f * DT);
+  } else {
+    if (stick_mag(c) > 0.05f) a->yaw = approach_angle(a->yaw, stick_yaw(c, a->yaw), 2.5f * DT);
+    a->pitch = approach(a->pitch, 0.25f, 1.2f * DT); // others make for the surface
+  }
   if (atTop && a->pitch > 0) a->pitch = approach(a->pitch, 0, 2.5f * DT); // at the surface: level out
   // the water jump: at the surface, A with the stick pulled back
   if (me && atTop && c->jump && sy < -0.6f) {
@@ -487,7 +504,7 @@ static void swim(Actor *a, Controls *c) {
   a->vel = (V3){f.x * cp * a->speed, sp * a->speed, f.z * cp * a->speed};
   if (!atTop && a->speed < 0.6f && fabsf(sy) < 0.1f) a->vel.y += 0.35f;   // still: the body floats up
   a->pos.x += a->vel.x * DT; a->pos.z += a->vel.z * DT; a->pos.y += a->vel.y * DT;
-  world_push(&a->pos.x, &a->pos.z, RADIUS, a->pos.y - 0.2f, a->pos.y + 1.4f);
+  a->wallNormal = world_push(&a->pos.x, &a->pos.z, RADIUS, a->pos.y - 0.2f, a->pos.y + 1.4f);
   float bed = world_floor(a->pos.x, a->pos.z, a->pos.y + 1.0f, NULL);
   if (a->pos.y < bed + 0.25f) { a->pos.y = bed + 0.25f; if (a->pitch < 0) a->pitch = approach(a->pitch, 0, 3 * DT); }
   if (a->pos.y > SWIM_TOP) a->pos.y = SWIM_TOP;
@@ -505,13 +522,18 @@ static void swim(Actor *a, Controls *c) {
         // a quay: climb up it (the ledge grab)
         a->ledgeY = top; a->ledgeAt = (V3){ax, top, az}; a->pos.y = top - HANG_Y; a->vel = (V3){0, 0, 0}; a->speed = 0; a->pitch = 0;
         actor_set_state(a, ST_LEDGE); return;
+      } else {
+        // the others: straight up onto it
+        a->pos = (V3){ax, top, az}; a->vel = (V3){0, 0, 0}; a->speed = 0; a->pitch = 0; a->onGround = true;
+        actor_set_state(a, ST_IDLE); return;
       }
     }
   }
   // breath: under water it runs out (health), at the surface it comes back
   if (me) {
-    if (a->pos.y < SWIM_TOP - 0.5f) { a->dryTime += DT; if (a->dryTime > 2.0f) { a->health -= 1.6f * DT; if (a->health <= 0) { a->health = 1; actor_damage(a, 10, (V3){0, 0, 0}, 0, NULL); } } }
-    else { a->dryTime = 0; if (a->health < 100) a->health = minf(100, a->health + 8 * DT); }
+    // (only what the breath took comes back at the surface: the sea is no clinic)
+    if (a->pos.y < SWIM_TOP - 0.5f) { a->dryTime += DT; if (a->dryTime > 2.0f) { a->health -= 1.6f * DT; a->breathLost += 1.6f * DT; if (a->health <= 0) { a->health = 1; a->breathLost = 0; actor_damage(a, 10, (V3){0, 0, 0}, 0, NULL); } } }
+    else { a->dryTime = 0; float back = minf(a->breathLost, 8 * DT); a->health = minf(100, a->health + back); a->breathLost -= back; }
   }
   a->peakY = a->pos.y; a->onGround = false;
   // shallow enough to stand
@@ -544,7 +566,8 @@ void actor_step(Actor *a) {
   if (a->kind == AK_PLAYER && a->idleTime > 16 && ((int)(a->idleTime * 30) % 120) == 0) say(a, VO_SNORE);
   switch (a->state) {
     case ST_IDLE: case ST_RUN: case ST_LAND: {
-      float maxS = c->walk ? WALK_SPEED : RUN_SPEED;
+      // (townspeople run like people, not like the hero; the crew nearly keeps up with him)
+      float maxS = c->walk ? WALK_SPEED : a->kind == AK_PLAYER ? RUN_SPEED : a->recruited ? RUN_SPEED * 0.94f : RUN_SPEED * 0.7f;
       if (c->aim && hasGun) {
         V3 to = v3_sub(c->aimAt, a->pos);
         a->yaw = approach_angle(a->yaw, dir_yaw(to.x, to.z), 12 * DT);
@@ -630,8 +653,8 @@ void actor_step(Actor *a) {
       // the slide kick: a low hop along the ground, feet first, then a slide on the back
       if (a->onGround) a->speed = approach(a->speed, 0, U(2));
       if ((g.frame & 1) == 0 && a->onGround) fx_burst(a->pos, FX_DUST, 1);
-      if (fmodf(a->stateTime, 0.15f) < DT) melee(a, 0.8f, 0.6f, 18, 7, 0.4f);
-      if (a->onGround && c->jump && a->stateTime > 0.15f) { begin_jump(a, 1, U(30), a->speed * 0.6f + 2); actor_set_state(a, ST_JUMP); say(a, VO_HUP); break; }
+      if (a->stateTime < 0.45f && fmodf(a->stateTime, 0.15f) < DT && !a->firedInAir) { if (melee(a, 0.8f, 0.6f, 18, 7, 0.4f)) a->firedInAir = true; } // (one hit a kick)
+      if (a->onGround && c->jump && a->stateTime > 0.15f) { begin_jump(a, 1, U(30), a->speed * 0.6f + 2); actor_set_state(a, ST_JUMP); a->shortHop = true; say(a, VO_HUP); break; }
       if (a->onGround && a->speed < 1) actor_set_state(a, ST_CROUCH);
       break;
     case ST_SWEEP:
@@ -683,12 +706,14 @@ void actor_step(Actor *a) {
       if (!a->onGround) { actor_set_state(a, ST_FALL); break; }
       a->speed = approach(a->speed, 0, U(1.5f)); a->sideVel = 0;
       if ((g.frame & 1) == 0) fx_burst(a->pos, FX_DUST, 1);
-      if ((c->jump || c->attack) && a->stateTime > 0.1f) { begin_jump(a, 1, U(30), a->speed); actor_set_state(a, ST_JUMP); say(a, VO_HUP); break; } // the roll-out
+      if ((c->jump || c->attack) && a->stateTime > 0.1f) { begin_jump(a, 1, U(30), a->speed); actor_set_state(a, ST_JUMP); a->shortHop = true; say(a, VO_HUP); break; } // the roll-out
       if (a->speed < 0.3f && a->stateTime > 0.5f) actor_set_state(a, ST_IDLE);
       break;
     case ST_JUMP: case ST_LONGJUMP: case ST_BACKFLIP: case ST_SIDEFLIP: case ST_FALL: case ST_WALLKICK: case ST_AIRKICK: {
       // let go of A early in a jump and it stays low
-      if (a->state == ST_JUMP && a->jumpType < 3 && !a->shortHop && !c->jumpHeld && a->vel.y > U(20)) { a->vel.y /= 4; a->shortHop = true; }
+      // (the others' jumps: about a metre, enough for a fence)
+      if (a->state == ST_JUMP && a->kind != AK_PLAYER && !a->shortHop) { a->vel.y = minf(a->vel.y, 8.5f); a->shortHop = true; }
+      if (a->state == ST_JUMP && a->kind == AK_PLAYER && a->jumpType < 3 && !a->shortHop && !c->jumpHeld && a->vel.y > U(20)) { a->vel.y /= 4; a->shortHop = true; }
       air_steer(a, c, a->state == ST_LONGJUMP);
       if (c->crouchPressed && a->state != ST_LONGJUMP) { actor_set_state(a, ST_GPSPIN); a->vel.y = 0; a->speed = 0; a->sideVel = 0; say(a, VO_HOO); break; }
       if (c->attack && !hasGun && a->state != ST_AIRKICK) {
@@ -717,7 +742,7 @@ void actor_step(Actor *a) {
         actor_set_state(a, ST_WALLKICK);
         say(a, VO_YAH);
         fx_burst(v3_add(a->pos, (V3){-n.x * 0.4f, 1.2f, -n.z * 0.4f}), FX_DUST, 3);
-      } else if (a->stateTime > 0.24f) { a->speed = -U(4); actor_set_state(a, ST_FALL); }
+      } else if (a->stateTime > 0.24f) { a->speed = -U(8); actor_set_state(a, ST_FALL); }
       break;
     case ST_GPSPIN: {
       // the ground pound: a spin that rises a little, then straight down
@@ -760,15 +785,15 @@ void actor_step(Actor *a) {
       a->vel = (V3){0, 0, 0}; a->speed = 0; a->sideVel = 0;
       V3 f = yaw_dir(a->yaw);
       float fwd = c->move.x * f.x + c->move.z * f.z;
-      if (a->stateTime > 0.2f && (fwd > 0.5f || c->jump)) { actor_set_state(a, ST_LEDGECLIMB); say(a, VO_HUP); a->vel = a->pos; }
+      if (a->stateTime > 0.2f && (fwd > 0.5f || c->jump)) { actor_set_state(a, ST_LEDGECLIMB); say(a, VO_HUP); a->goal = a->pos; }
       else if (a->stateTime > 0.2f && (fwd < -0.5f || c->crouchPressed)) { a->onGround = false; a->peakY = a->pos.y; a->grabCool = 0.45f; actor_set_state(a, ST_FALL); a->speed = -1; }
       return; // no physics while hanging
     }
     case ST_LEDGECLIMB: {
-      // up and over: up first, then onto the top (a->vel holds where the climb began)
+      // up and over: up first, then onto the top (a->goal holds where the climb began)
       float k = clampf(a->stateTime / 0.45f, 0, 1);
       float up = minf(1, k * 1.5f), over = clampf((k - 0.5f) * 2, 0, 1);
-      V3 from = a->vel;
+      V3 from = a->goal; a->vel = (V3){0, 0, 0};
       a->pos.y = from.y + (a->ledgeY - from.y) * up;
       a->pos.x = from.x + (a->ledgeAt.x - from.x) * over; a->pos.z = from.z + (a->ledgeAt.z - from.z) * over;
       if (k >= 1) {
@@ -790,7 +815,7 @@ void actor_step(Actor *a) {
       a->yaw = wrap_angle(a->poleAngle + PI);
       a->animPhase += fabsf(climb) * DT * 3;
       a->peakY = a->pos.y;
-      if (c->jump) { a->yaw = a->poleAngle; a->grabCool = 0.4f; begin_jump(a, 1, U(62), U(24) * 0.8f); actor_set_state(a, ST_WALLKICK); say(a, VO_YAH); return; }
+      if (c->jump) { a->yaw = a->poleAngle; a->grabCool = 0.4f; begin_jump(a, 1, U(62), U(24)); actor_set_state(a, ST_WALLKICK); say(a, VO_YAH); return; }
       if (c->crouchPressed || (climb < 0 && a->pos.y <= a->polePos.y + 0.05f)) { a->onGround = false; a->grabCool = 0.45f; actor_set_state(a, ST_FALL); a->speed = -1.5f; return; }
       return;
     }
@@ -803,7 +828,9 @@ void actor_step(Actor *a) {
     int n = clampf(ceilf(step / (RADIUS * 0.6f)), 1, 4);
     for (int k = 0; k < n; k++) { a->pos.x += a->vel.x * DT / n; a->pos.z += a->vel.z * DT / n; world_push(&a->pos.x, &a->pos.z, RADIUS, a->pos.y + STEP_UP, a->pos.y + 1.0f); }
     float fl = world_floor(a->pos.x, a->pos.z, a->pos.y + STEP_UP, NULL);
-    if (!a->onGround) {
+    if (a->state == ST_DEAD && fl < WATER_Y - 1.3f && a->pos.y <= WATER_Y - 0.4f + 0.01f && a->pos.y > WATER_Y - 2.0f) {
+      a->pos.y = WATER_Y - 0.4f; a->vel = (V3){0, 0, 0}; a->onGround = true; // floating
+    } else if (!a->onGround) {
       a->vel.y = maxf(U(-75), a->vel.y - U(4)); a->pos.y += a->vel.y * DT;
       if (a->pos.y <= fl) { float impact = a->vel.y; a->pos.y = fl; if (a->state == ST_KNOCKED) land(a, impact); else { a->onGround = true; a->vel.x = a->vel.z = 0; } }
     } else if (fl < a->pos.y - 0.6f) a->onGround = false; else a->pos.y = fl;
