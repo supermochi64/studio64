@@ -37,7 +37,7 @@ const DEV = [/^tests\/(?!lib\/).+/ /* (tests/lib: the sample makers drive the ga
 // what the top folder may hold (anything else there, like a work folder of a promo video, stays out)
 const TOP_ALLOW = new Set(['Start Studio 64.bat', 'Start Studio 64.command', 'start-studio64.sh', 'GETTING STARTED.txt', 'README.md', 'LICENSE', 'CHANGELOG.md',
   'CONTRIBUTING.md', 'package.json', 'package-lock.json', 'start.sh', 'Dockerfile', 'docker-compose.yml', '.dockerignore',
-  'docs', 'engine', 'server', 'tools', 'web', 'tests']);
+  'docs', 'engine', 'engine-upstream', 'server', 'tools', 'web', 'tests']);
 const skippedTop = [];
 // executables in the ZIP (the rest keeps the mode it has here, minus write bits for others)
 const EXEC = new Set(['Start Studio 64.command', 'start-studio64.sh', 'start.sh', 'tools/launch.sh', 'tools/build_engine.sh']);
@@ -115,7 +115,9 @@ walk('', []);
 if (skippedTop.length) console.log(`(left out, not part of Studio 64: ${skippedTop.join(', ')})`);
 
 // ---- no game data --------------------------------------------------------------------------------
-const bad = files.filter((f) => /\.(z64|n64|v64|iso|gcm|wasm)$/i.test(f)
+// (sm64ex's files come with the setup: only Studio 64's own may be in engine/, see .gitignore)
+const upstream = JSON.parse(fs.readFileSync(path.join(ROOT, 'engine-upstream', 'source.json'), 'utf8')).files;
+const bad = files.filter((f) => (f.startsWith('engine/') && f.slice(7) in upstream) || /\.(z64|n64|v64|iso|gcm|wasm)$/i.test(f)
   || /^web\/(engine|thumbs)\//.test(f) || /^engine\/(build|src\/studio\/(gen|romgen|sms\/gen))\//.test(f)
   || /^engine\/(levels|actors|textures)\/.*\.png$/.test(f) && !/custom/.test(f)
   || /^engine\/sound\/.*\.(aiff|m64)$/.test(f) && !/custom/.test(f)
@@ -137,7 +139,8 @@ if (!args.includes('--no-kit-check')) {
   console.error('The ZIP needs a base ROM patch (server/romexport/base/)');
   process.exit(1);
 }
-for (const need of ['Start Studio 64.bat', 'Start Studio 64.command', 'start-studio64.sh', 'GETTING STARTED.txt', 'tools/launch.sh', 'tools/launch.ps1', 'tools/start.mjs', 'package.json', 'package-lock.json']) {
+for (const need of ['Start Studio 64.bat', 'Start Studio 64.command', 'start-studio64.sh', 'GETTING STARTED.txt', 'tools/launch.sh', 'tools/launch.ps1', 'tools/start.mjs', 'package.json', 'package-lock.json',
+  'engine-upstream/source.json', 'engine-upstream/changes.json', 'tools/engine_source.mjs', 'tools/lib/engine_source.mjs']) {
   if (!files.includes(need)) { console.error(`The ZIP needs ${need}`); process.exit(1); }
 }
 

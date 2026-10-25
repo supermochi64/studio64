@@ -6,7 +6,7 @@
 
 **Create anything you ever wanted in Super Mario 64, in real time.**
 
-[![Version 0.1.3-beta](https://img.shields.io/badge/version-0.1.3--beta-f5b301)](CHANGELOG.md)
+[![Version 0.2.0-beta](https://img.shields.io/badge/version-0.2.0--beta-f5b301)](CHANGELOG.md)
 [![MIT license](https://img.shields.io/badge/license-MIT-3b82f6)](LICENSE)
 
 [![Watch the Studio 64 trailer on YouTube](https://img.youtube.com/vi/hcomzBaXxZo/maxresdefault.jpg)](https://www.youtube.com/watch?v=hcomzBaXxZo)
@@ -25,7 +25,7 @@ You need your own US copy of the game. Studio 64 doesn't include it (see [Legal]
 
 ## Get started
 
-Download `studio64-0.1.3-beta.zip` from [Releases](../../releases/latest) and unzip it. Then:
+Download `studio64-0.2.0-beta.zip` from [Releases](../../releases/latest) and unzip it. Then:
 
 **Windows 10/11**: open the `Studio 64` folder and double-click **Start Studio 64**. If Windows says
 "Windows protected your PC", click **More info**, then **Run anyway**.
@@ -78,7 +78,7 @@ the object library too. Setup: [AI providers](docs/ai-providers.md).
 
 ## This is a beta
 
-0.1.3-beta is the fourth beta. The setup was tested automatically from the release ZIP on five
+0.2.0-beta is the fifth beta. The setup was tested automatically from the release ZIP on five
 Linux distributions (Ubuntu 22.04 and 24.04, Debian 12, Fedora, Arch). The first people to try it
 on Windows and macOS found setup problems there, and this release fixes the ones reported so far. If
 you try it on Windows or a Mac, I'd love to hear how it went, good or bad.
@@ -101,7 +101,11 @@ Found a bug? [Open an issue](../../issues/new/choose) with what you did and what
 Studio 64 is a fan project. It isn't affiliated with or endorsed by Nintendo. *Super Mario 64*,
 *Super Mario Sunshine* and Mario are trademarks of Nintendo.
 
-This repository contains no ROM, no disc image and nothing extracted from the games. The setup
+This repository contains no ROM, no disc image, nothing extracted from the games and none of
+the decompiled game: no levels, models, animations or text of Super Mario 64. The setup downloads
+the engine's source from [sm64ex](https://github.com/sm64pc/sm64ex) and adds Studio 64's own files
+and changes to it (`engine-upstream/` holds only Studio 64's own lines, see
+[Building the engine](docs/building-the-engine.md#where-the-engines-source-comes-from)), then
 builds the game's assets from **your own** ROM on your own machine. What it builds (`web/engine/`
 and the playable game export) contains Nintendo's code and assets, so keep it to yourself or share it
 privately with people who own the game. Don't publish it or sell it. To share a hack with other
@@ -114,8 +118,8 @@ them from your ROM ([details](docs/building-the-engine.md#the-shoggoth-content))
 
 ## License and credits
 
-Studio 64's own code is under the [MIT license](LICENSE). The engine in `engine/` is based on sm64ex
-and the Super Mario 64 decompilation and keeps their terms.
+Studio 64's own code is under the [MIT license](LICENSE). The engine it builds on, sm64ex and the
+Super Mario 64 decompilation, is downloaded during the setup and keeps their terms.
 
 Studio 64 stands on the work of a lot of people:
 

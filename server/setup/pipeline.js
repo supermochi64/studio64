@@ -467,6 +467,7 @@ export class Setup {
         else if (/^emcc -L/.test(l)) set({ detail: 'Linking the game' });
         else if (/^ports:INFO|generating (port|system library)/.test(l)) set({ detail: 'Building SDL2 for the browser (once, a few minutes)' });
         else if (/^\[rom_parts\]/.test(l)) set({ detail: 'Dressing the Shoggoth characters with your ROM\'s Toads and Goombas' });
+        else if (/^\[source\] /.test(l)) set({ detail: l.slice(9) });
         else if (!compiled && /^(cc|c\+\+|gcc|g\+\+|clang) |make\[\d\]: Entering directory .*tools/.test(l)) set({ detail: 'Building the decomp\'s asset tools' });
         else if (/^(tools\/)?(n64graphics|aifc_decode|aiff_extract_codebook|tabledesign|vadpcm_enc|skyconv|mio0|textconv)\b|^python3? tools\//.test(l)) set({ detail: `Converting textures, sounds and levels${compiled ? ` (${compiled} files compiled)` : ''}` });
         // first unpacking and the tools (about ENGINE_LINES lines), then ~350 files to compile, then the link

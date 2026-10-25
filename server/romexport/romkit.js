@@ -246,7 +246,7 @@ async function buildKit({ rom, onStatus = () => {}, onProgress = () => {}, onLin
 
   // the decomp's own tools, with this computer's C compiler (its Makefile names gcc); kept for
   // the next version of the base ROM (they only change with the decomp)
-  const toolsCache = path.join(KIT_DIR, `tools-${crypto.createHash('sha1').update(JSON.stringify([UPSTREAM, PATCHES.filter((p) => p.file.startsWith('tools/'))])).digest('hex').slice(0, 12)}`);
+  const toolsCache = path.join(KIT_DIR, `tools-${crypto.createHash('sha1').update(JSON.stringify([UPSTREAM, Object.entries(PATCHES.files).filter(([rel]) => rel.startsWith('tools/'))])).digest('hex').slice(0, 12)}`);
   if (fs.existsSync(path.join(toolsCache, '.studio64-ok'))) fs.cpSync(toolsCache, path.join(tree, 'tools'), { recursive: true, preserveTimestamps: true });
   onStatus('Building the decompilation\'s tools');
   const toolVars = [tc.env.CC ? `CC=${tc.env.CC}` : null, tc.env.CXX ? `CXX=${tc.env.CXX}` : null].filter(Boolean);

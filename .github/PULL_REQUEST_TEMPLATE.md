@@ -12,4 +12,4 @@
 - [ ] Every user change is saved in the project, replayed on area load, and undoable
 - [ ] Tests added or updated; `npm run test:smoke` passes (and the tests of this feature)
 - [ ] Docs updated (`docs/<feature>.md`, shortcuts in `docs/keyboard-shortcuts.md`)
-- [ ] No ROM, disc image, engine build or extracted game data committed
+- [ ] No ROM, disc image, engine build or extracted game data committed, and no sm64ex file (changes to those go into `engine-upstream/changes.json`: `node tools/engine_source.mjs diff`)

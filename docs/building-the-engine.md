@@ -11,6 +11,7 @@ You build it once after checking out the repository, and again only after changi
 
 - [Requirements](#requirements)
 - [Build](#build)
+- [Where the engine's source comes from](#where-the-engines-source-comes-from)
 - [The first-run setup](#the-first-run-setup)
 - [What the build does](#what-the-build-does)
 - [Generated data](#generated-data)
@@ -50,6 +51,8 @@ This runs `tools/build_engine.mjs` (`tools/build_engine.sh` is a wrapper for it)
    taken over), so two builds in the same tree never run at once,
 2. makes sure Python, a C/C++ compiler and make are there (`tools/lib/toolchain.mjs`: the system's
    when they work, else the private copies in `.runtime/`, downloaded if needed),
+   then puts sm64ex's files into `engine/` with Studio 64's changes (once per version, see
+   [below](#where-the-engines-source-comes-from)),
 3. sets up the Emscripten environment (what `emsdk_env.sh` would set) from `$EMSDK`,
    `~/.local/src/emsdk` or the setup's cache,
 4. puts the stand-in for the Sunshine characters into `engine/src/studio/sms/gen/` if no disc was
@@ -69,6 +72,32 @@ The build works from a folder whose path has spaces or accents (the release ZIP 
 
 The first build takes a few minutes; later builds only recompile what changed. Reload the
 studio afterwards.
+
+## Where the engine's source comes from
+
+The repository holds only Studio 64's own part of the engine: `engine/src/studio/`, the `studio`
+level, the Shoggoth instrument samples and their sound bank, and a build helper. Everything else in
+`engine/` (the decompiled game with its levels, models, animations and text, sm64ex's PC code, the
+decomp's tools) is [sm64ex](https://github.com/sm64pc/sm64ex) at a pinned commit, which the build
+downloads once into the Studio 64 cache (about 10 MB) and copies into `engine/`
+(`tools/lib/engine_source.mjs`). `.gitignore` keeps those files out of git and the release ZIP.
+
+`engine-upstream/source.json` names the commit and the SHA-256 of each of its files (every download
+is checked file by file). `engine-upstream/changes.json` is what Studio 64 changes in sm64ex's files:
+for each file the places and Studio 64's own new lines, never the lines they replace, and the
+checksum of the result, so it carries nothing of the original.
+
+If you change one of sm64ex's files in `engine/` (a hook in `src/game/mario.c`, the `Makefile`),
+write the change into `engine-upstream/changes.json` and commit that:
+
+```sh
+node tools/engine_source.mjs diff      # engine/ against sm64ex -> engine-upstream/changes.json
+node tools/engine_source.mjs fetch     # (the build does this) sm64ex + changes.json -> engine/
+```
+
+A new file of Studio 64's own outside the folders above needs a line in `.gitignore` (the block
+for `engine/`). To move to another sm64ex commit: `node tools/engine_source.mjs source <commit>
+<the commit's .tar.gz>`, then `fetch --force` and `diff`.
 
 ## The first-run setup
 

@@ -1,0 +1,3781 @@
+{
+ "base": "d7ca2c04364a6dd0dac58b47151e04e26887e6f0",
+ "files": {
+  ".gitattributes": {
+   "sha256": "1e3cf8498ffc27ab3c3a4e8cb52985867450be30b75a021d94ce7d3c4cfdbebb",
+   "hunks": [
+    [
+     1,
+     1,
+     [
+      "# eol=lf: Windows checkouts are built in WSL (Studio 64's setup), where CRLF breaks the scripts",
+      "* text=auto eol=lf"
+     ]
+    ]
+   ]
+  },
+  ".gitignore": {
+   "sha256": "b97f9cdd5fe422e7ff5dc6f909a28022fbd9c2ef2052744149d8f07c434484e9",
+   "hunks": [
+    [
+     84,
+     0,
+     [
+      "# Studio 64: generated from the game data (tools/gen_catalog.py, tools/sms/convert.py); never publish",
+      "src/studio/gen/",
+      "src/studio/sms/gen/",
+      ".build.lock",
+      ".build.lock.d/",
+      "",
+      "# Studio 64: the Shoggoth pieces made from the game's data at build time (tools/shoggoth/rom_parts.py:",
+      "# the dressed Toads' vanilla triangles, the recoloured Toad caps and Goomba faces). Everything else of",
+      "# the Shoggoth content (src/studio/shoggoth/gen, shotgun, vehicles, katana, sound/sound_banks/26_studio_tokyo.json,",
+      "# the hack's own synthesised custom_sh_*.aiff samples) is the user's own and ships.",
+      "src/studio/romgen/",
+      ""
+     ]
+    ]
+   ]
+  },
+  "Makefile": {
+   "sha256": "13a2e02eaa0e7366d0e46bfcf2256f03e3b3f8aa5841caef2e341628fe0323f0",
+   "hunks": [
+    [
+     42,
+     0,
+     [
+      "ifeq ($(TARGET_WEB),1)",
+      "  NODRAWINGDISTANCE ?= 1",
+      "endif"
+     ]
+    ],
+    [
+     111,
+     2,
+     [
+      "# macOS overrides (not for the web build: emcc compiles the game, the host's cc/c++ the tools)",
+      "ifeq ($(HOST_OS)$(TARGET_WEB),Darwin)"
+     ]
+    ],
+    [
+     169,
+     1,
+     [
+      "# (only in a git checkout: a release ZIP has no .git, and on a Mac without Apple's command line",
+      "# tools /usr/bin/git is a stub that asks to install them)",
+      "ifneq ($(wildcard .git),)",
+      "ifeq ($(shell git rev-parse --abbrev-ref HEAD 2>/dev/null),nightly)"
+     ]
+    ],
+    [
+     173,
+     0,
+     [
+      "endif"
+     ]
+    ],
+    [
+     257,
+     1,
+     [
+      "# Make sure assets exist ($(shell) rather than !=, so macOS's make 3.81 works too)"
+     ]
+    ],
+    [
+     260,
+     1,
+     [
+      "DUMMY := $(shell python3 ./extract_assets.py $(VERSION) >&2 || echo FAIL)"
+     ]
+    ],
+    [
+     267,
+     1,
+     [
+      "DUMMY := $(shell CC=$(CC) CXX=$(CXX) $(MAKE) -C tools -j1 >&2 || echo FAIL)"
+     ]
+    ],
+    [
+     315,
+     1,
+     [
+      "SRC_DIRS := src src/studio src/studio/sms src/studio/shoggoth src/engine src/game src/audio src/menu src/buffers actors levels bin data assets src/pc src/pc/gfx src/pc/audio src/pc/controller src/pc/fs src/pc/fs/packtypes"
+     ]
+    ],
+    [
+     343,
+     1,
+     [
+      "  OPT_FLAGS := -O2"
+     ]
+    ],
+    [
+     502,
+     0,
+     [
+      "ifeq ($(HOST_OS)$(TARGET_WEB),Darwin1)",
+      "  # macOS: Apple's cpp is not GNU cpp; the Emscripten SDK's clang preprocesses the same (text, level",
+      "  # headers). That clang has no usable default target (\"clang --version\" reports \"Target: unknown\")",
+      "  # and refuses to run at all without one (\"unknown target triple 'unknown'\").",
+      "  CPP := $(dir $(shell which emcc))../bin/clang --target=wasm32-unknown-emscripten -E -P -x c -Wno-trigraphs",
+      "endif"
+     ]
+    ],
+    [
+     559,
+     1,
+     [
+      "  ifeq ($(TARGET_WEB),1)",
+      "    # emscripten's SDL2 port brings its own headers; the host's sdl2-config would leak in /usr/include",
+      "    BACKEND_CFLAGS += -sUSE_SDL=2",
+      "  else ifeq ($(OSX_BUILD),1)"
+     ]
+    ],
+    [
+     566,
+     1,
+     [
+      "  ifeq ($(TARGET_WEB),1)",
+      "  else ifeq ($(WINDOWS_BUILD),1)"
+     ]
+    ],
+    [
+     655,
+     1,
+     [
+      "  LDFLAGS := -O2 --profiling-funcs -lm -lGL -lSDL2 -sUSE_SDL=2 -sINITIAL_MEMORY=256MB -sALLOW_MEMORY_GROWTH=1 -sSTACK_SIZE=1MB \\",
+      "    -sEXPORTED_RUNTIME_METHODS=callMain,ccall,cwrap,UTF8ToString,stringToUTF8,lengthBytesUTF8,HEAPU8,ENV \\",
+      "    -sEXPORTED_FUNCTIONS=_main,_malloc,_free -sMAX_WEBGL_VERSION=2 -sMIN_WEBGL_VERSION=1 \\",
+      "    -sENVIRONMENT=web -sEXIT_RUNTIME=0 --shell-file src/studio/shell.html"
+     ]
+    ],
+    [
+     832,
+     1,
+     [
+      "DUMMY := $(shell mkdir -p $(ALL_DIRS))"
+     ]
+    ],
+    [
+     875,
+     2,
+     [
+      "\t$(PYTHON) $(TOOLS_DIR)/bin2c.py $< > $@"
+     ]
+    ],
+    [
+     937,
+     1,
+     [
+      "\t$(ZEROTERM) \"$(patsubst $(BUILD_DIR)/%,%,$^)\" | $(PYTHON) $(TOOLS_DIR)/bin2c.py - > $@"
+     ]
+    ],
+    [
+     942,
+     2,
+     [
+      "\t$(PYTHON) $(TOOLS_DIR)/bin2c.py $< > $@"
+     ]
+    ]
+   ]
+  },
+  "Makefile.split": {
+   "sha256": "cd4ce9c9238fb82d439603aa1e3be338183878aaa32f8fd17de2aa35a7840606",
+   "hunks": [
+    [
+     141,
+     1,
+     [
+      "define level_rules"
+     ]
+    ]
+   ]
+  },
+  "data/behavior_data.c": {
+   "sha256": "efecd0e5e93b8bdc57df85a965c07c8e7162e8bf879b87c50db2236d0387167c",
+   "hunks": [
+    [
+     57,
+     0,
+     [
+      "#include \"studio/sms/sms.h\""
+     ]
+    ],
+    [
+     6112,
+     0,
+     [
+      "    END_LOOP(),",
+      "};",
+      "",
+      "// Studio 64 building block: geometry and collision are set at spawn (src/studio/editor.c).",
+      "void bhv_studio_block_loop(void);",
+      "const BehaviorScript bhvStudioBlock[] = {",
+      "    BEGIN(OBJ_LIST_SURFACE),",
+      "    OR_INT(oFlags, OBJ_FLAG_UPDATE_GFX_POS_AND_ANGLE),",
+      "    BEGIN_LOOP(),",
+      "        CALL_NATIVE(bhv_studio_block_loop),",
+      "    END_LOOP(),",
+      "};",
+      "",
+      "// Studio 64 terrain chunk: drawn only; its collision is part of the static level collision.",
+      "const BehaviorScript bhvStudioTerrain[] = {",
+      "    BEGIN(OBJ_LIST_SURFACE),",
+      "    BEGIN_LOOP(),",
+      "    END_LOOP(),",
+      "};",
+      "",
+      "// Studio 64 imported model (src/studio/assets.c): level geometry or a prop, optionally animated.",
+      "void bhv_studio_model_loop(void);",
+      "const BehaviorScript bhvStudioModel[] = {",
+      "    BEGIN(OBJ_LIST_SURFACE),",
+      "    OR_INT(oFlags, OBJ_FLAG_UPDATE_GFX_POS_AND_ANGLE),",
+      "    BEGIN_LOOP(),",
+      "        CALL_NATIVE(bhv_studio_model_loop),",
+      "    END_LOOP(),",
+      "};",
+      "",
+      "// Super Mario Sunshine: Piantas (src/studio/sms/pianta.c)",
+      "const BehaviorScript bhvSmsPianta[] = {",
+      "    BEGIN(OBJ_LIST_GENACTOR),",
+      "    OR_INT(oFlags, (OBJ_FLAG_UPDATE_GFX_POS_AND_ANGLE | OBJ_FLAG_COMPUTE_ANGLE_TO_MARIO | OBJ_FLAG_COMPUTE_DIST_TO_MARIO)),",
+      "    LOAD_ANIMATIONS(oAnimations, sms_moma_anims),",
+      "    ANIMATE(0),",
+      "    SET_HOME(),",
+      "    CALL_NATIVE(bhv_sms_pianta_init),",
+      "    BEGIN_LOOP(),",
+      "        CALL_NATIVE(bhv_sms_pianta_loop),",
+      "    END_LOOP(),",
+      "};",
+      "",
+      "// Studio 64 story: any model that talks (src/studio/story.c). bparams: 2nd byte animation set, 3rd animation.",
+      "void bhv_studio_npc_init(void);",
+      "void bhv_studio_npc_loop(void);",
+      "const BehaviorScript bhvStudioNpc[] = {",
+      "    BEGIN(OBJ_LIST_GENACTOR),",
+      "    OR_INT(oFlags, (OBJ_FLAG_UPDATE_GFX_POS_AND_ANGLE | OBJ_FLAG_COMPUTE_ANGLE_TO_MARIO | OBJ_FLAG_COMPUTE_DIST_TO_MARIO)),",
+      "    SET_INTERACT_TYPE(INTERACT_TEXT),",
+      "    SET_HITBOX(/*Radius*/ 80, /*Height*/ 120),",
+      "    SET_INT(oIntangibleTimer, 0),",
+      "    SET_HOME(),",
+      "    CALL_NATIVE(bhv_studio_npc_init),",
+      "    BEGIN_LOOP(),",
+      "        CALL_NATIVE(bhv_studio_npc_loop),",
+      "    END_LOOP(),",
+      "};",
+      "",
+      "// Studio 64 objects (src/studio/actor.c): custom objects and enemies built from building blocks,",
+      "// the projectiles they shoot, and catalog models with their collision moved by a motion.",
+      "void bhv_studio_actor_init(void);",
+      "void bhv_studio_actor_loop(void);",
+      "const BehaviorScript bhvStudioActor[] = {",
+      "    BEGIN(OBJ_LIST_GENACTOR),",
+      "    OR_INT(oFlags, (OBJ_FLAG_COMPUTE_ANGLE_TO_MARIO | OBJ_FLAG_COMPUTE_DIST_TO_MARIO | OBJ_FLAG_SET_FACE_YAW_TO_MOVE_YAW | OBJ_FLAG_UPDATE_GFX_POS_AND_ANGLE)),",
+      "    SET_HOME(),",
+      "    CALL_NATIVE(bhv_studio_actor_init),",
+      "    BEGIN_LOOP(),",
+      "        CALL_NATIVE(bhv_studio_actor_loop),",
+      "    END_LOOP(),",
+      "};",
+      "",
+      "void bhv_studio_projectile_loop(void);",
+      "const BehaviorScript bhvStudioProjectile[] = {",
+      "    BEGIN(OBJ_LIST_GENACTOR),",
+      "    OR_INT(oFlags, OBJ_FLAG_UPDATE_GFX_POS_AND_ANGLE),",
+      "    BEGIN_LOOP(),",
+      "        CALL_NATIVE(bhv_studio_projectile_loop),",
+      "    END_LOOP(),",
+      "};",
+      "",
+      "void bhv_studio_mover_loop(void);",
+      "const BehaviorScript bhvStudioMover[] = {",
+      "    BEGIN(OBJ_LIST_SURFACE),",
+      "    OR_INT(oFlags, OBJ_FLAG_UPDATE_GFX_POS_AND_ANGLE),",
+      "    BEGIN_LOOP(),",
+      "        CALL_NATIVE(bhv_studio_mover_loop),",
+      "    END_LOOP(),",
+      "};",
+      "",
+      "// Studio 64 world flow (src/studio/flow.c): a painting Mario jumps into, a key to collect.",
+      "void bhv_studio_painting_init(void);",
+      "void bhv_studio_painting_loop(void);",
+      "const BehaviorScript bhvStudioPainting[] = {",
+      "    BEGIN(OBJ_LIST_DEFAULT),",
+      "    OR_INT(oFlags, OBJ_FLAG_UPDATE_GFX_POS_AND_ANGLE),",
+      "    CALL_NATIVE(bhv_studio_painting_init),",
+      "    BEGIN_LOOP(),",
+      "        CALL_NATIVE(bhv_studio_painting_loop),",
+      "    END_LOOP(),",
+      "};",
+      "",
+      "void bhv_studio_key_init(void);",
+      "void bhv_studio_key_loop(void);",
+      "const BehaviorScript bhvStudioKey[] = {",
+      "    BEGIN(OBJ_LIST_LEVEL),",
+      "    OR_INT(oFlags, OBJ_FLAG_UPDATE_GFX_POS_AND_ANGLE),",
+      "    CALL_NATIVE(bhv_studio_key_init),",
+      "    BEGIN_LOOP(),",
+      "        CALL_NATIVE(bhv_studio_key_loop),"
+     ]
+    ]
+   ]
+  },
+  "extract_assets.py": {
+   "sha256": "efa9ae3e1838fa18d06a997b4e533c13409924e5cd7066d1cccc8febd42eac59",
+   "hunks": [
+    [
+     155,
+     0,
+     [
+      "        # (MAKE: the make that runs this build, also when it is not called \"make\" on PATH)"
+     ]
+    ],
+    [
+     156,
+     1,
+     [
+      "            [os.environ.get(\"MAKE\") or \"make\", \"-s\", \"-C\", \"tools/\", \"n64graphics\", \"skyconv\", \"mio0\", \"aifc_decode\"]"
+     ]
+    ],
+    [
+     180,
+     1,
+     [
+      "                        sys.executable or \"python3\","
+     ]
+    ]
+   ]
+  },
+  "include/behavior_data.h": {
+   "sha256": "5089bd70c2bcbfb5e1a73f7a63ff351476a97d2ed7d8b78f994c5de51988e86d",
+   "hunks": [
+    [
+     274,
+     0,
+     [
+      "extern const BehaviorScript bhvStudioBlock[];",
+      "extern const BehaviorScript bhvStudioTerrain[];",
+      "extern const BehaviorScript bhvStudioModel[];",
+      "extern const BehaviorScript bhvSmsPianta[];",
+      "extern const BehaviorScript bhvStudioNpc[];",
+      "extern const BehaviorScript bhvStudioActor[];",
+      "extern const BehaviorScript bhvStudioProjectile[];",
+      "extern const BehaviorScript bhvStudioMover[];"
+     ]
+    ],
+    [
+     544,
+     0,
+     [
+      "extern const BehaviorScript bhvStudioPainting[];",
+      "extern const BehaviorScript bhvStudioKey[];"
+     ]
+    ]
+   ]
+  },
+  "levels/intro/script.c": {
+   "sha256": "4f41d1a952bc589cd2361c23288be444b4f1b5c78a14c83c3400e2cd31589fcb",
+   "hunks": [
+    [
+     33,
+     0,
+     [
+      "    JUMP_IF(/*op*/ OP_EQ, /*arg*/ 101, script_intro_L2), // Studio 64: straight to the boot level"
+     ]
+    ]
+   ]
+  },
+  "levels/level_defines.h": {
+   "sha256": "5b2ec34f984e5e81aa30357535a440b8b04c8bf2e2e602a855e050fa62fa954d",
+   "hunks": [
+    [
+     55,
+     1,
+     [
+      "DEFINE_LEVEL(\"STUDIO\",         LEVEL_STUDIO,           COURSE_NONE,     studio,           generic,  20000,    0x08, 0x08, 0x08, _,         _)"
+     ]
+    ]
+   ]
+  },
+  "src/audio/external.c": {
+   "sha256": "72c598a343a2d5e9e3b6281974c34418862841ac017489ad15ce06f0d9a1d72e",
+   "hunks": [
+    [
+     783,
+     0,
+     [
+      "s32 studio_sfx_hook(s32 bits, f32 *pos);",
+      ""
+     ]
+    ],
+    [
+     784,
+     0,
+     [
+      "    // Studio 64: sounds the page replaced play there instead",
+      "    if (studio_sfx_hook(soundBits, pos)) {",
+      "        return;",
+      "    }"
+     ]
+    ]
+   ]
+  },
+  "src/engine/behavior_script.c": {
+   "sha256": "c19e894a941781a89a113e031264d857353da67b0416ec8bc2dfb138de98df8d",
+   "hunks": [
+    [
+     15,
+     0,
+     [
+      "#include \"studio/objects.h\""
+     ]
+    ],
+    [
+     960,
+     0,
+     [
+      "    }",
+      "",
+      "    // Studio 64: objects placed in the studio can follow a motion (src/studio/motion.c)",
+      "    if (gCurrentObject->unused2 != 0) {",
+      "        studio_motion_after_behavior(gCurrentObject);"
+     ]
+    ]
+   ]
+  },
+  "src/engine/level_script.c": {
+   "sha256": "b45746a6cfde46c7dc7d5dca76797313eb5d50f1d5efd343c5ee755cc4c8af7d",
+   "hunks": [
+    [
+     20,
+     0,
+     [
+      "#include \"studio/studio.h\""
+     ]
+    ],
+    [
+     306,
+     0,
+     [
+      "    studio_on_level_init();"
+     ]
+    ],
+    [
+     384,
+     0,
+     [
+      "        studio_note_model(val1, 2, val3);"
+     ]
+    ],
+    [
+     395,
+     0,
+     [
+      "        studio_note_model(arg0, 1, arg1);"
+     ]
+    ],
+    [
+     421,
+     0,
+     [
+      "        studio_note_model(model, 3, arg1);"
+     ]
+    ]
+   ]
+  },
+  "src/engine/surface_collision.c": {
+   "sha256": "f8a4a8d63e1ace8c36b6898ea401d51f9bf603a963ca3e18d053312080cea5af",
+   "hunks": [
+    [
+     202,
+     2,
+     [
+      "    cellX = ((x + LEVEL_BOUNDARY_MAX) / CELL_SIZE) & NUM_CELLS_INDEX;",
+      "    cellZ = ((z + LEVEL_BOUNDARY_MAX) / CELL_SIZE) & NUM_CELLS_INDEX;"
+     ]
+    ],
+    [
+     330,
+     2,
+     [
+      "    cellX = ((x + LEVEL_BOUNDARY_MAX) / CELL_SIZE) & NUM_CELLS_INDEX;",
+      "    cellZ = ((z + LEVEL_BOUNDARY_MAX) / CELL_SIZE) & NUM_CELLS_INDEX;"
+     ]
+    ],
+    [
+     497,
+     2,
+     [
+      "    s16 cellX = ((x + LEVEL_BOUNDARY_MAX) / CELL_SIZE) & NUM_CELLS_INDEX;",
+      "    s16 cellZ = ((z + LEVEL_BOUNDARY_MAX) / CELL_SIZE) & NUM_CELLS_INDEX;"
+     ]
+    ],
+    [
+     537,
+     2,
+     [
+      "    cellX = ((x + LEVEL_BOUNDARY_MAX) / CELL_SIZE) & NUM_CELLS_INDEX;",
+      "    cellZ = ((z + LEVEL_BOUNDARY_MAX) / CELL_SIZE) & NUM_CELLS_INDEX;"
+     ]
+    ],
+    [
+     692,
+     1,
+     [
+      "    list = gStaticSurfacePartition[cellZ & NUM_CELLS_INDEX][cellX & NUM_CELLS_INDEX][SPATIAL_PARTITION_FLOORS].next;"
+     ]
+    ],
+    [
+     695,
+     1,
+     [
+      "    list = gDynamicSurfacePartition[cellZ & NUM_CELLS_INDEX][cellX & NUM_CELLS_INDEX][SPATIAL_PARTITION_FLOORS].next;"
+     ]
+    ],
+    [
+     698,
+     1,
+     [
+      "    list = gStaticSurfacePartition[cellZ & NUM_CELLS_INDEX][cellX & NUM_CELLS_INDEX][SPATIAL_PARTITION_WALLS].next;"
+     ]
+    ],
+    [
+     701,
+     1,
+     [
+      "    list = gDynamicSurfacePartition[cellZ & NUM_CELLS_INDEX][cellX & NUM_CELLS_INDEX][SPATIAL_PARTITION_WALLS].next;"
+     ]
+    ],
+    [
+     704,
+     1,
+     [
+      "    list = gStaticSurfacePartition[cellZ & NUM_CELLS_INDEX][cellX & NUM_CELLS_INDEX][SPATIAL_PARTITION_CEILS].next;"
+     ]
+    ],
+    [
+     707,
+     1,
+     [
+      "    list = gDynamicSurfacePartition[cellZ & NUM_CELLS_INDEX][cellX & NUM_CELLS_INDEX][SPATIAL_PARTITION_CEILS].next;"
+     ]
+    ],
+    [
+     875,
+     1,
+     [
+      "\tif (cellX >= 0 && cellX <= NUM_CELLS_INDEX && cellZ >= 0 && cellZ <= NUM_CELLS_INDEX)"
+     ]
+    ]
+   ]
+  },
+  "src/engine/surface_collision.h": {
+   "sha256": "44c2d1819708e0e4cf1a2b384e6987784612100571aafd87811612a11ce5e238",
+   "hunks": [
+    [
+     7,
+     1,
+     [
+      "// Studio 64: +-16384 (32x32 cells; Shoggoth World's Tokyo is that big). The original is 0x2000.",
+      "#define LEVEL_BOUNDARY_MAX 0x4000"
+     ]
+    ],
+    [
+     9,
+     0,
+     [
+      "#define NUM_CELLS          (2 * LEVEL_BOUNDARY_MAX / CELL_SIZE)",
+      "#define NUM_CELLS_INDEX    (NUM_CELLS - 1)"
+     ]
+    ]
+   ]
+  },
+  "src/engine/surface_load.c": {
+   "sha256": "a527cc8d1cd4b3ee7b40efa41cbd7009560851091abde8d77652d0d68896b17e",
+   "hunks": [
+    [
+     23,
+     2,
+     [
+      "SpatialPartitionCell gStaticSurfacePartition[NUM_CELLS][NUM_CELLS];",
+      "SpatialPartitionCell gDynamicSurfacePartition[NUM_CELLS][NUM_CELLS];"
+     ]
+    ],
+    [
+     29,
+     0,
+     [
+      "#include <stdlib.h>",
+      "#include <string.h>",
+      "#define STUDIO_SURFACES 64000",
+      "#define STUDIO_SURFACE_NODES 200000",
+      ""
+     ]
+    ],
+    [
+     35,
+     1,
+     [
+      "s32 sSurfacePoolSize;"
+     ]
+    ],
+    [
+     43,
+     1,
+     [
+      "    struct SurfaceNode *node;",
+      "    // Studio 64: never write past the pool (sculpting can make a lot of surfaces)",
+      "    if (gSurfaceNodesAllocated >= STUDIO_SURFACE_NODES) {",
+      "        return NULL;",
+      "    }",
+      "    node = &sSurfaceNodePool[gSurfaceNodesAllocated];"
+     ]
+    ],
+    [
+     51,
+     1,
+     [
+      "    if (gSurfaceNodesAllocated >= STUDIO_SURFACE_NODES) {"
+     ]
+    ],
+    [
+     62,
+     2,
+     [
+      "    struct Surface *surface;",
+      "    if (gSurfacesAllocated >= sSurfacePoolSize) {",
+      "        return NULL;",
+      "    }",
+      "    surface = &sSurfacePool[gSurfacesAllocated];"
+     ]
+    ],
+    [
+     85,
+     1,
+     [
+      "    register s32 i = NUM_CELLS * NUM_CELLS;"
+     ]
+    ],
+    [
+     118,
+     0,
+     [
+      "    if (newNode == NULL) {",
+      "        return;",
+      "    }",
+      ""
+     ]
+    ],
+    [
+     199,
+     1,
+     [
+      "static s16 lower_cell_index(s32 coord) {"
+     ]
+    ],
+    [
+     202,
+     2,
+     [
+      "    // Move from range [-LEVEL_BOUNDARY_MAX, LEVEL_BOUNDARY_MAX) to [0, 2 * LEVEL_BOUNDARY_MAX)",
+      "    coord += LEVEL_BOUNDARY_MAX;"
+     ]
+    ],
+    [
+     231,
+     1,
+     [
+      "static s16 upper_cell_index(s32 coord) {"
+     ]
+    ],
+    [
+     234,
+     2,
+     [
+      "    // Move from range [-LEVEL_BOUNDARY_MAX, LEVEL_BOUNDARY_MAX) to [0, 2 * LEVEL_BOUNDARY_MAX)",
+      "    coord += LEVEL_BOUNDARY_MAX;"
+     ]
+    ],
+    [
+     250,
+     2,
+     [
+      "    if (index > NUM_CELLS_INDEX) {",
+      "        index = NUM_CELLS_INDEX;"
+     ]
+    ],
+    [
+     360,
+     0,
+     [
+      "    if (surface == NULL) {",
+      "        return NULL;",
+      "    }"
+     ]
+    ],
+    [
+     526,
+     3,
+     [
+      "    // Studio 64: room for the level plus lots of built geometry, kept across levels",
+      "    sSurfacePoolSize = STUDIO_SURFACES;",
+      "    if (sSurfaceNodePool == NULL) {",
+      "        sSurfaceNodePool = malloc(STUDIO_SURFACE_NODES * sizeof(struct SurfaceNode));",
+      "        sSurfacePool = malloc(STUDIO_SURFACES * sizeof(struct Surface));",
+      "    }"
+     ]
+    ],
+    [
+     796,
+     0,
+     [
+      "}",
+      "",
+      "/**",
+      " * Studio 64 build mode: load an object's collision regardless of distance or time stop.",
+      " */",
+      "void studio_load_object_collision(struct Object *obj) {",
+      "    s16 vertexData[600];",
+      "    s16 *collisionData = obj->collisionData;",
+      "    struct Object *saved = gCurrentObject;",
+      "",
+      "    if (collisionData == NULL) {",
+      "        return;",
+      "    }",
+      "    gCurrentObject = obj;",
+      "    collisionData++;",
+      "    transform_object_vertices(&collisionData, vertexData);",
+      "    while (*collisionData != TERRAIN_LOAD_CONTINUE) {",
+      "        load_object_surfaces(&collisionData, vertexData);",
+      "    }",
+      "    gCurrentObject = saved;",
+      "}",
+      "",
+      "// ---------------------------------------------------------------------------",
+      "// Studio 64: rebuild the static collision at runtime (sculpted level geometry,",
+      "// heightmap terrain) without re-spawning the level's special objects.",
+      "",
+      "s32 studio_surface_has_force(s16 type) {",
+      "    return surface_has_force(type);",
+      "}",
+      "",
+      "void studio_add_static_tri(s16 *a, s16 *b, s16 *c, s16 type) {",
+      "    s16 verts[9] = { a[0], a[1], a[2], b[0], b[1], b[2], c[0], c[1], c[2] };",
+      "    s16 idx[3] = { 0, 1, 2 };",
+      "    s16 *ip = idx;",
+      "    struct Surface *surface;",
+      "    // floors list their highest vertex first (SM64 sorts by it)",
+      "    if (b[1] > a[1] && b[1] >= c[1]) {",
+      "        s16 r[9] = { b[0], b[1], b[2], c[0], c[1], c[2], a[0], a[1], a[2] };",
+      "        memcpy(verts, r, sizeof(r));",
+      "    } else if (c[1] > a[1] && c[1] > b[1]) {",
+      "        s16 r[9] = { c[0], c[1], c[2], a[0], a[1], a[2], b[0], b[1], b[2] };",
+      "        memcpy(verts, r, sizeof(r));",
+      "    }",
+      "    surface = read_surface_data(verts, &ip);",
+      "    if (surface != NULL) {",
+      "        surface->room = 0;",
+      "        surface->type = type;",
+      "        surface->flags = (s8) surf_has_no_cam_collision(type);",
+      "        surface->force = 0;",
+      "        add_surface(surface, FALSE);",
+      "    }",
+      "}",
+      "",
+      "void studio_rebuild_static_surfaces(void (*addExtra)(void)) {",
+      "    s16 *data = gCurrentArea->terrainData;",
+      "    s8 *rooms = gCurrentArea->surfaceRooms;",
+      "    s16 *vertexData = NULL;",
+      "    s16 terrainLoadType;",
+      "",
+      "    gSurfaceNodesAllocated = 0;",
+      "    gSurfacesAllocated = 0;",
+      "    clear_static_surfaces();",
+      "    clear_spatial_partition(&gDynamicSurfacePartition[0][0]);",
+      "",
+      "    while (data != NULL) {",
+      "        terrainLoadType = *data;",
+      "        data++;",
+      "        if (TERRAIN_LOAD_IS_SURFACE_TYPE_LOW(terrainLoadType)) {",
+      "            load_static_surfaces(&data, vertexData, terrainLoadType, &rooms);",
+      "        } else if (terrainLoadType == TERRAIN_LOAD_VERTICES) {",
+      "            vertexData = read_vertex_data(&data);",
+      "        } else if (terrainLoadType == TERRAIN_LOAD_OBJECTS) {",
+      "            data += get_special_objects_size(data);",
+      "        } else if (terrainLoadType == TERRAIN_LOAD_ENVIRONMENT) {",
+      "            load_environmental_regions(&data);",
+      "        } else if (terrainLoadType == TERRAIN_LOAD_CONTINUE) {",
+      "            continue;",
+      "        } else if (terrainLoadType == TERRAIN_LOAD_END) {",
+      "            break;",
+      "        } else if (TERRAIN_LOAD_IS_SURFACE_TYPE_HIGH(terrainLoadType)) {",
+      "            load_static_surfaces(&data, vertexData, terrainLoadType, &rooms);",
+      "            continue;",
+      "        }",
+      "    }",
+      "    if (addExtra != NULL) {",
+      "        addExtra();",
+      "    }",
+      "    gNumStaticSurfaceNodes = gSurfaceNodesAllocated;",
+      "    gNumStaticSurfaces = gSurfacesAllocated;"
+     ]
+    ]
+   ]
+  },
+  "src/engine/surface_load.h": {
+   "sha256": "bab3db22b0e389546e3ac41eb039db22c83ae6afa4d3b71c6e73b20dc988c41f",
+   "hunks": [
+    [
+     6,
+     0,
+     [
+      "#include \"surface_collision.h\""
+     ]
+    ],
+    [
+     25,
+     2,
+     [
+      "extern SpatialPartitionCell gStaticSurfacePartition[NUM_CELLS][NUM_CELLS];",
+      "extern SpatialPartitionCell gDynamicSurfacePartition[NUM_CELLS][NUM_CELLS];"
+     ]
+    ],
+    [
+     29,
+     1,
+     [
+      "extern s32 sSurfacePoolSize;"
+     ]
+    ],
+    [
+     38,
+     0,
+     [
+      "",
+      "void studio_load_object_collision(struct Object *obj);"
+     ]
+    ]
+   ]
+  },
+  "src/game/area.c": {
+   "sha256": "b78a627facd161c257f9d68ea6957ab52cca6380744a642f794f3d7a42cf62a6",
+   "hunks": [
+    [
+     23,
+     0,
+     [
+      "#include \"studio/studio.h\""
+     ]
+    ],
+    [
+     245,
+     0,
+     [
+      "        studio_on_area_load();"
+     ]
+    ],
+    [
+     308,
+     0,
+     [
+      "    // Studio: a new transition starts from its first frame. A fade cut short (a level jump, build",
+      "    // mode, a reload of the area) left its frame counter behind; a shorter fade then never reached",
+      "    // its end (the u8 counter ran past it and wrapped, ~256 frames) and its alpha overflowed: the",
+      "    // picture flashed white or black on and off while driving (vehicles test, 05_drift.png).",
+      "    extern u8 sTransitionColorFadeCount[4];",
+      "    extern u16 sTransitionTextureFadeCount[2];",
+      "    sTransitionColorFadeCount[0] = 0;",
+      "    sTransitionTextureFadeCount[0] = 0;"
+     ]
+    ]
+   ]
+  },
+  "src/game/behaviors/bowser.inc.c": {
+   "sha256": "492e3f8470d1012f274a4e284afcdffbe67d0e1005229d31a18900b62dd6e239",
+   "hunks": [
+    [
+     122,
+     0,
+     [
+      "// Studio 64: Bowser placed outside his three arenas (the castle grounds, any course, a custom",
+      "// level). His AI assumes the arena: a camera cutscene starts the fight, the stage's centre is",
+      "// the origin, and 1000 below his home means he fell off the stage. Outside an arena he roars and",
+      "// walks in by himself, the spot he was placed at is his centre, he has 3 health (bparams byte 2",
+      "// sets it), a fall into the void brings him back down at home, and beating him gives a star",
+      "// instead of a key. Inside the arenas everything is exactly the original.",
+      "static s32 bowser_outside_arena(void) {",
+      "    return gCurrLevelNum != LEVEL_BOWSER_1 && gCurrLevelNum != LEVEL_BOWSER_2",
+      "           && gCurrLevelNum != LEVEL_BOWSER_3;",
+      "}",
+      "",
+      "// Outside an arena: back home, dropping in from above (a landing with a camera shake).",
+      "static void bowser_return_home(void) {",
+      "    o->oPosX = o->oHomeX;",
+      "    o->oPosY = o->oHomeY + 1500.0f;",
+      "    o->oPosZ = o->oHomeZ;",
+      "    o->oVelY = 0.0f;",
+      "    o->oForwardVel = 0.0f;",
+      "    o->oFaceAnglePitch = 0;",
+      "    o->oFaceAngleRoll = 0;",
+      "    o->oBowserUnk1AC = 0xFF;",
+      "    o->oAction = o->oPrevAction = 13; // bowser_act_jump, already in the air",
+      "    o->oSubAction = 1;",
+      "    o->oTimer = 0;",
+      "}",
+      ""
+     ]
+    ],
+    [
+     178,
+     1,
+     [
+      "            o->oBowserUnk88 = bowser_outside_arena() ? 2 : 0; // no intro cutscene to wait for"
+     ]
+    ],
+    [
+     290,
+     0,
+     [
+      "        if (bowser_outside_arena()) {",
+      "            o->oPosX = o->oHomeX;",
+      "            o->oPosZ = o->oHomeZ;",
+      "        }"
+     ]
+    ],
+    [
+     758,
+     0,
+     [
+      "    if (bowser_outside_arena()) {",
+      "        // a Power Star (bparams byte 1 = its number, like a placed star) instead of a key",
+      "        spawn_default_star(o->oPosX, o->oPosY + 200.0f, o->oPosZ);",
+      "        return;",
+      "    }"
+     ]
+    ],
+    [
+     839,
+     1,
+     [
+      "            if (!bowser_outside_arena()) // the level's own music goes on outside an arena",
+      "                sequence_player_fade_out(0, 1);"
+     ]
+    ],
+    [
+     1040,
+     2,
+     [
+      "    if (bowser_check_fallen_off_stage()) {",
+      "        if (bowser_outside_arena())",
+      "            bowser_return_home(); // no stage to jump back onto",
+      "        else",
+      "            o->oAction = 2; // bowser go home?",
+      "    }"
+     ]
+    ],
+    [
+     1097,
+     2,
+     [
+      "    f32 centreX = 0.0f, centreZ = 0.0f;",
+      "    if (bowser_outside_arena()) { // the spot he was placed at is the middle of his \"arena\"",
+      "        centreX = o->oHomeX;",
+      "        centreZ = o->oHomeZ;",
+      "    }",
+      "    o->oBowserDistToCentre = sqrtf((o->oPosX - centreX) * (o->oPosX - centreX)",
+      "                                   + (o->oPosZ - centreZ) * (o->oPosZ - centreZ));",
+      "    o->oBowserAngleToCentre = atan2s(centreZ - o->oPosZ, centreX - o->oPosX);"
+     ]
+    ],
+    [
+     1150,
+     0,
+     [
+      "    if (bowser_outside_arena()) {",
+      "        s32 health = (o->oBehParams >> 16) & 0xFF;",
+      "        o->oBehParams2ndByte = 0; // fights like in Bowser in the Dark World",
+      "        o->oBowserUnk1B2 = D_8032F690[0];",
+      "        o->oHealth = health > 0 ? health : 3;",
+      "        gSecondCameraFocus = o;",
+      "        o->oBowserUnk88 = 1; // no intro cutscene: he roars and walks in by himself",
+      "        o->oAction = 6;",
+      "        o->oBowserUnk1AE = 0;",
+      "        o->oBowserEyesShut = 0;",
+      "        cur_obj_play_sound_2(SOUND_OBJ2_BOWSER_ROAR);",
+      "        spawn_mist_particles_variable(0, 0, 120.0f);",
+      "        return;",
+      "    }"
+     ]
+    ]
+   ]
+  },
+  "src/game/behaviors/bowser_bomb.inc.c": {
+   "sha256": "913517e0cbf7b7185d6ed4c52857659e89e4754badcbdced30f8ebf332e7bfc6",
+   "hunks": [
+    [
+     2,
+     0,
+     [
+      "// Studio 64: a bomb can be placed in any level, where the IDs of the explosion's models",
+      "// (Bowser's group) may belong to another model (0x66 is Lakitu in the castle grounds, a Chain",
+      "// Chomp in Bob-omb Battlefield): give the fireball and the smoke their own graph nodes.",
+      "struct GraphNode *studio_geo_node(const GeoLayout *geo);",
+      "extern const GeoLayout bowser_flames_geo[];",
+      "extern const GeoLayout bowser_impact_smoke_geo[];",
+      "static struct Object *bowser_bomb_spawn_part(struct Object *parent, s32 model, const BehaviorScript *bhv,",
+      "                                             const GeoLayout *geo) {",
+      "    struct Object *obj = spawn_object(parent, model, bhv);",
+      "    struct GraphNode *node = studio_geo_node(geo);",
+      "    if (obj != NULL && node != NULL) {",
+      "        obj->header.gfx.sharedChild = node;",
+      "    }",
+      "    return obj;",
+      "}",
+      ""
+     ]
+    ],
+    [
+     11,
+     1,
+     [
+      "        bowser_bomb_spawn_part(o, MODEL_BOWSER_FLAMES, bhvBowserBombExplosion, bowser_flames_geo);"
+     ]
+    ],
+    [
+     25,
+     1,
+     [
+      "        mineSmoke = bowser_bomb_spawn_part(o, MODEL_BOWSER_SMOKE, bhvBowserBombSmoke, bowser_impact_smoke_geo);"
+     ]
+    ]
+   ]
+  },
+  "src/game/behaviors/cannon.inc.c": {
+   "sha256": "88d981df1336ac5a51b0f21b9e43f3351a6f363fdde77f4ebb108e0e86b3e71f",
+   "hunks": [
+    [
+     43,
+     1,
+     [
+      "    // Studio 64: a cannon placed in the studio stands on the ground (no pit to rise out of)",
+      "    if (o->unused2 == 0)",
+      "        o->oPosY += 5.0f;"
+     ]
+    ]
+   ]
+  },
+  "src/game/behaviors/platform_on_track.inc.c": {
+   "sha256": "913456991677cae273aeb4536c347832f53fe5bc53c2f463eb58b430c20ee351",
+   "hunks": [
+    [
+     63,
+     0,
+     [
+      "        studio_track_override_apply(o); // a track drawn in the studio"
+     ]
+    ]
+   ]
+  },
+  "src/game/camera.c": {
+   "sha256": "ec02cd659688b9f699c120145da20c53cf52f51ba81b278d0e77f852aef2ab7e",
+   "hunks": [
+    [
+     7,
+     0,
+     [
+      "#include \"studio/shotgun.h\"",
+      "#include \"studio/katana.h\""
+     ]
+    ],
+    [
+     3105,
+     1,
+     [
+      "    if (c->cutscene == 0 && (studio_shotgun_camera(c) || studio_katana_camera(c))) {",
+      "        // Studio 64: the shotgun's aim camera placed it (studio/shotgun.c), or the katana's pull / finale (studio/katana.c)",
+      "    } else if (c->cutscene == 0) {"
+     ]
+    ],
+    [
+     3558,
+     0,
+     [
+      "    extern s32 gStudioCamEnabled;",
+      "    extern f32 gStudioCamPos[3], gStudioCamFocus[3];",
+      "",
+      "    if (gStudioCamEnabled) {",
+      "        gc->rollScreen = 0;",
+      "        gc->roll = 0;",
+      "        vec3f_copy(gc->pos, gStudioCamPos);",
+      "        vec3f_copy(gc->focus, gStudioCamFocus);",
+      "        return;",
+      "    }",
+      "    {",
+      "        // Studio 64: side-scrolling and top-down area cameras (studio/flow.c)",
+      "        extern s32 studio_play_camera(f32 *pos, f32 *focus);",
+      "        extern s32 studio_vehicle_camera(f32 *pos, f32 *focus); // Studio 64 vehicles: the chase camera",
+      "        if (studio_vehicle_camera(gc->pos, gc->focus) || studio_play_camera(gc->pos, gc->focus)) {",
+      "            gc->rollScreen = 0;",
+      "            gc->roll = 0;",
+      "            return;",
+      "        }",
+      "    }"
+     ]
+    ]
+   ]
+  },
+  "src/game/game_init.c": {
+   "sha256": "f5b5144182ff801f7f0b05a9cd8d7cd7276dcbc0a422ce0a1faae7a0b1404788",
+   "hunks": [
+    [
+     489,
+     0,
+     [
+      "    {",
+      "        extern void studio_bot_controller(struct Controller *c); // studio/debug.c: scripted takes",
+      "        studio_bot_controller(gPlayer1Controller);",
+      "    }",
+      ""
+     ]
+    ]
+   ]
+  },
+  "src/game/hud.c": {
+   "sha256": "c221f12a18230643afecee4db5d5d8578884306c7a5f5233bb740a3ed2e7e1f0",
+   "hunks": [
+    [
+     17,
+     0,
+     [
+      "#include \"studio/objects.h\"",
+      "#include \"studio/shotgun.h\""
+     ]
+    ],
+    [
+     423,
+     0,
+     [
+      "    extern s32 gStudioHideHud;"
+     ]
+    ],
+    [
+     428,
+     1,
+     [
+      "    if (gStudioHideHud) {",
+      "        return;",
+      "    }"
+     ]
+    ],
+    [
+     430,
+     0,
+     [
+      "    hudDisplayFlags = gHudDisplay.flags & ~gStudioRules.hudHide; // Studio 64 rules",
+      ""
+     ]
+    ],
+    [
+     479,
+     0,
+     [
+      "",
+      "        studio_shotgun_hud(); // Studio 64: the shotgun's crosshair in aim mode"
+     ]
+    ]
+   ]
+  },
+  "src/game/ingame_menu.c": {
+   "sha256": "d5e064f0fb9e11929c3ca6122f78343eb61debb028451d3fbeb60ab1b2a78534",
+   "hunks": [
+    [
+     18,
+     0,
+     [
+      "#include \"object_helpers.h\" // disable_time_stop (Studio 64)"
+     ]
+    ],
+    [
+     22,
+     0,
+     [
+      "#include \"studio/studio.h\""
+     ]
+    ],
+    [
+     908,
+     0,
+     [
+      "        dialog = studio_dialog_redirect(dialog); // Studio 64: tagged characters say project dialogs"
+     ]
+    ],
+    [
+     915,
+     0,
+     [
+      "        dialog = studio_dialog_redirect(dialog); // Studio 64: tagged characters say project dialogs"
+     ]
+    ],
+    [
+     923,
+     0,
+     [
+      "        dialog = studio_dialog_redirect(dialog); // Studio 64: tagged characters say project dialogs"
+     ]
+    ],
+    [
+     930,
+     0,
+     [
+      "        dialog = studio_dialog_redirect(dialog); // Studio 64: tagged characters say project dialogs"
+     ]
+    ],
+    [
+     1717,
+     1,
+     [
+      "    dialog = studio_dialog_entry(gDialogID); // Studio 64: replaced and project dialogs"
+     ]
+    ],
+    [
+     1733,
+     1,
+     [
+      "                if (!studio_dialog_sound(gDialogID)) {",
+      "                    play_dialog_sound(gDialogID);",
+      "                }"
+     ]
+    ],
+    [
+     2031,
+     1,
+     [
+      "    dialog = studio_dialog_entry(gDialogID); // Studio 64: replaced and project dialogs"
+     ]
+    ],
+    [
+     2526,
+     0,
+     [
+      "    s32 total;"
+     ]
+    ],
+    [
+     2541,
+     16,
+     [
+      "    // pages: the courses with stars, the secret stars, then the custom levels",
+      "    total = COURSE_STAGES_COUNT + 1 + gStudioPauseLevelCount;",
+      "    handle_menu_scrolling(MENU_SCROLL_VERTICAL, &gDialogLineNum, -1, total);",
+      "    if (gDialogLineNum != starNum) {",
+      "        s32 dir = gDialogLineNum > starNum ? 1 : -1, guard;",
+      "        for (guard = 0; guard <= total; guard++) {",
+      "            if (gDialogLineNum >= total) {",
+      "                gDialogLineNum = 0;"
+     ]
+    ],
+    [
+     2558,
+     3,
+     [
+      "            if (gDialogLineNum < 0) {",
+      "                gDialogLineNum = total - 1;",
+      "            }",
+      "            if (gDialogLineNum >= COURSE_STAGES_COUNT",
+      "                || save_file_get_course_star_count(gCurrSaveFileNum - 1, gDialogLineNum) != 0) {"
+     ]
+    ],
+    [
+     2563,
+     0,
+     [
+      "            gDialogLineNum += dir;"
+     ]
+    ],
+    [
+     2581,
+     0,
+     [
+      "    } else if (gDialogLineNum > COURSE_STAGES_COUNT) {",
+      "        studio_render_pause_castle_level(gDialogLineNum - COURSE_STAGES_COUNT - 1, x, y);",
+      "        gSPDisplayList(gDisplayListHead++, dl_ia_text_end);",
+      "        return;"
+     ]
+    ],
+    [
+     2624,
+     1,
+     [
+      "            studio_pause_prepare();",
+      "            // custom levels pause like courses, not like the castle",
+      "            if ((gCurrCourseNum >= COURSE_MIN && gCurrCourseNum <= COURSE_MAX) || (gCurrLevelNum == LEVEL_STUDIO && !gStudioIsHub)) {"
+     ]
+    ],
+    [
+     2634,
+     1,
+     [
+      "            if (gCurrLevelNum == LEVEL_STUDIO) {",
+      "                studio_render_pause_level();",
+      "            } else {",
+      "                render_pause_my_score_coins();",
+      "            }"
+     ]
+    ],
+    [
+     2638,
+     1,
+     [
+      "            // Studio 64: Exit Course is always offered (the game hides it while Mario is in the air or sliding)",
+      "            if (TRUE || (gMarioStates[0].action & ACT_FLAG_PAUSE_EXIT) || (Cheats.EnableCheats && Cheats.ExitAnywhere)) {"
+     ]
+    ],
+    [
+     2865,
+     0,
+     [
+      "    if (studio_render_course_complete()) {",
+      "        return;",
+      "    }"
+     ]
+    ],
+    [
+     3010,
+     0,
+     [
+      "}",
+      "",
+      "// Studio 64: a new area while the course complete screen is still up (a door, a script or a",
+      "// jump moved Mario on before it was answered): close it, else it opens over the new area and",
+      "// holds the game in a transition (a warp started there never happened: a white screen for good).",
+      "void studio_close_course_done_screen(void) {",
+      "    if (gMenuMode == RENDER_COURSE_DONE_SCREEN) {",
+      "        gMenuMode = -1;",
+      "        gDialogBoxState = DIALOG_STATE_OPENING;",
+      "        gCourseDoneMenuTimer = 0;",
+      "        gCourseCompleteCoins = 0;",
+      "        gCourseCompleteCoinsEqual = 0;",
+      "        gHudFlash = 0;",
+      "        disable_time_stop();",
+      "    }"
+     ]
+    ]
+   ]
+  },
+  "src/game/interaction.c": {
+   "sha256": "7133d8e3058860ebadced26621230ff0c1aa040712824e70863ca571828dac84",
+   "hunks": [
+    [
+     14,
+     0,
+     [
+      "#include \"studio/studio.h\""
+     ]
+    ],
+    [
+     25,
+     0,
+     [
+      "#include \"studio/objects.h\""
+     ]
+    ],
+    [
+     740,
+     1,
+     [
+      "    if (gStudioRules.coinHeal) {",
+      "        m->healCounter += 4 * o->oDamageOrCoinValue;",
+      "    }"
+     ]
+    ],
+    [
+     744,
+     1,
+     [
+      "    if ((COURSE_IS_MAIN_COURSE(gCurrCourseNum) || gCurrLevelNum == LEVEL_STUDIO) && gStudioRules.coinStar",
+      "        && m->numCoins - o->oDamageOrCoinValue < 100"
+     ]
+    ],
+    [
+     767,
+     0,
+     [
+      "    // Studio 64: studio stars end the level like the game's own (the page keeps",
+      "    // track of them instead of the save file)",
+      "    s32 studioStar = studio_is_studio_star(o);",
+      "    gStudioStarDance = studioStar;"
+     ]
+    ],
+    [
+     803,
+     1,
+     [
+      "        // (the star counter of studio stars comes from the page: studio_set_bonus_stars)",
+      "        if (studioStar) {",
+      "            gLastCompletedCourseNum = gCurrCourseNum;",
+      "            gLastCompletedStarNum = starIndex + 1;",
+      "            gGotFileCoinHiScore = FALSE;",
+      "            studio_star_collected(o, starIndex);",
+      "        } else {",
+      "            studio_complete_clear();",
+      "            save_file_collect_star_or_key(m->numCoins, starIndex);",
+      "            m->numStars =",
+      "                save_file_get_total_star_count(gCurrSaveFileNum - 1, COURSE_MIN - 1, COURSE_MAX - 1);",
+      "        }"
+     ]
+    ],
+    [
+     805,
+     3,
+     []
+    ],
+    [
+     849,
+     0,
+     [
+      "    u32 studioRet;"
+     ]
+    ],
+    [
+     850,
+     0,
+     [
+      "    if (studio_door_check(m, o, &studioRet)) { // Studio 64: a locked pipe or warp",
+      "        return studioRet;",
+      "    }",
+      ""
+     ]
+    ],
+    [
+     893,
+     0,
+     [
+      "    u32 studioRet;"
+     ]
+    ],
+    [
+     894,
+     0,
+     [
+      "    if ((m->action == ACT_WALKING || m->action == ACT_DECELERATING) && studio_door_check(m, o, &studioRet)) {",
+      "        return studioRet; // Studio 64: stars, a key or an event keeps it shut",
+      "    }",
+      ""
+     ]
+    ],
+    [
+     986,
+     1,
+     [
+      "    // Studio 64: the star counter (it includes the studio's own stars)",
+      "    s16 numStars = m->numStars;",
+      "    u32 studioRet;"
+     ]
+    ],
+    [
+     988,
+     0,
+     [
+      "    if ((m->action == ACT_WALKING || m->action == ACT_DECELERATING) && studio_door_check(m, o, &studioRet)) {",
+      "        return studioRet;",
+      "    }"
+     ]
+    ],
+    [
+     1572,
+     0,
+     [
+      "        capTime = studio_rules_cap_time(capFlag, capTime); // Studio 64 rules"
+     ]
+    ]
+   ]
+  },
+  "src/game/level_geo.c": {
+   "sha256": "6132f13b880fd43a59a2d90b45abf1f9109456ee940322bbb1e1710633aac585",
+   "hunks": [
+    [
+     71,
+     0,
+     [
+      "        // Studio 64: the sky follows the editor camera in build mode",
+      "        extern s32 gStudioCamEnabled;",
+      "        if (gStudioCamEnabled) {",
+      "            gfx = create_skybox_facing_camera(0, backgroundNode->background, camFrustum->fov, camNode->pos[0],",
+      "                                camNode->pos[1], camNode->pos[2], camNode->focus[0],",
+      "                                camNode->focus[1], camNode->focus[2]);",
+      "        } else"
+     ]
+    ]
+   ]
+  },
+  "src/game/level_update.c": {
+   "sha256": "ae5017f710ca8744393e9d397f32d9cf5c9d9e12e0390eb311d31ed08ecab335",
+   "hunks": [
+    [
+     8,
+     0,
+     [
+      "#include <emscripten.h>",
+      "#include \"studio/studio.h\""
+     ]
+    ],
+    [
+     211,
+     0,
+     [
+      "    // Studio 64: during a story cutscene Start skips it instead of pausing",
+      "    extern s32 gStudioStoryLock, gStudioStorySkip, gStudioStoryGrace;",
+      "    if (gStudioStoryLock) {",
+      "        if (gPlayer1Controller->buttonPressed & START_BUTTON) {",
+      "            gStudioStorySkip = TRUE;",
+      "        }",
+      "        return FALSE;",
+      "    }",
+      "    // a second Start right after skipping a cutscene does not open the pause menu",
+      "    if (gStudioStoryGrace > 0) {",
+      "        gStudioStoryGrace--;",
+      "        return FALSE;",
+      "    }"
+     ]
+    ],
+    [
+     249,
+     0,
+     [
+      "    // Studio 64: level intro texts would hold every jump between levels until",
+      "    // the player presses A, so levels open straight into play",
+      "    if (dialogID != 0xFFFF) {",
+      "        return;",
+      "    }",
+      ""
+     ]
+    ],
+    [
+     368,
+     0,
+     [
+      "static struct ObjectWarpNode *studio_fallback_warp_node(struct ObjectWarpNode *node) {",
+      "    if (node != NULL && node->object != NULL) {",
+      "        return node;",
+      "    }",
+      "    // a real spawn point first (not a warp trigger like the slide's entrance)",
+      "    for (node = gCurrentArea->warpNodes; node != NULL; node = node->next) {",
+      "        if (node->object != NULL && node->object->activeFlags && get_mario_spawn_type(node->object) != 0) {",
+      "            return node;",
+      "        }",
+      "    }",
+      "    for (node = gCurrentArea->warpNodes; node != NULL; node = node->next) {",
+      "        if (node->object != NULL && node->object->activeFlags) {",
+      "            return node;",
+      "        }",
+      "    }",
+      "    return NULL;",
+      "}",
+      "",
+      "static s32 sStudioWarp;",
+      "",
+      "extern s16 gMenuMode;",
+      "void disable_time_stop(void);",
+      "",
+      "// Debugging aid: the state that decides whether warps and menus run.",
+      "EMSCRIPTEN_KEEPALIVE",
+      "void studio_debug_play(void) {",
+      "    EM_ASM({ console.warn('play: mode ' + $0 + ' warpOp ' + $1 + ' warpTimer ' + $2 + ' transition ' + $3 + ' menu ' + $4 + ' action 0x' + ($5 >>> 0).toString(16) + ' timeStop 0x' + ($6 >>> 0).toString(16) + ' dialog ' + $7); },",
+      "           sCurrPlayMode, sDelayedWarpOp, sDelayedWarpTimer, sTransitionTimer, gMenuMode, gMarioState->action, gTimeStopState, get_dialog_id());",
+      "}",
+      "",
+      "void studio_warp_to(s16 level, s16 area, s16 node) {",
+      "    // a jump asked for in the studio closes what is open: the pause menu, the",
+      "    // course complete screen, a dialog box (they hold the game in a transition)",
+      "    if (gCurrentArea != NULL && sDelayedWarpOp == WARP_OP_NONE",
+      "        && (sCurrPlayMode == PLAY_MODE_PAUSED || (sCurrPlayMode == PLAY_MODE_CHANGE_AREA && sTransitionTimer == -1)",
+      "            || gMenuMode != -1 || get_dialog_id() >= 0)) {",
+      "        gMenuMode = -1; // (set_menu_mode only opens a menu)",
+      "        reset_dialog_render_state();",
+      "        disable_time_stop();",
+      "        gCameraMovementFlags &= ~CAM_MOVE_PAUSE_SCREEN;",
+      "        set_play_mode(PLAY_MODE_NORMAL);",
+      "        // actions waiting on a menu (the save menu after a star) would open it again",
+      "        if (gMarioState->action & (ACT_FLAG_INTANGIBLE | ACT_FLAG_INVULNERABLE)) {",
+      "            set_mario_action(gMarioState, ACT_IDLE, 0);",
+      "        }",
+      "    }",
+      "    if (sCurrPlayMode != PLAY_MODE_NORMAL || sDelayedWarpOp != WARP_OP_NONE || gCurrentArea == NULL) {",
+      "        EM_ASM({ console.warn('studio warp refused: playMode ' + $0 + ' warpOp ' + $1 + ' area ' + $2); }, sCurrPlayMode, sDelayedWarpOp, gCurrentArea != NULL);",
+      "        return;",
+      "    }",
+      "    studio_set_warp_node(0xEF, level, area, node);",
+      "    sStudioWarp = TRUE;",
+      "    sSourceWarpNodeId = 0xEF;",
+      "    sDelayedWarpOp = WARP_OP_TELEPORT;",
+      "    sDelayedWarpTimer = 8;",
+      "    sDelayedWarpArg = 0;",
+      "    play_transition(WARP_TRANSITION_FADE_INTO_COLOR, 8, 0x10, 0x10, 0x14);",
+      "}",
+      ""
+     ]
+    ],
+    [
+     369,
+     2,
+     [
+      "    struct ObjectWarpNode *spawnNode = studio_fallback_warp_node(area_get_warp_node(sWarpDest.nodeId));",
+      "    u32 marioSpawnType;"
+     ]
+    ],
+    [
+     372,
+     0,
+     [
+      "    if (spawnNode == NULL) {",
+      "        reset_camera(gCurrentArea->camera);",
+      "        sWarpDest.type = WARP_TYPE_NOT_WARPING;",
+      "        sDelayedWarpOp = WARP_OP_NONE;",
+      "        return;",
+      "    }",
+      "    marioSpawnType = get_mario_spawn_type(spawnNode->object);",
+      "    // studio jumps can land on a course exit node: arrive normally instead of",
+      "    // replaying \"got a star\" / \"lost a life\" (whose screens expect a real course)",
+      "    if (sStudioWarp) {",
+      "        sStudioWarp = FALSE;",
+      "        if (marioSpawnType == MARIO_SPAWN_DEATH || (marioSpawnType >= MARIO_SPAWN_PAINTING_STAR_COLLECT",
+      "                                                    && marioSpawnType <= MARIO_SPAWN_UNKNOWN_27)) {",
+      "            marioSpawnType = MARIO_SPAWN_SPIN_AIRBORNE;",
+      "        }",
+      "    }",
+      ""
+     ]
+    ],
+    [
+     616,
+     0,
+     [
+      "    // Studio 64: the page decides where warps of custom levels and hubs lead (flow.c)",
+      "    studio_warp_hook(&destLevel, &destArea, &destWarpNode, sSourceWarpNodeId);"
+     ]
+    ],
+    [
+     625,
+     0,
+     [
+      "    {",
+      "        // Studio 64: custom levels share one level slot, so switching between them reloads it",
+      "        extern s32 gStudioForceReload;",
+      "        if (gStudioForceReload) {",
+      "            sWarpDest.type = WARP_TYPE_CHANGE_LEVEL;",
+      "            gStudioForceReload = FALSE;",
+      "        }",
+      "    }"
+     ]
+    ],
+    [
+     1017,
+     0,
+     [
+      "        // actions waiting on a menu (the save menu after a star) would open it again",
+      "        if (gMarioState->action & (ACT_FLAG_INTANGIBLE | ACT_FLAG_INVULNERABLE)) {",
+      "            set_mario_action(gMarioState, ACT_IDLE, 0);",
+      "        }"
+     ]
+    ],
+    [
+     1022,
+     0,
+     [
+      "            gStudioExitCourse = TRUE; // the page may send Exit Course to the hack's hub"
+     ]
+    ],
+    [
+     1285,
+     1,
+     [
+      "static s32 set_current_level(s32 levelNum) {"
+     ]
+    ],
+    [
+     1292,
+     1,
+     [
+      "    if (gCurrDemoInput != NULL || gCurrCreditsEntry != NULL) {"
+     ]
+    ],
+    [
+     1295,
+     0,
+     [
+      "    // Studio 64: levels outside the main courses show their stars on studio jumps",
+      "    if (gCurrCourseNum == COURSE_NONE) {",
+      "        return studio_intro_wanted(levelNum, gCurrCourseNum);",
+      "    }"
+     ]
+    ],
+    [
+     1309,
+     1,
+     [
+      "    if (val4 != 0) {"
+     ]
+    ],
+    [
+     1312,
+     0,
+     [
+      "    if (gCurrCourseNum > COURSE_STAGES_MAX) {",
+      "        return studio_intro_wanted(levelNum, gCurrCourseNum);",
+      "    }"
+     ]
+    ],
+    [
+     1317,
+     0,
+     [
+      "    // main courses always open the act selector (a no-intro jump picks the act there at once)",
+      "    studio_intro_wanted(levelNum, gCurrCourseNum);"
+     ]
+    ],
+    [
+     1318,
+     0,
+     [
+      "}",
+      "",
+      "s32 lvl_set_current_level(UNUSED s16 arg0, s32 levelNum) {",
+      "    s32 actSelector = set_current_level(levelNum);",
+      "    // the level is entered: later entries (paintings, doors) behave like the game",
+      "    // (with the act selector, that happens once an act is chosen)",
+      "    if (!actSelector) {",
+      "        gStudioIntroMode = STUDIO_INTRO_GAME;",
+      "        gStudioAutoAct = 0;",
+      "    }",
+      "    return actSelector;"
+     ]
+    ]
+   ]
+  },
+  "src/game/mario.c": {
+   "sha256": "03a5e34b37ad899e2c0a971f370e37efdf2ff5d9f36afd1adc1c5ab6fa94e22e",
+   "hunks": [
+    [
+     40,
+     0,
+     [
+      "#include \"studio/objects.h\"",
+      "#include \"studio/vehicle.h\"",
+      "#include \"studio/shotgun.h\"",
+      "#include \"studio/katana.h\""
+     ]
+    ],
+    [
+     896,
+     0,
+     [
+      "    studio_rules_airborne(m, action); // jump heights (Studio 64 rules)",
+      ""
+     ]
+    ],
+    [
+     989,
+     0,
+     [
+      "    // Studio 64 rules: switched-off moves become another move or nothing",
+      "    action = studio_rules_filter_action(m, action);",
+      "    if (action == 0) {",
+      "        return TRUE;",
+      "    }"
+     ]
+    ],
+    [
+     1317,
+     0,
+     [
+      "// Studio 64 test autopilot: hold the stick toward a world yaw for some frames.",
+      "s32 gStudioWalkFrames;",
+      "s16 gStudioWalkYaw;",
+      ""
+     ]
+    ],
+    [
+     1321,
+     0,
+     [
+      "    if (gStudioWalkFrames > 0) {",
+      "        gStudioWalkFrames--;",
+      "        m->intendedMag = 32.0f;",
+      "        m->intendedYaw = gStudioWalkYaw;",
+      "        m->input |= INPUT_NONZERO_ANALOG;",
+      "        return;",
+      "    }",
+      "    {",
+      "        // the recording bot (studio/debug.c): the stick as a world yaw and a strength",
+      "        extern s32 gStudioBotOn;",
+      "        extern s16 gStudioBotYaw;",
+      "        extern f32 gStudioBotMag;",
+      "        if (gStudioBotOn) {",
+      "            m->intendedMag = (gStudioBotMag / 64.0f) * (gStudioBotMag / 64.0f) * 32.0f;",
+      "            if (m->intendedMag > 0.0f) {",
+      "                m->intendedYaw = gStudioBotYaw;",
+      "                m->input |= INPUT_NONZERO_ANALOG;",
+      "            } else {",
+      "                m->intendedYaw = m->faceAngle[1];",
+      "            }",
+      "            return;",
+      "        }",
+      "    }",
+      ""
+     ]
+    ],
+    [
+     1768,
+     0,
+     [
+      "        studio_shotgun_before_step(gMarioState); // Studio 64: Shotgun Mario (studio/shotgun.c)",
+      ""
+     ]
+    ],
+    [
+     1771,
+     0,
+     [
+      "        studio_vehicle_before_step(gMarioState); // Studio 64 vehicles: B at a car's door (studio/vehicle.c)",
+      "        studio_katana_before_step(gMarioState); // Studio 64: Katana Mario, B pulls the blade or cuts (studio/katana.c)",
+      ""
+     ]
+    ],
+    [
+     1772,
+     0,
+     [
+      "            if (gMarioState->action == ACT_STUDIO_DRIVE) { // Studio 64 vehicles: driving",
+      "                inLoop = studio_vehicle_action(gMarioState);",
+      "                continue;",
+      "            }",
+      "            if (ACT_KT_IS(gMarioState->action)) { // Studio 64: Katana Mario's moves (studio/katana.c)",
+      "                inLoop = studio_katana_action(gMarioState);",
+      "                continue;",
+      "            }"
+     ]
+    ],
+    [
+     1803,
+     0,
+     [
+      "        studio_shotgun_after_step(gMarioState);",
+      "        studio_katana_after_step(gMarioState);",
+      ""
+     ]
+    ],
+    [
+     1885,
+     0,
+     [
+      "",
+      "    // Studio 64: ground raised over the spawn point (sculpting, terrain, a block) left Mario",
+      "    // inside it with no floor under him: he fell out of the level and died a moment after",
+      "    // arriving (the page's lift came too late to stop the death warp). Stand on top instead.",
+      "    if (gMarioState->floor == NULL) {",
+      "        struct Surface *top;",
+      "        f32 h = find_floor(gMarioState->pos[0], gMarioState->pos[1] + 3000.0f, gMarioState->pos[2], &top);",
+      "        if (top != NULL && h > gMarioState->pos[1]) {",
+      "            gMarioState->floor = top;",
+      "            gMarioState->floorHeight = h;",
+      "        }",
+      "    }"
+     ]
+    ]
+   ]
+  },
+  "src/game/mario_actions_airborne.c": {
+   "sha256": "0643ea9f41af3937a7364442de938bd06b14a93ed03be6ce388e30328f3d9450",
+   "hunks": [
+    [
+     19,
+     0,
+     [
+      "#include \"studio/objects.h\""
+     ]
+    ],
+    [
+     82,
+     0,
+     [
+      "    // Studio 64 rules: how far Mario can fall without getting hurt (0: never)",
+      "    if (gStudioRules.fallDamage <= 0.0f) {",
+      "        return FALSE;",
+      "    }",
+      "    // a trampoline catches him (and throws him up again): a ground pound bounce lands higher",
+      "    // than the fall damage height",
+      "    if (m->floor != NULL && studio_motion_is_trampoline(m->floor->object)) {",
+      "        return FALSE;",
+      "    }",
+      "    damageHeight = gStudioRules.fallDamage;",
+      "    if (fallHeight > damageHeight * (3000.0f / 1150.0f)) {",
+      "        fallHeight = 3001.0f;",
+      "    } else if (fallHeight > 3000.0f) {",
+      "        fallHeight = 2999.0f;",
+      "    }",
+      ""
+     ]
+    ],
+    [
+     194,
+     2,
+     [
+      "            m->forwardVel += 1.5f * coss(intendedDYaw) * intendedMag * gStudioRules.airControl;",
+      "            m->faceAngle[1] += 512.0f * sins(intendedDYaw) * intendedMag * gStudioRules.airControl;"
+     ]
+    ],
+    [
+     225,
+     2,
+     [
+      "            m->forwardVel += intendedMag * coss(intendedDYaw) * 1.5f * gStudioRules.airControl;",
+      "            sidewaysSpeed = intendedMag * sins(intendedDYaw) * 10.0f * gStudioRules.airControl;"
+     ]
+    ],
+    [
+     1124,
+     1,
+     [
+      "    // (Studio 64 rules: a switched-off wall kick must not turn Mario around either)",
+      "    if ((m->input & INPUT_A_PRESSED) && m->wallKickTimer != 0 && m->prevAction == ACT_AIR_HIT_WALL",
+      "        && !(gStudioRules.disabled & STUDIO_MOVE_WALL_KICK)) {"
+     ]
+    ],
+    [
+     1291,
+     1,
+     [
+      "        // (Studio 64 rules: a switched-off wall kick gives no boost up the wall)",
+      "        if ((m->input & INPUT_A_PRESSED) && !(gStudioRules.disabled & STUDIO_MOVE_WALL_KICK)) {"
+     ]
+    ]
+   ]
+  },
+  "src/game/mario_actions_cutscene.c": {
+   "sha256": "8c794294e14de1bf0c120f7fe2a1fbaf6893fbb3a8f5921bb5330a14e601fcba",
+   "hunks": [
+    [
+     4,
+     0,
+     [
+      "#include \"studio/studio.h\""
+     ]
+    ],
+    [
+     625,
+     0,
+     [
+      "                } else if (gStudioStarDance) {",
+      "                    // studio stars live in the page, not the save file: no \"save?\" box",
+      "                    m->actionState = 2;"
+     ]
+    ],
+    [
+     933,
+     0,
+     [
+      "        studio_door_walk_begin(m); // Studio 64: is there a wall behind the door?"
+     ]
+    ],
+    [
+     946,
+     0,
+     [
+      "    studio_door_walk(m); // Studio 64: a door against a wall: he stops in the doorway"
+     ]
+    ],
+    [
+     968,
+     0,
+     [
+      "        studio_door_spawn_side(m); // Studio 64: out of the door's open side"
+     ]
+    ]
+   ]
+  },
+  "src/game/mario_actions_moving.c": {
+   "sha256": "6e6a82a830cdfbd61457cc5cb36589682651a0c77c8d05476d4e3eb7157173ec",
+   "hunks": [
+    [
+     16,
+     0,
+     [
+      "#include \"studio/objects.h\""
+     ]
+    ],
+    [
+     446,
+     0,
+     [
+      "    maxTargetSpeed *= gStudioRules.runSpeed; // Studio 64 rules"
+     ]
+    ],
+    [
+     447,
+     1,
+     [
+      "    targetSpeed = m->intendedMag * gStudioRules.runSpeed < maxTargetSpeed ? m->intendedMag * gStudioRules.runSpeed : maxTargetSpeed;"
+     ]
+    ],
+    [
+     456,
+     1,
+     [
+      "        m->forwardVel += (1.1f - m->forwardVel / (43.0f * gStudioRules.runSpeed)) * gStudioRules.runSpeed;"
+     ]
+    ],
+    [
+     461,
+     2,
+     [
+      "    if (m->forwardVel > 48.0f * gStudioRules.runSpeed) {",
+      "        m->forwardVel = 48.0f * gStudioRules.runSpeed;"
+     ]
+    ]
+   ]
+  },
+  "src/game/mario_actions_submerged.c": {
+   "sha256": "81349974fb2e183672021ec2d3ddc277bd3903560c8c14e5784ef28c36f3aab6",
+   "hunks": [
+    [
+     18,
+     0,
+     [
+      "#include \"studio/objects.h\""
+     ]
+    ],
+    [
+     174,
+     0,
+     [
+      "",
+      "    if (gStudioRules.swimSpeed != 1.0f && (m->action & ACT_FLAG_SWIMMING)) {",
+      "        vec3f_mul(step, gStudioRules.swimSpeed); // Studio 64 rules",
+      "    }"
+     ]
+    ]
+   ]
+  },
+  "src/game/mario_misc.c": {
+   "sha256": "7008ff561d39c52bb0084f2cbbc94232ca0adffe1dbda524b297ca56dcba3e72",
+   "hunks": [
+    [
+     90,
+     0,
+     [
+      "        extern s32 studio_title_hide_head(void);",
+      "        if (studio_title_hide_head()) {",
+      "            return NULL; // Studio 64's launch screen without Mario's face (studio/title.c)",
+      "        }"
+     ]
+    ]
+   ]
+  },
+  "src/game/mario_step.c": {
+   "sha256": "5034a0d1c13e40be6a2d85fa6e34faf702e4f8bb36d450613036eb56a5801773",
+   "hunks": [
+    [
+     10,
+     0,
+     [
+      "#include \"studio/objects.h\""
+     ]
+    ],
+    [
+     535,
+     0,
+     [
+      "    f32 studioVelBefore = m->vel[1];"
+     ]
+    ],
+    [
+     580,
+     0,
+     [
+      "    studio_rules_gravity(m, studioVelBefore); // Studio 64 rules"
+     ]
+    ]
+   ]
+  },
+  "src/game/obj_behaviors_2.c": {
+   "sha256": "ce37cafde9e6317115b4da04186edbc9203bca1b763e4686d8a925e44c7ce0bb",
+   "hunks": [
+    [
+     41,
+     0,
+     [
+      "#include \"studio/objects.h\""
+     ]
+    ]
+   ]
+  },
+  "src/game/object_helpers.c": {
+   "sha256": "59da6099bea0aaf4d8a53db9ea7ec6ebf180fe95acc8e2e1a8a6829633b2fb74",
+   "hunks": [
+    [
+     28,
+     0,
+     [
+      "#include \"studio/objects.h\""
+     ]
+    ],
+    [
+     2002,
+     0,
+     [
+      "",
+      "    studio_path_override_apply(o); // paths drawn in the studio"
+     ]
+    ]
+   ]
+  },
+  "src/game/object_list_processor.c": {
+   "sha256": "9309213060ea2da40d48cb9174476f557d5a5e2398fc2c66a4ac2e47e9b16ae0",
+   "hunks": [
+    [
+     625,
+     0,
+     [
+      "void studio_paused_update_objects(void);",
+      "extern s32 gStudioPaused, gStudioInIntro;",
+      ""
+     ]
+    ],
+    [
+     627,
+     0,
+     [
+      "",
+      "    // build mode pauses the level, never the star select screen",
+      "    if (gStudioPaused && !gStudioInIntro) {",
+      "        studio_paused_update_objects();",
+      "        return;",
+      "    }"
+     ]
+    ]
+   ]
+  },
+  "src/game/options_menu.c": {
+   "sha256": "c66ca719035d9768533d3ab970343bd64006aa739467016c4b52b13c21fce0d3",
+   "hunks": [
+    [
+     306,
+     0,
+     [
+      "#ifndef TARGET_WEB",
+      "    // (Studio 64: not in the browser: \"Exit game\" stopped the game's main loop for good and the",
+      "    // page was left with a frozen picture)"
+     ]
+    ],
+    [
+     307,
+     0,
+     [
+      "#endif"
+     ]
+    ],
+    [
+     488,
+     0,
+     [
+      "#ifdef TARGET_WEB",
+      "    // under the star counter, not over it",
+      "    optmenu_draw_text(264, 190, optSmallStr[optmenu_open], 0);",
+      "#else"
+     ]
+    ],
+    [
+     489,
+     0,
+     [
+      "#endif"
+     ]
+    ]
+   ]
+  },
+  "src/game/rendering_graph_node.c": {
+   "sha256": "235bdb039092a3718491bfa9b3f550b0cd07a7332332280dd32f7065dcfd0194",
+   "hunks": [
+    [
+     10,
+     0,
+     [
+      "#include \"studio/shotgun.h\"",
+      "#include \"studio/katana.h\""
+     ]
+    ],
+    [
+     197,
+     0,
+     [
+      "// Studio 64: appends a display list drawn with the current matrix (studio/shotgun.c).",
+      "void studio_geo_append(void *displayList, s16 layer) {",
+      "    geo_append_display_list(displayList, layer);",
+      "}",
+      ""
+     ]
+    ],
+    [
+     251,
+     1,
+     [
+      "        extern s32 gStudioCamEnabled, gStudioInIntro;",
+      "        extern f32 gStudioCamFov;",
+      "        f32 fov = (gStudioCamEnabled && !gStudioInIntro && gStudioCamFov > 0) ? gStudioCamFov : node->fov;",
+      "        void studio_capture_persp(f32 fov, f32 nearZ, f32 farZ);",
+      "",
+      "        studio_capture_persp(fov, node->near, node->far);",
+      "        guPerspective(mtx, &perspNorm, fov, aspect, node->near, node->far, 1.0f);"
+     ]
+    ],
+    [
+     315,
+     0,
+     [
+      "    {",
+      "        void studio_capture_view(Mat4 view, Vec3f pos, Vec3f focus);",
+      "        studio_capture_view(cameraTransform, node->pos, node->focus);",
+      "    }"
+     ]
+    ],
+    [
+     578,
+     0,
+     [
+      "        if (gStudioShotgunDraw) {",
+      "            studio_shotgun_anim_part(rotation); // Studio 64: Mario's arms hold the shotgun (studio/shotgun.c)",
+      "        }",
+      "        if (gStudioKatanaDraw) {",
+      "            studio_katana_anim_part(rotation); // Studio 64: ... or the katana (studio/katana.c)",
+      "        }"
+     ]
+    ],
+    [
+     584,
+     0,
+     [
+      "    if (gStudioShotgunDraw) {",
+      "        studio_shotgun_part_drawn(&gMatStack[gMatStackIndex]); // (the gun on his torso, its effects)",
+      "    }",
+      "    if (gStudioKatanaDraw) {",
+      "        studio_katana_part_drawn(&gMatStack[gMatStackIndex]); // (the blade in his right fist, its effects)",
+      "    }"
+     ]
+    ]
+   ]
+  },
+  "src/game/sound_init.c": {
+   "sha256": "f184421bca97fb16ebf434c8915d06551ab242ef496b1c13f144bc39523163c2",
+   "hunks": [
+    [
+     199,
+     0,
+     [
+      "// Studio 64: the next set_background_music plays even the same id again (a slot",
+      "// whose song was just replaced).",
+      "void studio_reset_current_music(void) {",
+      "    sCurrentMusic = MUSIC_NONE;",
+      "}",
+      ""
+     ]
+    ]
+   ]
+  },
+  "src/game/spawn_object.c": {
+   "sha256": "32a6c8ded1e08e33d4c718b1ecc3f359afab2009a20dd7bb4c42354e4fae40cf",
+   "hunks": [
+    [
+     1,
+     0,
+     [
+      "#include <stdio.h>",
+      "#include <string.h>"
+     ]
+    ],
+    [
+     219,
+     2,
+     [
+      "            // We've met with a terrible fate. (Studio 64: the game used to spin here forever and",
+      "            // freeze the browser tab; the new object is a stand-in in no object list instead, so",
+      "            // it is never updated or drawn and the game goes on without it.)",
+      "            static struct Object sStudioOverflowObj;",
+      "            static s32 sStudioOverflowWarned;",
+      "            obj = &sStudioOverflowObj;",
+      "            memset(obj, 0, sizeof(*obj));",
+      "            if (!sStudioOverflowWarned) {",
+      "                sStudioOverflowWarned = TRUE;",
+      "                fprintf(stderr, \"studio: the object pool is full; new objects are dropped\\n\");"
+     ]
+    ]
+   ]
+  },
+  "src/menu/level_select_menu.c": {
+   "sha256": "458ede80abfc089d8e13e258718d140ff24fe223eb1f82726a01e2385a084899",
+   "hunks": [
+    [
+     99,
+     0,
+     [
+      "// Studio 64 boots straight into a level through the level select path.",
+      "extern s32 gStudioBootLevel;",
+      "extern s32 gStudioBootAct;",
+      ""
+     ]
+    ],
+    [
+     102,
+     0,
+     [
+      "    if (gStudioBootLevel != 0) {",
+      "        gCurrLevelNum = gStudioBootLevel;",
+      "        gCurrActNum = gStudioBootAct;",
+      "        gCurrSaveFileNum = 1;",
+      "        gStudioBootLevel = 0;",
+      "        return gCurrLevelNum;",
+      "    }",
+      ""
+     ]
+    ],
+    [
+     169,
+     0,
+     [
+      "    if (gStudioBootLevel != 0) {",
+      "        return 101;",
+      "    }",
+      "    // Studio 64's launch screen (studio/title.c): the page draws its own Press Start and",
+      "    // decides when the title ends",
+      "    {",
+      "        extern s32 studio_title_active(void);",
+      "        extern void studio_title_tick(void);",
+      "        if (studio_title_active()) {",
+      "            studio_title_tick();",
+      "            return 0;",
+      "        }",
+      "    }"
+     ]
+    ],
+    [
+     170,
+     1,
+     []
+    ],
+    [
+     215,
+     0,
+     [
+      "            // Studio 64 boots into a level: skip the logo and the Mario head (101 = level select",
+      "            // path, levels/intro/script.c); on a slow machine they took most of the loading time",
+      "            if (gStudioBootLevel != 0) {",
+      "                retVar = 101;",
+      "            }"
+     ]
+    ]
+   ]
+  },
+  "src/menu/star_select.c": {
+   "sha256": "895d23b2add7490dcc4cd18465aef7d9b65f77592f5440c2642a2ec3f1dbd973",
+   "hunks": [
+    [
+     15,
+     0,
+     [
+      "#include \"game/print.h\""
+     ]
+    ],
+    [
+     21,
+     0,
+     [
+      "#include \"level_table.h\"",
+      "#include \"course_table.h\"",
+      "#include \"studio/studio.h\"",
+      "#include <stdlib.h>",
+      "#ifdef TARGET_WEB",
+      "#include <emscripten.h>",
+      "#else",
+      "#define EMSCRIPTEN_KEEPALIVE",
+      "#define EM_ASM(...)",
+      "#endif"
+     ]
+    ],
+    [
+     29,
+     0,
+     [
+      "// Studio 64: the act selector lists every star of the level, the game's own and",
+      "// the ones placed in the studio, all selectable. It also opens levels outside",
+      "// the main courses (custom levels) when the studio jumps there.",
+      "#define SEL_MAX 24",
+      "#define SEL_NAME 48",
+      "",
+      "struct StudioSelStar {",
+      "    u8 name[SEL_NAME]; // game text encoding",
+      "    u8 collected;",
+      "    s8 act;            // act this star belongs to (0: none)",
+      "};",
+      "",
+      "static struct StudioSelStar sSel[SEL_MAX];",
+      "static s32 sSelCount;",
+      "static u8 sSelTitle[SEL_NAME];",
+      "static s32 sSelMainCourse;  // course plaque, act names and coin score like the game",
+      "static f32 sSelSpacing;     // distance between the stars on screen (world units)",
+      "static f32 sSelScale;",
+      "static s32 sSelAutoFrames;  // goes on by itself after this many frames (0: waits for A)",
+      "static s32 sSelScore;       // best coin score of a custom level (the page keeps it)",
+      "static s32 sSelCoinStar;    // the 100 coin star is collected (it stays out of the row, like in the game)",
+      "",
+      "// The star chosen when the level was entered (shown by the pause menu), -1: none.",
+      "s32 gStudioCurrentStar = -1;",
+      ""
+     ]
+    ],
+    [
+     30,
+     1,
+     [
+      "static struct Object *sStarSelectorModels[SEL_MAX];"
+     ]
+    ],
+    [
+     35,
+     3,
+     []
+    ],
+    [
+     41,
+     3,
+     []
+    ],
+    [
+     82,
+     1,
+     [
+      "    cur_obj_scale(gCurrentObject->oStarSelectorSize * sSelScale);"
+     ]
+    ],
+    [
+     87,
+     10,
+     [
+      "// ASCII (from the page) to the game's text encoding. The menu font only has",
+      "// letters, digits and ' . , so everything else becomes a space there.",
+      "static void sel_from_ascii(u8 *dst, const char *src, s32 menuFont) {",
+      "    s32 n = 0;",
+      "    for (; *src != '\\0' && n < SEL_NAME - 1; src++) {",
+      "        u8 c = (u8) *src, o = 0x9E;",
+      "        if (c >= 'a' && c <= 'z') {",
+      "            c -= 'a' - 'A';",
+      "        }",
+      "        if (c >= '0' && c <= '9') o = c - '0';",
+      "        else if (c >= 'A' && c <= 'Z') o = c - 'A' + 10;",
+      "        else if (c == '\\'') o = 0x3E;",
+      "        else if (c == '.') o = 0x3F;",
+      "        else if (c == ',') o = 0x6F;",
+      "        else if (!menuFont) {",
+      "            switch (c) {",
+      "                case '-': o = 0x9F; break;",
+      "                case '(': o = 0xE1; break;",
+      "                case ')': o = 0xE3; break;",
+      "                case '&': o = 0xE5; break;",
+      "                case ':': o = 0xE6; break;",
+      "                case '!': o = 0xF2; break;",
+      "                case '%': o = 0xF3; break;",
+      "                case '?': o = 0xF4; break;",
+      "            }",
+      "        }",
+      "        if (o == 0x9E && (n == 0 || dst[n - 1] == 0x9E)) {",
+      "            continue;",
+      "        }",
+      "        dst[n++] = o;"
+     ]
+    ],
+    [
+     98,
+     0,
+     [
+      "    while (n > 0 && dst[n - 1] == 0x9E) {",
+      "        n--;",
+      "    }",
+      "    dst[n] = 0xFF;"
+     ]
+    ],
+    [
+     100,
+     10,
+     [
+      "static void sel_from_game(u8 *dst, const u8 *src) {",
+      "    s32 n = 0;",
+      "    while (src[n] != 0xFF && n < SEL_NAME - 1) {",
+      "        dst[n] = src[n];",
+      "        n++;",
+      "    }",
+      "    dst[n] = 0xFF;",
+      "}"
+     ]
+    ],
+    [
+     111,
+     12,
+     [
+      "static struct StudioSelStar *sel_new(s32 collected, s32 act) {",
+      "    struct StudioSelStar *st;",
+      "    if (sSelCount >= SEL_MAX) {",
+      "        return NULL;",
+      "    }",
+      "    st = &sSel[sSelCount++];",
+      "    st->collected = collected != 0;",
+      "    st->act = act;",
+      "    return st;",
+      "}",
+      "",
+      "// The page names the level and adds its studio stars (Module.studioIntroStars).",
+      "EMSCRIPTEN_KEEPALIVE",
+      "void studio_intro_title(const char *title) {",
+      "    sel_from_ascii(sSelTitle, title, FALSE);",
+      "}",
+      "",
+      "EMSCRIPTEN_KEEPALIVE",
+      "void studio_intro_score(s32 coins) {",
+      "    sSelScore = coins;",
+      "}",
+      "",
+      "EMSCRIPTEN_KEEPALIVE",
+      "void studio_intro_coin_star(s32 collected) {",
+      "    sSelCoinStar = collected != 0;",
+      "}",
+      "",
+      "EMSCRIPTEN_KEEPALIVE",
+      "void studio_intro_add(const char *name, s32 collected) {",
+      "    struct StudioSelStar *st = sel_new(collected, 0);",
+      "    if (st != NULL) {",
+      "        sel_from_ascii(st->name, name, TRUE);",
+      "    }",
+      "}",
+      "",
+      "// Lists the level's stars: the game's own from the save file, then the studio",
+      "// stars the page adds. Used by the star select screen and the pause menu.",
+      "s32 studio_stars_prepare(s32 levelNum, s32 courseNum) {",
+      "    u8 flags;",
+      "    s32 i;",
+      "",
+      "    sSelCount = 0;",
+      "    sSelScore = 0;",
+      "    sSelCoinStar = FALSE;",
+      "    sSelTitle[0] = 0xFF;",
+      "    sSelMainCourse = courseNum >= COURSE_MIN && courseNum <= COURSE_STAGES_MAX;",
+      "    if (levelNum == LEVEL_BOWSER_1 || levelNum == LEVEL_BOWSER_2 || levelNum == LEVEL_BOWSER_3) {",
+      "        return 0; // the fight arenas: the stars belong to the course before them",
+      "    }",
+      "    if (courseNum != COURSE_NONE && courseNum < COURSE_CAKE_END) {",
+      "        flags = save_file_get_star_flags(gCurrSaveFileNum - 1, courseNum - 1);",
+      "        if (sSelMainCourse) {",
+      "            u8 **actNameTbl = segmented_to_virtual(seg2_act_name_table);",
+      "            for (i = 0; i < 6; i++) {",
+      "                struct StudioSelStar *st = sel_new(flags & (1 << i), i + 1);",
+      "                sel_from_game(st->name, segmented_to_virtual(actNameTbl[(courseNum - 1) * 6 + i]));"
+     ]
+    ],
+    [
+     124,
+     0,
+     [
+      "            sSelCoinStar = (flags & (1 << 6)) != 0;",
+      "        } else if (courseNum == COURSE_PSS) {",
+      "            sel_from_ascii(sel_new(flags & 1, 0)->name, \"Slide to the finish\", TRUE);",
+      "            sel_from_ascii(sel_new(flags & 2, 0)->name, \"Under 21 seconds\", TRUE);",
+      "        } else {",
+      "            sel_from_ascii(sel_new(flags & 1, 0)->name, \"Red coins\", TRUE);"
+     ]
+    ],
+    [
+     125,
+     1,
+     []
+    ],
+    [
+     127,
+     7,
+     [
+      "    EM_ASM({",
+      "        if (Module.studioIntroStars) Module.studioIntroStars($0);",
+      "    }, levelNum);",
+      "    if (sSelTitle[0] == 0xFF && courseNum != COURSE_NONE) {",
+      "        u8 **levelNameTbl = segmented_to_virtual(seg2_course_name_table);",
+      "        sel_from_game(sSelTitle, (u8 *) segmented_to_virtual(levelNameTbl[courseNum - 1]) + 3);"
+     ]
+    ],
+    [
+     135,
+     0,
+     [
+      "    return sSelCount;",
+      "}"
+     ]
+    ],
+    [
+     136,
+     3,
+     [
+      "// Says whether a level outside the main courses shows its stars on entry",
+      "// (main courses always open the act selector).",
+      "s32 studio_intro_wanted(s32 levelNum, s32 courseNum) {",
+      "    s32 count = studio_stars_prepare(levelNum, courseNum);",
+      "    if (gStudioIntroMode != STUDIO_INTRO_JUMP || levelNum == LEVEL_BOWSER_1 || levelNum == LEVEL_BOWSER_2",
+      "        || levelNum == LEVEL_BOWSER_3) {",
+      "        return FALSE;"
+     ]
+    ],
+    [
+     140,
+     0,
+     [
+      "    return levelNum == LEVEL_STUDIO || count > 0;",
+      "}"
+     ]
+    ],
+    [
+     141,
+     4,
+     [
+      "// The star a fresh selector points at: the first one not collected yet",
+      "// (the act the studio asked for, on a course).",
+      "static s32 sel_default_index(void) {",
+      "    s32 i;",
+      "    if (sSelMainCourse && gStudioAutoAct >= 1 && gStudioAutoAct <= 6) {",
+      "        return gStudioAutoAct - 1;"
+     ]
+    ],
+    [
+     146,
+     0,
+     [
+      "    for (i = 0; i < sSelCount; i++) {",
+      "        if (!sSel[i].collected) {",
+      "            return i;",
+      "        }",
+      "    }",
+      "    return 0;",
+      "}"
+     ]
+    ],
+    [
+     147,
+     1,
+     [
+      "static f32 sel_star_x(s32 i) {",
+      "    return (i - (sVisibleStars - 1) * 0.5f) * sSelSpacing;",
+      "}",
+      "",
+      "/**",
+      " * Act Selector Init Action",
+      " * Spawns a star model for every star of the level: bright when collected.",
+      " */",
+      "void bhv_act_selector_init(void) {",
+      "    s32 i;"
+     ]
+    ],
+    [
+     150,
+     2,
+     [
+      "            spawn_object_abs_with_rot(gCurrentObject, 0, sSel[i].collected ? MODEL_STAR : MODEL_TRANSPARENT_STAR,",
+      "                                      bhvActSelectorStarType, sel_star_x(i), 248, -300, 0, 0, 0);"
+     ]
+    ],
+    [
+     154,
+     2,
+     [
+      "    // a collected 100 coin star turns next to the coin score, like in the game",
+      "    if (sSelCoinStar) {",
+      "        struct Object *star = spawn_object_abs_with_rot(gCurrentObject, 0, MODEL_STAR, bhvActSelectorStarType,",
+      "                                                        370, 24, -300, 0, 0, 0);",
+      "        star->oStarSelectorSize = 0.8f / sSelScale;",
+      "        star->oStarSelectorType = STAR_SELECTOR_100_COINS;",
+      "    }"
+     ]
+    ],
+    [
+     160,
+     4,
+     [
+      " * Every star can be selected; choosing one stops the selector from going on by itself."
+     ]
+    ],
+    [
+     167,
+     2,
+     [
+      "    s8 before = sSelectableStarIndex;"
+     ]
+    ],
+    [
+     170,
+     20,
+     [
+      "    if (sVisibleStars == 0) {",
+      "        return;"
+     ]
+    ],
+    [
+     191,
+     0,
+     [
+      "    handle_menu_scrolling(MENU_SCROLL_HORIZONTAL, &sSelectableStarIndex, 0, sVisibleStars - 1);",
+      "    if (sSelectableStarIndex != before) {",
+      "        sSelAutoFrames = 0;",
+      "    }",
+      "    sSelectedActIndex = sSelectableStarIndex;"
+     ]
+    ],
+    [
+     192,
+     1,
+     []
+    ],
+    [
+     194,
+     5,
+     [
+      "        sStarSelectorModels[i]->oStarSelectorType =",
+      "            sSelectedActIndex == i ? STAR_SELECTOR_SELECTED : STAR_SELECTOR_NOT_SELECTED;"
+     ]
+    ],
+    [
+     255,
+     0,
+     [
+      "static void print_centered_menu_string(s16 x, s16 y, u8 *str) {",
+      "    print_menu_generic_string(get_str_x_pos_from_center(x, str, 8.0f), y, str);",
+      "}",
+      ""
+     ]
+    ],
+    [
+     256,
+     1,
+     [
+      " * Print act selector strings: the coin score and course plaque on main courses,",
+      " * the level name, the selected star's name and the numbers above the stars."
+     ]
+    ],
+    [
+     259,
+     3,
+     []
+    ],
+    [
+     263,
+     2,
+     [
+      "    u8 str[24];",
+      "    s32 i, done = 0;"
+     ]
+    ],
+    [
+     266,
+     19,
+     []
+    ],
+    [
+     287,
+     14,
+     [
+      "    if (sSelMainCourse) {",
+      "        gSPDisplayList(gDisplayListHead++, dl_rgba16_text_begin);",
+      "        gDPSetEnvColor(gDisplayListHead++, 255, 255, 255, 255);",
+      "        print_hud_my_score_coins(1, gCurrSaveFileNum - 1, gCurrCourseNum - 1, 155, 106);",
+      "        gSPDisplayList(gDisplayListHead++, dl_rgba16_text_end);"
+     ]
+    ],
+    [
+     302,
+     2,
+     []
+    ],
+    [
+     305,
+     6,
+     []
+    ],
+    [
+     313,
+     5,
+     [
+      "    if (sSelMainCourse && save_file_get_course_coin_score(gCurrSaveFileNum - 1, gCurrCourseNum - 1) != 0) {"
+     ]
+    ],
+    [
+     319,
+     1,
+     []
+    ],
+    [
+     321,
+     11,
+     [
+      "    if (!sSelMainCourse && sSelCount > 0) {",
+      "        // \"â 2 OF 5\" where the coin score would be",
+      "        for (i = 0; i < sSelCount; i++) {",
+      "            done += sSel[i].collected;",
+      "        }",
+      "        str[0] = 0xFA;",
+      "        str[1] = 0x9E;",
+      "        int_to_str(done, str + 2);",
+      "        for (i = 2; str[i] != 0xFF; i++) {",
+      "        }",
+      "        str[i++] = 0x9E; // \"OF\": the font has no slash",
+      "        str[i++] = 0x18;",
+      "        str[i++] = 0x0F;",
+      "        str[i++] = 0x9E;",
+      "        int_to_str(sSelCount, str + i);",
+      "        print_generic_string(get_str_x_pos_from_center(160, str, 10.0f), 118, str);",
+      "    }",
+      "    if (sSelTitle[0] != 0xFF) {",
+      "        print_generic_string(get_str_x_pos_from_center(160, sSelTitle, 10.0f), 33, sSelTitle);",
+      "    }"
+     ]
+    ],
+    [
+     334,
+     5,
+     [
+      "    if (sSelMainCourse) {",
+      "        print_course_number();",
+      "    }"
+     ]
+    ],
+    [
+     342,
+     1,
+     []
+    ],
+    [
+     344,
+     11,
+     [
+      "        print_centered_menu_string(ACT_NAME_X, 81, sSel[sSelectedActIndex].name);",
+      "    } else {",
+      "        u8 none[SEL_NAME];",
+      "        sel_from_ascii(none, \"No stars yet\", TRUE);",
+      "        print_centered_menu_string(ACT_NAME_X, 81, none);"
+     ]
+    ],
+    [
+     357,
+     8,
+     [
+      "    // Numbers above the stars (only the selected one when they are packed tight).",
+      "    for (i = 0; i < sVisibleStars; i++) {",
+      "        if (sSelSpacing < 64.0f && i != sSelectedActIndex) {",
+      "            continue;",
+      "        }",
+      "        int_to_str(i + 1, str);",
+      "        print_menu_generic_string(156 + (s32) (sel_star_x(i) * 0.2237f) - (i >= 9 ? 7 : 3), 38, str);"
+     ]
+    ],
+    [
+     368,
+     1,
+     [
+      "}"
+     ]
+    ],
+    [
+     386,
+     2,
+     [
+      " * Initiates act selector values before entering a level: the stars were",
+      " * listed by studio_intro_wanted when the level was chosen."
+     ]
+    ],
+    [
+     390,
+     2,
+     []
+    ],
+    [
+     393,
+     2,
+     []
+    ],
+    [
+     396,
+     7,
+     [
+      "    sVisibleStars = sSelCount;",
+      "    sSelectedActIndex = sSelectableStarIndex = sel_default_index();",
+      "    // up to 8 stars sit like in the game, more move closer together and shrink",
+      "    sSelSpacing = sVisibleStars > 8 ? 1064.0f / (sVisibleStars - 1) : 152.0f;",
+      "    sSelScale = sSelSpacing < 120.0f ? sSelSpacing / 120.0f : 1.0f;",
+      "    sSelAutoFrames = gStudioIntroMode == STUDIO_INTRO_JUMP ? 75 : 0;",
+      "    gStudioInIntro = gStudioIntroMode != STUDIO_INTRO_NONE;",
+      "    if (gStudioInIntro) {",
+      "        EM_ASM({",
+      "            if (Module.studioIntro) Module.studioIntro(1, $0);",
+      "        }, gCurrLevelNum);"
+     ]
+    ],
+    [
+     404,
+     3,
+     []
+    ],
+    [
+     408,
+     1,
+     []
+    ],
+    [
+     411,
+     0,
+     [
+      "static s32 sel_act_of(s32 index) {",
+      "    if (index >= 0 && index < sSelCount && sSel[index].act > 0) {",
+      "        return sSel[index].act;",
+      "    }",
+      "    return gStudioAutoAct > 0 ? gStudioAutoAct : 1;",
+      "}",
+      ""
+     ]
+    ],
+    [
+     414,
+     0,
+     [
+      " * A studio jump goes on by itself unless the player picks a star; a jump",
+      " * without intro takes the act it was given right away."
+     ]
+    ],
+    [
+     416,
+     12,
+     [
+      "    s32 chosen = FALSE;",
+      "",
+      "    if (gStudioIntroMode == STUDIO_INTRO_NONE) {",
+      "        if (sActSelectorMenuTimer >= 2) {",
+      "            gStudioCurrentStar = sel_default_index();",
+      "            sLoadedActNum = gStudioAutoAct > 0 ? gStudioAutoAct : 1;",
+      "            gDialogCourseActNum = sLoadedActNum;",
+      "        }",
+      "    } else if (sActSelectorMenuTimer >= 11) {",
+      "        if (gPlayer3Controller->buttonPressed & (A_BUTTON | START_BUTTON | B_BUTTON)) {"
+     ]
+    ],
+    [
+     429,
+     7,
+     [
+      "            chosen = TRUE;",
+      "        } else if (sSelAutoFrames > 0 && sActSelectorMenuTimer >= sSelAutoFrames) {",
+      "            chosen = TRUE;"
+     ]
+    ],
+    [
+     437,
+     0,
+     [
+      "        if (chosen) {",
+      "            gStudioCurrentStar = sSelectedActIndex;",
+      "            sLoadedActNum = sel_act_of(sSelectedActIndex);",
+      "            gDialogCourseActNum = sLoadedActNum;",
+      "        }"
+     ]
+    ],
+    [
+     438,
+     0,
+     [
+      "    if (sLoadedActNum != 0) {",
+      "        if (gStudioInIntro) {",
+      "            gStudioInIntro = FALSE;",
+      "            EM_ASM({",
+      "                if (Module.studioIntro) Module.studioIntro(0, $0);",
+      "            }, gCurrLevelNum);",
+      "        }",
+      "        gStudioIntroMode = STUDIO_INTRO_GAME;",
+      "        gStudioAutoAct = 0;",
+      "    }"
+     ]
+    ],
+    [
+     442,
+     0,
+     [
+      "}",
+      "",
+      "// ---------------------------------------------------------------------------",
+      "// Pause menu of custom levels: laid out like a course's (name, the star being",
+      "// played, star and coin score), plus a row with every star of the level.",
+      "",
+      "#define PAUSE_TXT_STAR_X 98",
+      "#define PAUSE_ACT_NAME_X 116",
+      "",
+      "void studio_pause_prepare(void) {",
+      "    if (gCurrLevelNum == LEVEL_STUDIO) {",
+      "        studio_stars_prepare(gCurrLevelNum, gCurrCourseNum);",
+      "    }",
+      "    EM_ASM({",
+      "        if (Module.studioPauseLevels) Module.studioPauseLevels();",
+      "    });",
+      "}",
+      "",
+      "void studio_render_pause_level(void) {",
+      "    u8 textMyScore[] = { TEXT_MY_SCORE };",
+      "    u8 textStar[] = { TEXT_STAR };",
+      "    u8 textUnfilledStar[] = { TEXT_UNFILLED_STAR };",
+      "    u8 symStar[] = { GLYPH_STAR, GLYPH_SPACE };",
+      "    u8 symCoin[] = { GLYPH_COIN, GLYPH_SPACE };",
+      "    u8 symX[] = { GLYPH_MULTIPLY, GLYPH_SPACE };",
+      "    u8 row[SEL_MAX * 2 + 1], num[8];",
+      "    s32 i, done = 0, cur = gStudioCurrentStar;",
+      "",
+      "    for (i = 0; i < sSelCount; i++) {",
+      "        done += sSel[i].collected;",
+      "        row[i * 2] = sSel[i].collected ? 0xFA : 0xFD;",
+      "        row[i * 2 + 1] = 0x9E;",
+      "    }",
+      "    row[sSelCount > 0 ? sSelCount * 2 - 1 : 0] = 0xFF;",
+      "    done += sSelCoinStar; // MY SCORE counts it, the row doesn't show it (like the game)",
+      "    if (cur < 0 || cur >= sSelCount) {",
+      "        cur = sel_default_index();",
+      "    }",
+      "",
+      "    gSPDisplayList(gDisplayListHead++, dl_rgba16_text_begin);",
+      "    gDPSetEnvColor(gDisplayListHead++, 255, 255, 255, gDialogTextAlpha);",
+      "    if (done > 0) {",
+      "        print_hud_lut_string(HUD_LUT_GLOBAL, 118, 103, symStar);",
+      "        print_hud_lut_string(HUD_LUT_GLOBAL, 134, 103, symX);",
+      "        int_to_str(done, num);",
+      "        print_hud_lut_string(HUD_LUT_GLOBAL, 150, 103, num);",
+      "    }",
+      "    if (sSelScore > 0) {",
+      "        print_hud_lut_string(HUD_LUT_GLOBAL, 178, 103, symCoin);",
+      "        print_hud_lut_string(HUD_LUT_GLOBAL, 194, 103, symX);",
+      "        int_to_str(sSelScore, num);",
+      "        print_hud_lut_string(HUD_LUT_GLOBAL, 210, 103, num);",
+      "    }",
+      "    gSPDisplayList(gDisplayListHead++, dl_rgba16_text_end);",
+      "",
+      "    gSPDisplayList(gDisplayListHead++, dl_ia_text_begin);",
+      "    gDPSetEnvColor(gDisplayListHead++, 255, 255, 255, gDialogTextAlpha);",
+      "    if (done > 0 || sSelScore > 0) {",
+      "        print_generic_string(62, 121, textMyScore);",
+      "    }",
+      "    if (sSelTitle[0] != 0xFF) {",
+      "        print_generic_string(get_str_x_pos_from_center(160, sSelTitle, 10.0f), 174, sSelTitle);",
+      "    }",
+      "    if (sSelCount > 0) {",
+      "        print_generic_string(get_str_x_pos_from_center(160, row, 10.0f), 157, row);",
+      "        print_generic_string(PAUSE_TXT_STAR_X, 140, sSel[cur].collected ? textStar : textUnfilledStar);",
+      "        print_generic_string(PAUSE_ACT_NAME_X, 140, sSel[cur].name);",
+      "    } else {",
+      "        u8 none[SEL_NAME];",
+      "        sel_from_ascii(none, \"No stars yet\", FALSE);",
+      "        print_generic_string(get_str_x_pos_from_center(160, none, 10.0f), 140, none);",
+      "    }",
+      "    gSPDisplayList(gDisplayListHead++, dl_ia_text_end);",
+      "}",
+      "",
+      "// ---------------------------------------------------------------------------",
+      "// The castle's pause menu pages through the courses; the custom levels follow",
+      "// the secret stars, each with its stars and coin score.",
+      "",
+      "#define PAUSE_LEVELS_MAX 48",
+      "",
+      "struct StudioPauseLevel {",
+      "    u8 name[SEL_NAME];",
+      "    u8 stars[SEL_MAX * 2 + 1];",
+      "    s16 coins;",
+      "    s16 coinStar;",
+      "};",
+      "",
+      "static struct StudioPauseLevel sPauseLevels[PAUSE_LEVELS_MAX];",
+      "s32 gStudioPauseLevelCount;",
+      "",
+      "EMSCRIPTEN_KEEPALIVE",
+      "void studio_pause_levels_reset(void) {",
+      "    gStudioPauseLevelCount = 0;",
+      "}",
+      "",
+      "// stars: one character per star, '1' collected, anything else not",
+      "EMSCRIPTEN_KEEPALIVE",
+      "void studio_pause_level(const char *name, const char *stars, s32 coins, s32 coinStar) {",
+      "    struct StudioPauseLevel *l;",
+      "    s32 n = 0;",
+      "    if (gStudioPauseLevelCount >= PAUSE_LEVELS_MAX) {",
+      "        return;",
+      "    }",
+      "    l = &sPauseLevels[gStudioPauseLevelCount++];",
+      "    sel_from_ascii(l->name, name, FALSE);",
+      "    for (; stars[n] != '\\0' && n < SEL_MAX; n++) {",
+      "        l->stars[n * 2] = stars[n] == '1' ? 0xFA : 0xFD;",
+      "        l->stars[n * 2 + 1] = 0x9E;",
+      "    }",
+      "    l->stars[n > 0 ? n * 2 - 1 : 0] = 0xFF;",
+      "    l->coins = coins;",
+      "    l->coinStar = coinStar;",
+      "}",
+      "",
+      "// One custom level's page in the castle's pause menu (x, y as the course pages).",
+      "void studio_render_pause_castle_level(s32 index, s16 x, s16 y) {",
+      "    u8 textCoin[] = { TEXT_COIN_X };",
+      "    u8 num[8];",
+      "    struct StudioPauseLevel *l = &sPauseLevels[index];",
+      "    if (index < 0 || index >= gStudioPauseLevelCount) {",
+      "        return;",
+      "    }",
+      "    if (l->stars[0] != 0xFF) {",
+      "        print_generic_string(x + 14, y + 13, l->stars);",
+      "    } else {",
+      "        u8 none[SEL_NAME];",
+      "        sel_from_ascii(none, \"No stars yet\", FALSE);",
+      "        print_generic_string(x + 14, y + 13, none);",
+      "    }",
+      "    if (l->coinStar) {",
+      "        u8 textStar[] = { TEXT_STAR };",
+      "        print_generic_string(x + 89, y - 5, textStar);",
+      "    }",
+      "    print_generic_string(x + 34, y - 5, textCoin);",
+      "    int_to_str(l->coins, num);",
+      "    print_generic_string(x + 54, y - 5, num);",
+      "    print_generic_string(get_str_x_pos_from_center(x + 51, l->name, 10.0f), y + 30, l->name);",
+      "}",
+      "",
+      "// ---------------------------------------------------------------------------",
+      "// Course complete screen after a studio star: the level's name (custom levels",
+      "// have no course number) and the star's name instead of the game's act name.",
+      "",
+      "static u8 sDoneTitle[SEL_NAME];",
+      "static u8 sDoneStar[SEL_NAME];",
+      "static s32 sDoneActive, sDoneCustom;",
+      "",
+      "void print_hud_course_complete_coins(s16 x, s16 y);",
+      "void play_star_fanfare_and_flash_hud(s32 arg, u8 starNum);",
+      "",
+      "void studio_complete_clear(void) {",
+      "    sDoneActive = FALSE;",
+      "}",
+      "",
+      "void studio_complete_reset(s32 customLevel) {",
+      "    sDoneActive = TRUE;",
+      "    sDoneCustom = customLevel;",
+      "    sDoneTitle[0] = 0xFF;",
+      "    sel_from_ascii(sDoneStar, \"Star\", FALSE);",
+      "}",
+      "",
+      "EMSCRIPTEN_KEEPALIVE",
+      "void studio_complete_info(const char *title, const char *star) {",
+      "    sel_from_ascii(sDoneTitle, title, FALSE);",
+      "    sel_from_ascii(sDoneStar, star, FALSE);",
+      "}",
+      "",
+      "// Returns FALSE when the last star was one of the game's (its screen draws itself).",
+      "s32 studio_render_course_complete(void) {",
+      "    u8 textSymStar[] = { GLYPH_STAR, GLYPH_SPACE };",
+      "    u8 textCourse[] = { TEXT_COURSE };",
+      "    u8 textCatch[] = { TEXT_CATCH };",
+      "    u8 num[4];",
+      "",
+      "    if (!sDoneActive) {",
+      "        return FALSE;",
+      "    }",
+      "    print_hud_course_complete_coins(118, 103);",
+      "    play_star_fanfare_and_flash_hud(1, 1 << ((gLastCompletedStarNum - 1) & 7));",
+      "",
+      "    gSPDisplayList(gDisplayListHead++, dl_ia_text_begin);",
+      "    if (sDoneCustom) {",
+      "        gDPSetEnvColor(gDisplayListHead++, 0, 0, 0, gDialogTextAlpha);",
+      "        print_generic_string(65, 165, sDoneTitle);",
+      "        gDPSetEnvColor(gDisplayListHead++, 255, 255, 255, gDialogTextAlpha);",
+      "        print_generic_string(63, 167, sDoneTitle);",
+      "    } else {",
+      "        int_to_str(gLastCompletedCourseNum, num);",
+      "        gDPSetEnvColor(gDisplayListHead++, 0, 0, 0, gDialogTextAlpha);",
+      "        print_generic_string(65, 165, textCourse);",
+      "        print_generic_string(104, 165, num);",
+      "        gDPSetEnvColor(gDisplayListHead++, 255, 255, 255, gDialogTextAlpha);",
+      "        print_generic_string(63, 167, textCourse);",
+      "        print_generic_string(102, 167, num);",
+      "    }",
+      "    gSPDisplayList(gDisplayListHead++, dl_ia_text_end);",
+      "",
+      "    gSPDisplayList(gDisplayListHead++, dl_rgba16_text_begin);",
+      "    gDPSetEnvColor(gDisplayListHead++, 255, 255, 255, gDialogTextAlpha);",
+      "    print_hud_lut_string(HUD_LUT_GLOBAL, 55, 77, textSymStar);",
+      "    gSPDisplayList(gDisplayListHead++, dl_rgba16_text_end);",
+      "    gSPDisplayList(gDisplayListHead++, dl_ia_text_begin);",
+      "    gDPSetEnvColor(gDisplayListHead++, 0, 0, 0, gDialogTextAlpha);",
+      "    print_generic_string(76, 145, sDoneStar);",
+      "    print_generic_string(220, 145, textCatch);",
+      "    gDPSetEnvColor(gDisplayListHead++, 255, 255, 255, gDialogTextAlpha);",
+      "    print_generic_string(74, 147, sDoneStar);",
+      "    print_generic_string(218, 147, textCatch);",
+      "    gSPDisplayList(gDisplayListHead++, dl_ia_text_end);",
+      "    return TRUE;"
+     ]
+    ]
+   ]
+  },
+  "src/pc/audio/audio_sdl2.c": {
+   "sha256": "2d2c97bbd87e9b143a0a8e3b29717363776eb7d11ebbde0d197c4b739a9ca7d2",
+   "hunks": [
+    [
+     19,
+     0,
+     [
+      "#ifdef TARGET_WEB",
+      "    // the browser pulls audio on the main thread, which the game and the page share:",
+      "    // a bigger block rides out a busy frame instead of crackling",
+      "    want.samples = 1024;",
+      "#else"
+     ]
+    ],
+    [
+     20,
+     0,
+     [
+      "#endif"
+     ]
+    ],
+    [
+     35,
+     0,
+     [
+      "#ifdef TARGET_WEB",
+      "    return 2400; // ~75 ms: a late frame (busy page, big level) must not empty the queue",
+      "#else"
+     ]
+    ],
+    [
+     36,
+     0,
+     [
+      "#endif"
+     ]
+    ],
+    [
+     42,
+     0,
+     [
+      "    }",
+      "}",
+      "",
+      "// Studio 64: build mode holds the sound (the queued audio plays on when it resumes).",
+      "void audio_sdl_set_paused(bool paused) {",
+      "    if (dev != 0) {",
+      "        SDL_PauseAudioDevice(dev, paused ? 1 : 0);"
+     ]
+    ]
+   ]
+  },
+  "src/pc/configfile.c": {
+   "sha256": "1b9331b23ee06f421390dc41beff41f66173b299a47249aa7622723db6755363",
+   "hunks": [
+    [
+     58,
+     0,
+     [
+      "#ifdef TARGET_WEB",
+      "// Browser layout: WASD move, Space/K jump, J punch, Shift/L crouch, Enter start, arrows camera.",
+      "unsigned int configKeyA[MAX_BINDS]          = { 0x0039,   0x1000,     0x0025     };",
+      "unsigned int configKeyB[MAX_BINDS]          = { 0x0024,   0x1002,     VK_INVALID };",
+      "unsigned int configKeyStart[MAX_BINDS]      = { 0x001C,   0x1006,     VK_INVALID };",
+      "unsigned int configKeyL[MAX_BINDS]          = { 0x0010,   0x1009,     VK_INVALID };",
+      "unsigned int configKeyR[MAX_BINDS]          = { 0x0013,   0x100A,     VK_INVALID };",
+      "unsigned int configKeyZ[MAX_BINDS]          = { 0x002A,   0x1007,     0x0026     };",
+      "unsigned int configKeyCUp[MAX_BINDS]        = { 0x0148,   VK_INVALID, VK_INVALID };",
+      "unsigned int configKeyCDown[MAX_BINDS]      = { 0x0150,   VK_INVALID, VK_INVALID };",
+      "unsigned int configKeyCLeft[MAX_BINDS]      = { 0x014B,   VK_INVALID, VK_INVALID };",
+      "unsigned int configKeyCRight[MAX_BINDS]     = { 0x014D,   VK_INVALID, VK_INVALID };",
+      "unsigned int configKeyStickUp[MAX_BINDS]    = { 0x0011,   VK_INVALID, VK_INVALID };",
+      "unsigned int configKeyStickDown[MAX_BINDS]  = { 0x001F,   VK_INVALID, VK_INVALID };",
+      "unsigned int configKeyStickLeft[MAX_BINDS]  = { 0x001E,   VK_INVALID, VK_INVALID };",
+      "unsigned int configKeyStickRight[MAX_BINDS] = { 0x0020,   VK_INVALID, VK_INVALID };",
+      "#else"
+     ]
+    ],
+    [
+     72,
+     0,
+     [
+      "#endif"
+     ]
+    ],
+    [
+     90,
+     0,
+     [
+      "#ifdef TARGET_WEB",
+      "bool         configSkipIntro     = 1;",
+      "#else"
+     ]
+    ],
+    [
+     91,
+     0,
+     [
+      "#endif"
+     ]
+    ]
+   ]
+  },
+  "src/pc/controller/controller_emscripten_keyboard.c": {
+   "sha256": "ef967dccee7ccd35e49d396ca63c71ce4380fd83e780604870b394eb681435c9",
+   "hunks": [
+    [
+     123,
+     0,
+     [
+      "    if (EM_ASM_INT({ return Module.studioKeysBlocked ? (Module.studioKeysBlocked() ? 1 : 0) : 0; })) {",
+      "        return EM_FALSE;",
+      "    }"
+     ]
+    ]
+   ]
+  },
+  "src/pc/gfx/gfx_opengl.c": {
+   "sha256": "68c502cb04a2be198a8b9a52592a5e21f976d5f67d11ae446d1706561cde2bbe",
+   "hunks": [
+    [
+     588,
+     0,
+     [
+      "// Studio 64: additive glows (gfx_pc.c): source weighted by its alpha added to the framebuffer",
+      "void gfx_studio_set_additive(bool on) {",
+      "    glBlendFunc(GL_SRC_ALPHA, on ? GL_ONE : GL_ONE_MINUS_SRC_ALPHA);",
+      "}",
+      ""
+     ]
+    ]
+   ]
+  },
+  "src/pc/gfx/gfx_pc.c": {
+   "sha256": "8bca5991f8e374158fc0f07022449f06fd790d1c3b66191000b3bd704786a294",
+   "hunks": [
+    [
+     76,
+     0,
+     [
+      "    float studio_fog; // Studio 64 area fog factor 0..1"
+     ]
+    ],
+    [
+     78,
+     0,
+     [
+      "// Studio 64 area fog and light tint (studio/flow.c): every depth-tested draw",
+      "extern int gStudioFogOn, gStudioTintOn;",
+      "extern float gStudioFogColor[3], gStudioFogNear, gStudioFogFar, gStudioTint[3];",
+      ""
+     ]
+    ],
+    [
+     157,
+     0,
+     [
+      "// Studio 64: additive blending (gfx_opengl.c has the real one)",
+      "__attribute__((weak)) void gfx_studio_set_additive(bool on) {",
+      "    (void) on;",
+      "}",
+      ""
+     ]
+    ],
+    [
+     162,
+     0,
+     [
+      "    bool additive; // Studio 64"
+     ]
+    ],
+    [
+     289,
+     0,
+     [
+      "// Studio 64: forget every imported texture, so changed or replaced ones load again.",
+      "void gfx_texture_cache_flush(void) {",
+      "    gfx_texture_cache.pool_pos = 0;",
+      "    memset(gfx_texture_cache.hashmap, 0, sizeof(gfx_texture_cache.hashmap));",
+      "    rdp.textures_changed[0] = rdp.textures_changed[1] = true;",
+      "}",
+      ""
+     ]
+    ],
+    [
+     342,
+     1,
+     [
+      "    uint8_t rgba32_buf[16384]; // up to 4096 texels (Studio 64: 64x64 Sunshine textures)"
+     ]
+    ],
+    [
+     407,
+     1,
+     [
+      "    uint8_t rgba32_buf[16384]; // up to 4096 texels (Studio 64)"
+     ]
+    ],
+    [
+     613,
+     0,
+     [
+      "    // Studio 64: a replaced (or imported) texture, any size (src/studio/assets.c)",
+      "    {",
+      "        extern int studio_texture_override(const uint8_t *addr, const uint8_t **rgba, uint32_t *w, uint32_t *h);",
+      "        extern void studio_texture_seen(const uint8_t *addr, uint32_t fmt, uint32_t siz);",
+      "        const uint8_t *orgba;",
+      "        uint32_t ow, oh;",
+      "        studio_texture_seen(rdp.loaded_texture[tile].addr, fmt, siz);",
+      "        if (studio_texture_override(rdp.loaded_texture[tile].addr, &orgba, &ow, &oh)) {",
+      "            gfx_rapi->upload_texture(orgba, ow, oh);",
+      "            return;",
+      "        }",
+      "    }",
+      ""
+     ]
+    ],
+    [
+     836,
+     0,
+     [
+      "        if (gStudioFogOn) {",
+      "            float f = (w - gStudioFogNear) / (gStudioFogFar - gStudioFogNear);",
+      "            d->studio_fog = f < 0.0f ? 0.0f : (f > 1.0f ? 1.0f : f);",
+      "        }"
+     ]
+    ],
+    [
+     936,
+     0,
+     [
+      "    // Studio 64: the area's fog on everything in the 3D world (not the sky or the HUD)",
+      "    bool studio_world = (rsp.geometry_mode & G_ZBUFFER) == G_ZBUFFER;",
+      "    bool studio_fog = gStudioFogOn && studio_world;",
+      "    bool studio_tint = gStudioTintOn && studio_world;",
+      "    bool vanilla_fog = use_fog;",
+      "    if (studio_fog) use_fog = true;"
+     ]
+    ],
+    [
+     965,
+     0,
+     [
+      "    // Studio 64: additive glows (the blender adds the colour, weighted by the fog alpha, to the",
+      "    // framebuffer: CLR_IN * A_FOG + CLR_MEM * 1), used by imported levels' neon and lamps",
+      "    bool additive = use_alpha && ((rdp.other_mode_l >> 26) & 3) == G_BL_A_FOG",
+      "        && ((rdp.other_mode_l >> 22) & 3) == G_BL_CLR_MEM && ((rdp.other_mode_l >> 18) & 3) == G_BL_1;",
+      "    if (additive != rendering_state.additive) {",
+      "        gfx_flush();",
+      "        gfx_studio_set_additive(additive);",
+      "        rendering_state.additive = additive;",
+      "    }"
+     ]
+    ],
+    [
+     1015,
+     1,
+     [
+      "        if (studio_fog) {",
+      "            buf_vbo[buf_vbo_len++] = gStudioFogColor[0];",
+      "            buf_vbo[buf_vbo_len++] = gStudioFogColor[1];",
+      "            buf_vbo[buf_vbo_len++] = gStudioFogColor[2];",
+      "            buf_vbo[buf_vbo_len++] = v_arr[i]->studio_fog;",
+      "        } else if (use_fog) {"
+     ]
+    ],
+    [
+     1032,
+     0,
+     [
+      "                        if (rendering_state.additive && rdp.fog_color.a != 255) {",
+      "                            tmp.r = (uint8_t) (color->r * rdp.fog_color.a / 255);",
+      "                            tmp.g = (uint8_t) (color->g * rdp.fog_color.a / 255);",
+      "                            tmp.b = (uint8_t) (color->b * rdp.fog_color.a / 255);",
+      "                            tmp.a = color->a;",
+      "                            color = &tmp;",
+      "                        }",
+      "                        if (studio_tint) {",
+      "                            tmp.r = (uint8_t) fminf(255.0f, color->r * gStudioTint[0]);",
+      "                            tmp.g = (uint8_t) fminf(255.0f, color->g * gStudioTint[1]);",
+      "                            tmp.b = (uint8_t) fminf(255.0f, color->b * gStudioTint[2]);",
+      "                            tmp.a = color->a;",
+      "                            color = &tmp;",
+      "                        }"
+     ]
+    ],
+    [
+     1055,
+     1,
+     [
+      "                    if (vanilla_fog && comb->shader_input_mapping[k][j] == CC_SHADE) {"
+     ]
+    ],
+    [
+     1819,
+     0,
+     [
+      "}",
+      "",
+      "// Studio 64 save states: the wasm memory is swapped under the renderer.",
+      "// Before: let go of the shader whose attributes are enabled on the GPU now.",
+      "void gfx_studio_before_load(void) {",
+      "    if (gfx_rapi && rendering_state.shader_program) gfx_rapi->unload_shader(rendering_state.shader_program);",
+      "}",
+      "// After: push the restored cache state to the GPU and re-upload textures on demand.",
+      "void gfx_studio_invalidate(void) {",
+      "    if (!gfx_rapi) return;",
+      "    memset(gfx_texture_cache.hashmap, 0, sizeof(gfx_texture_cache.hashmap));",
+      "    gfx_texture_cache.pool_pos = 0;",
+      "    rendering_state.textures[0] = rendering_state.textures[1] = NULL;",
+      "    rendering_state.shader_program = NULL;",
+      "    gfx_rapi->unload_shader(NULL);",
+      "    gfx_rapi->set_depth_test(rendering_state.depth_test);",
+      "    gfx_rapi->set_depth_mask(rendering_state.depth_mask);",
+      "    gfx_rapi->set_zmode_decal(rendering_state.decal_mode);",
+      "    gfx_rapi->set_use_alpha(rendering_state.alpha_blend);",
+      "    gfx_rapi->set_viewport(rendering_state.viewport.x, rendering_state.viewport.y, rendering_state.viewport.width, rendering_state.viewport.height);",
+      "    gfx_rapi->set_scissor(rendering_state.scissor.x, rendering_state.scissor.y, rendering_state.scissor.width, rendering_state.scissor.height);"
+     ]
+    ]
+   ]
+  },
+  "src/pc/gfx/gfx_sdl2.c": {
+   "sha256": "ebcb0e7cb6c63a653722787e9ce98ee6d6498b0b3b1593103652c5cfc9aaff86",
+   "hunks": [
+    [
+     204,
+     0,
+     [
+      "#ifdef TARGET_WEB",
+      "#include <emscripten.h>",
+      "// Studio 64: the page sizes the canvas to its panel.",
+      "EMSCRIPTEN_KEEPALIVE void studio_resize(int w, int h) {",
+      "    if (wnd != NULL && w > 0 && h > 0) {",
+      "        SDL_SetWindowSize(wnd, w, h);",
+      "    }",
+      "}",
+      "#endif",
+      ""
+     ]
+    ]
+   ]
+  },
+  "src/pc/pc_main.c": {
+   "sha256": "9f033a90f06fa4d3cb92481219bb894b39d12a9a27be7150df3e1b23b4f7402c",
+   "hunks": [
+    [
+     27,
+     0,
+     [
+      "#include \"studio/studio.h\""
+     ]
+    ],
+    [
+     61,
+     0,
+     [
+      "#ifdef AAPI_SDL2",
+      "void audio_sdl_set_paused(bool paused);",
+      "#endif"
+     ]
+    ],
+    [
+     86,
+     0,
+     [
+      "    s32 resuming = FALSE;"
+     ]
+    ],
+    [
+     93,
+     0,
+     [
+      "    studio_frame();"
+     ]
+    ],
+    [
+     96,
+     0,
+     [
+      "    // build mode is silent: the device pauses and no audio is made, so the music",
+      "    // stops where it was and goes on from there (the star select screen still plays)",
+      "    {",
+      "        extern s32 gStudioPaused, gStudioInIntro, gStudioAudioHold;",
+      "        static s32 sMuted;",
+      "        s32 mute = gStudioPaused && !gStudioInIntro && !gStudioAudioHold;",
+      "        if (mute != sMuted) {",
+      "            sMuted = mute;",
+      "#ifdef AAPI_SDL2",
+      "            // muting stops the device now; unmuting waits until the queue is refilled below",
+      "            if (mute) {",
+      "                audio_sdl_set_paused(TRUE);",
+      "            } else {",
+      "                resuming = TRUE;",
+      "            }",
+      "#endif",
+      "        }",
+      "        if (mute) {",
+      "            gfx_end_frame();",
+      "            studio_after_frame();",
+      "            return;",
+      "        }",
+      "    }",
+      "",
+      "    {",
+      "        // the audio tap (studio/debug.c, frame-exact recordings): exactly one frame of sound",
+      "        // (544 + 528 samples, a real-time run's average) into the tap, nothing to the speakers",
+      "        extern s32 gStudioAudioTap;",
+      "        extern void studio_audio_tap_add(const s16 *samples, s32 count);",
+      "        if (gStudioAudioTap) {",
+      "            s16 tap_buffer[SAMPLES_HIGH * 2];",
+      "            static s32 sTapOdd;",
+      "            for (int i = 0; i < 2; i++) {",
+      "                u32 n = (sTapOdd ^ i) ? SAMPLES_LOW : SAMPLES_HIGH;",
+      "                create_next_audio_buffer(tap_buffer, n);",
+      "                studio_audio_tap_add(tap_buffer, n * 2);",
+      "            }",
+      "            sTapOdd ^= 1;",
+      "            gfx_end_frame();",
+      "            studio_after_frame();",
+      "            return;",
+      "        }",
+      "    }",
+      ""
+     ]
+    ],
+    [
+     98,
+     0,
+     [
+      "    studio_audio_stats(samples_left);"
+     ]
+    ],
+    [
+     99,
+     2,
+     [
+      "    // after slow frames the queue is low: synthesize a chunk or two more to refill it",
+      "    // (the rate nudge above alone would take seconds, crackling all the while)",
+      "    int chunks = resuming || samples_left < 600 ? 4 : samples_left < audio_api->get_desired_buffered() / 2 ? 3 : 2;",
+      "    s16 audio_buffer[SAMPLES_HIGH * 2 * 4];",
+      "    for (int i = 0; i < chunks; i++) {"
+     ]
+    ],
+    [
+     106,
+     0,
+     [
+      "        studio_audio_level(audio_buffer + i * (num_audio_samples * 2), num_audio_samples * 2);"
+     ]
+    ],
+    [
+     109,
+     1,
+     [
+      "    audio_api->play((u8 *)audio_buffer, chunks * num_audio_samples * 4);",
+      "#ifdef AAPI_SDL2",
+      "    if (resuming) {",
+      "        audio_sdl_set_paused(FALSE); // back from build mode with a full queue",
+      "    }",
+      "#endif"
+     ]
+    ],
+    [
+     112,
+     0,
+     [
+      "    studio_after_frame();"
+     ]
+    ],
+    [
+     140,
+     10,
+     [
+      "static EM_BOOL on_anim_frame(double time, UNUSED void *user) {"
+     ]
+    ],
+    [
+     163,
+     1,
+     [
+      "            extern s32 studio_debug_gate(void); // studio/debug.c: frame advance, slow motion",
+      "            if (studio_debug_gate()) produce_one_frame();"
+     ]
+    ],
+    [
+     168,
+     2,
+     [
+      "    return inited; // only continue if the init flag is still set"
+     ]
+    ],
+    [
+     256,
+     2,
+     [
+      "    emscripten_request_animation_frame_loop(on_anim_frame, NULL);"
+     ]
+    ]
+   ]
+  },
+  "src/pc/ultra_reimplementation.c": {
+   "sha256": "269d457029e7217fd95b7cfc98a25b9ba7f9bec8d3cf73fd47de58e101a749d3",
+   "hunks": [
+    [
+     131,
+     1,
+     [
+      "        // Studio 64: one save per project (Module.studioSaveKey); kept in memory too when",
+      "        // the browser blocks storage",
+      "        var k = Module.studioSaveKey || \"sm64_save_file\";",
+      "        var s = null;",
+      "        try { s = localStorage.getItem(k); } catch (e) {}",
+      "        if (!s && Module.studioSaveMem) s = Module.studioSaveMem;"
+     ]
+    ],
+    [
+     176,
+     1,
+     [
+      "        var b64 = btoa(str);",
+      "        Module.studioSaveMem = b64;",
+      "        try { localStorage.setItem(Module.studioSaveKey || \"sm64_save_file\", b64); } catch (e) {}",
+      "        if (Module.studioSaveWritten) { try { Module.studioSaveWritten(b64); } catch (e) {} }"
+     ]
+    ]
+   ]
+  },
+  "tools/.gitignore": {
+   "sha256": "dd4821fd62e35bc20b451f3a0ea8b126632ca64826cdd23dfb30ee2157f82e6f",
+   "hunks": [
+    [
+     13,
+     4,
+     []
+    ]
+   ]
+  },
+  "tools/Makefile": {
+   "sha256": "bed06ad43f039d88236fc424dee22a36d6aeef6ab7fbc32ff39b83e2424bf7b8",
+   "hunks": [
+    [
+     28,
+     1,
+     [
+      "# macOS's clang has libc++ only",
+      "ifeq ($(shell uname -s 2>/dev/null),Darwin)",
+      "  CXXLIB := -lc++",
+      "else",
+      "  CXXLIB := -lstdc++",
+      "endif",
+      "tabledesign_LDFLAGS := -Laudiofile -laudiofile $(CXXLIB) -lm"
+     ]
+    ]
+   ]
+  }
+ },
+ "deleted": []
+}

@@ -15,8 +15,21 @@ dist/
 # Test output (logs, screenshots, temporary projects)
 tests/out/
 
+# engine/: only Studio 64's own files are in the repository. sm64ex's (the decompiled game, its levels,
+# models and text) come with the setup: tools/engine_source.mjs, engine-upstream/. A new Studio 64 file
+# outside these folders needs a line here.
+/engine/**
+!/engine/**/
+!/engine/src/studio/**
+!/engine/levels/studio/**
+!/engine/sound/samples/instruments/custom_*
+!/engine/sound/sound_banks/*_studio_*.json
+!/engine/tools/bin2c.py
+engine/.engine-source.json
+engine/.engine-source-backup/
+
 # Built or extracted from your ROM (or Sunshine disc): made locally by the setup, never published.
-# engine/.gitignore covers the rest of engine/ (assets, samples, the build).
+# engine/.gitignore (sm64ex's, from the setup) covers the rest of engine/ (assets, samples, the build).
 web/engine/
 web/thumbs/
 web/data/story_font.png
@@ -31,8 +44,13 @@ engine/src/studio/gen/
 engine/src/studio/sms/gen/
 engine/src/studio/romgen/
 
-# Trailer production: frames, takes and the full-size render (attached to the GitHub release)
+# Trailer production: frames, takes and every render (they show Nintendo's characters: never in the
+# repository; the trailer is on YouTube)
+promo/studio64-trailer*
+docs/img/trailer-poster.png
 promo/work/
 promo/work5/
 promo/studio64-trailer-1080p.mp4
 promo/studio64-trailer-v5-1080p.mp4
+promo/studio64-trailer-v5-mario-1080p.mp4
+promo/v5/art/window/*.png

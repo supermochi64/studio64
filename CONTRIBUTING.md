@@ -66,7 +66,10 @@ together, and [Extending Studio 64](docs/extending.md) for the plug-in points.
 1. Fork the repository and make a branch.
 2. Keep the change focused. Follow the style of the code around it (ES modules, no bundler, no
    framework; C in `engine/src/studio/` with small hooks in the game's files).
-3. If you changed C code in `engine/`: `npm run build:engine`.
+3. If you changed C code in `engine/`: `npm run build:engine`. If it was one of sm64ex's files (not
+   `engine/src/studio/`), also run `node tools/engine_source.mjs diff` and commit
+   `engine-upstream/changes.json`: sm64ex's own files are not in the repository
+   ([why and how](docs/building-the-engine.md#where-the-engines-source-comes-from)).
 4. Add or update a test in `tests/suite/` and run the tests (below).
 5. Update the docs page of the feature.
 6. Open a pull request and fill in the template.

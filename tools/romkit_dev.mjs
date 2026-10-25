@@ -3,7 +3,10 @@
 // server/romexport/ (base.js changes, n64/ sources, the engine's Studio 64 modules) and rebuilds
 // only what changed. --install makes the result this Studio 64's base ROM (for ROM exports).
 //   node tools/romkit_dev.mjs [--install] [--tree DIR] [-j N]
+//   node tools/romkit_dev.mjs --diff [--tree DIR]   after editing the decomp's files in the tree: writes
+//       server/romexport/decomp-changes.json (Studio 64's lines only, see base.js) and stops
 // (needs engine/baserom.us.z64; the tree defaults to <romkit>/dev)
+import crypto from 'node:crypto';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
@@ -29,6 +32,30 @@ if (!fs.existsSync(path.join(tree, 'Makefile'))) {
   fs.cpSync(pristine, tree, { recursive: true, preserveTimestamps: true });
   const cached = fs.readdirSync(KIT_DIR).find((d) => d.startsWith('tools-') && fs.existsSync(path.join(KIT_DIR, d, '.studio64-ok')));
   if (cached) fs.cpSync(path.join(KIT_DIR, cached), path.join(tree, 'tools'), { recursive: true, preserveTimestamps: true });
+}
+if (args.includes('--diff')) {
+  // every decomp file the tree has changed (not Studio 64's own files, which base.js makes)
+  const { hunksOf, applyHunks } = await import('./lib/engine_source.mjs');
+  const { FILES, UPSTREAM } = await import('../server/romexport/base.js');
+  const sha = (b) => crypto.createHash('sha256').update(b).digest('hex');
+  const files = {};
+  const walk = (rel = '') => {
+    for (const e of fs.readdirSync(path.join(pristine, rel), { withFileTypes: true })) {
+      const r = rel ? `${rel}/${e.name}` : e.name;
+      if (e.isDirectory()) { walk(r); continue; }
+      if (!e.isFile() || r in FILES || !fs.existsSync(path.join(tree, r))) continue;
+      const a = fs.readFileSync(path.join(pristine, r)), b = fs.readFileSync(path.join(tree, r));
+      if (a.equals(b)) continue;
+      const hunks = hunksOf(a, b);
+      if (!applyHunks(a, hunks).equals(b)) throw new Error(`diff of ${r} does not round-trip`);
+      files[r] = { orig: sha(a), sha256: sha(b), hunks };
+    }
+  };
+  walk();
+  const sorted = Object.fromEntries(Object.entries(files).sort());
+  fs.writeFileSync(path.join(ROOT, 'server', 'romexport', 'decomp-changes.json'), `${JSON.stringify({ base: UPSTREAM.commit, files: sorted }, null, 1)}\n`);
+  console.log(`server/romexport/decomp-changes.json: ${Object.keys(files).length} changed decomp file(s)`);
+  process.exit(0);
 }
 fs.copyFileSync(path.join(ROOT, 'engine', 'baserom.us.z64'), path.join(tree, 'baserom.us.z64'));
 const changed = syncTree(tree, pristine);

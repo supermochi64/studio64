@@ -1,0 +1,1427 @@
+{
+ "base": "9921382a68bb0c865e5e45eb594d9c64db59b1af",
+ "files": {
+  "Makefile": {
+   "orig": "613da2ca74939e6525d71b7edc17c3c8a69d24a852b0eaee2104d044b3afbf6f",
+   "sha256": "f3e8632531abd712d628a8ba20f000777f8935794a64f0981d832982a4d5ee5a",
+   "hunks": [
+    [
+     138,
+     0,
+     [
+      "",
+      "# Studio 64: the Expansion Pak's 8 MB for the main pool (custom levels need the room)",
+      "DEFINES += USE_EXT_RAM=1"
+     ]
+    ],
+    [
+     235,
+     1,
+     [
+      "SRC_DIRS := src src/engine src/game src/audio src/menu src/buffers src/s64 actors levels bin data assets asm lib sound"
+     ]
+    ],
+    [
+     579,
+     4,
+     [
+      "# Override for leveldata.elf, which otherwise matches the generic pattern below"
+     ]
+    ],
+    [
+     584,
+     1,
+     [
+      "$(BUILD_DIR)/levels/%/leveldata.elf: $(BUILD_DIR)/levels/%/leveldata.o"
+     ]
+    ],
+    [
+     587,
+     0,
+     [
+      "$(BUILD_DIR)/%.elf: $(BUILD_DIR)/%.o",
+      "\t$(call print,Linking ELF file:,$<,$@)",
+      "\t$(V)$(LD) -e 0 -Ttext=$(SEGMENT_ADDRESS) -Map $@.map -o $@ $<"
+     ]
+    ],
+    [
+     719,
+     0,
+     [
+      "# Studio 64 (src/s64): the engine modules build against the N64 compatibility header",
+      "$(BUILD_DIR)/src/s64/%.o: CFLAGS += -include src/s64/n64compat.h -Isrc/s64",
+      "$(BUILD_DIR)/src/s64/%.o: CC_CHECK_CFLAGS += -include src/s64/n64compat.h -Isrc/s64",
+      "# (and the modules: overlays, server/romexport/overlays.js)",
+      "$(BUILD_DIR)/src/studio/%.o: CFLAGS += -include src/s64/n64compat.h -Isrc/s64 -ffunction-sections -fdata-sections",
+      "$(BUILD_DIR)/src/studio/%.o: CC_CHECK_CFLAGS += -include src/s64/n64compat.h -Isrc/s64",
+      ""
+     ]
+    ],
+    [
+     909,
+     1,
+     [
+      "\t$(V)$(LD) -L $(BUILD_DIR) -T undefined_syms.txt -T $(BUILD_DIR)/$(LD_SCRIPT) -Map $(BUILD_DIR)/sm64.$(VERSION).map --no-check-sections --emit-relocs $(addprefix -R ,$(SEG_FILES)) -o $@ $(O_FILES) -lultra -lgoddard -lgcc"
+     ]
+    ]
+   ]
+  },
+  "Makefile.split": {
+   "orig": "e67bea93254521abcbda1013f0f79f120da3fc32e20738445938690469a29237",
+   "sha256": "69b9db9d2d8b018fab52457853b134a2dc85609550a50ec693ee62ed9a5c16f9",
+   "hunks": [
+    [
+     157,
+     1,
+     [
+      "    $(BUILD_DIR)/levels/$(1)/leveldata.elf: TEXTURE_BIN := $(2)",
+      "    $(BUILD_DIR)/levels/$(1)/leveldata.elf: $(BUILD_DIR)/bin/$(2).elf"
+     ]
+    ]
+   ]
+  },
+  "data/behavior_data.c": {
+   "orig": "56c69f1bf604818fb892dcd4cf01bea74a58393e2d8872c9183f8cddf6b90657",
+   "sha256": "2a23a99b6a9e38c3b91c85c717e9773aabc620665d244effd7e1c8800aa5e42a",
+   "hunks": [
+    [
+     6109,
+     0,
+     [
+      "#include \"s64/s64_behaviors.inc\"",
+      ""
+     ]
+    ]
+   ]
+  },
+  "include/behavior_data.h": {
+   "orig": "8b391f12177fde31b532c3e057e72a8f4119753c72f5a37e5470dcd1d99614cb",
+   "sha256": "fd853557111041790ac5d8fd2658176d9932023882b21c1390205db124df06dc",
+   "hunks": [
+    [
+     550,
+     0,
+     [
+      "#include \"s64/s64_behaviors.h\"",
+      ""
+     ]
+    ]
+   ]
+  },
+  "include/types.h": {
+   "orig": "06e870b5c43260c4ef35bc99d54eab929d27fcad617f77a9e468b7711ad74a15",
+   "sha256": "b7d1067867b1ac5591b3c04cfd0c5835a7892c574e0706e07d512a6ef8d4063f",
+   "hunks": [
+    [
+     90,
+     5,
+     [
+      "    /*0x02*/ union { s16 animYTransDivisor; s16 unk02; }; // (Studio 64: the older names too)",
+      "    /*0x04*/ union { s16 startFrame; s16 unk04; };",
+      "    /*0x06*/ union { s16 loopStart; s16 unk06; };",
+      "    /*0x08*/ union { s16 loopEnd; s16 unk08; };",
+      "    /*0x0A*/ union { s16 unusedBoneCount; s16 unk0A; };"
+     ]
+    ],
+    [
+     129,
+     1,
+     [
+      "    /*0x38*/ union { struct AnimInfo animInfo; struct AnimInfo unk38; }; // (Studio 64: the older name too)"
+     ]
+    ]
+   ]
+  },
+  "levels/menu/script.c": {
+   "orig": "9332f734c7ccc5a09e26f5616773e6d85ecf57cc485b223a467d1aa39afe7521",
+   "sha256": "3c75887e2bc23da0d238c56d2200afdab4793e49704c62c96fba1ed53e35d4fe",
+   "hunks": [
+    [
+     10,
+     0,
+     [
+      "#include \"s64/s64_hack.h\""
+     ]
+    ],
+    [
+     55,
+     1,
+     [
+      "    CALL(/*arg*/ LEVEL_CASTLE_GROUNDS, /*func*/ s64_start_level),"
+     ]
+    ]
+   ]
+  },
+  "sm64.ld": {
+   "orig": "fdc487f83c73439057fca80c468d445561506ee6e400179b43ce184b7e370a30",
+   "sha256": "a0aa7de219ced4bbd37dee0e245e9c4e6454eb30fe08d3223a35ff82a9bb6033",
+   "hunks": [
+    [
+     504,
+     0,
+     [
+      "        BUILD_DIR/src/s64/[a-z]*.o(.text);"
+     ]
+    ],
+    [
+     674,
+     0,
+     [
+      "        BUILD_DIR/src/s64/[a-z]*.o(.data*);"
+     ]
+    ],
+    [
+     814,
+     0,
+     [
+      "        BUILD_DIR/src/s64/[a-z]*.o(.rodata*);"
+     ]
+    ],
+    [
+     936,
+     0,
+     [
+      "        BUILD_DIR/src/s64/[a-z]*.o(.bss*);"
+     ]
+    ]
+   ]
+  },
+  "src/audio/external.c": {
+   "orig": "5b2b5bcbc5c0c3e33a39fc3dd60f31753ffc2557fd34443f11155fdee972c6d6",
+   "sha256": "1bf8c1b6c63afe54a4cb0d9748760aea04bfe9b2d506b277af9ce7472a4a7f94",
+   "hunks": [
+    [
+     212,
+     0,
+     [
+      "s32 s64_is_custom_level(s32 level);",
+      ""
+     ]
+    ],
+    [
+     815,
+     0,
+     [
+      "s32 s64_sfx_hook(s32 soundBits, f32 *pos);",
+      ""
+     ]
+    ],
+    [
+     816,
+     0,
+     [
+      "    if (s64_sfx_hook(soundBits, pos)) { // Studio 64: a sound the project replaced",
+      "        return;",
+      "    }"
+     ]
+    ],
+    [
+     1724,
+     1,
+     [
+      "void seq_player_play_sequence(u8 player, u8 seqId, u16 arg2) { // (Studio 64: also audio.c)"
+     ]
+    ],
+    [
+     1875,
+     1,
+     [
+      "    if (s64_is_custom_level(gCurrLevelNum) || sBackgroundMusicForDynamics != sLevelDynamics[gCurrLevelNum][0]) {"
+     ]
+    ]
+   ]
+  },
+  "src/engine/behavior_script.c": {
+   "orig": "f648bd72f34714c86aba5bb5d1d413ca6c1e5b564e062ab2d8128523e9beb3b3",
+   "sha256": "a547520783b887c28fee2b3bf5063c7bd6765799ee9621d8189f45e824ba5752",
+   "hunks": [
+    [
+     5,
+     0,
+     [
+      "#include \"studio/objects.h\""
+     ]
+    ],
+    [
+     913,
+     0,
+     [
+      "    // Studio 64: an object the story keeps hidden does nothing",
+      "    {",
+      "        extern s32 s64_story_hidden(u32 uid);",
+      "        if (gCurrentObject->unused2 != 0 && s64_story_hidden(gCurrentObject->unused2)) {",
+      "            gCurrentObject->header.gfx.node.flags &= ~GRAPH_RENDER_ACTIVE;",
+      "            gCurrentObject->oIntangibleTimer = -1;",
+      "            return;",
+      "        }",
+      "    }",
+      ""
+     ]
+    ],
+    [
+     951,
+     0,
+     [
+      "    }",
+      "",
+      "    // Studio 64: objects placed in the studio can follow a motion (motion.c)",
+      "    if (gCurrentObject->unused2 != 0) {",
+      "        studio_motion_after_behavior(gCurrentObject);"
+     ]
+    ]
+   ]
+  },
+  "src/engine/level_script.c": {
+   "orig": "1051eb775e0fea4ade0ccf42fc17f828ba9d00fe80098fedfcbc67041695f353",
+   "sha256": "46b1ad0fc3f86174ec35b91ca47974c689585b51e8f84dc31f9dc110012b7a5a",
+   "hunks": [
+    [
+     22,
+     0,
+     [
+      "#include \"s64/s64_hack.h\""
+     ]
+    ],
+    [
+     307,
+     0,
+     [
+      "    s64_ovl_reset();"
+     ]
+    ]
+   ]
+  },
+  "src/engine/surface_collision.c": {
+   "orig": "148a61bd623c7320e5dbf69c95264287b0a057369edb204dc24ace49cfae2916",
+   "sha256": "a29f0d3c54aea3537f320de213fd51654b718c36c3f3f87a6d7af996c830a427",
+   "hunks": [
+    [
+     291,
+     3,
+     [
+      "            if (ceil == NULL || height < *pheight) {",
+      "                *pheight = height;",
+      "                ceil = surf;",
+      "            }"
+     ]
+    ],
+    [
+     462,
+     3,
+     [
+      "        if (floor == NULL || height > *pheight) {",
+      "            *pheight = height;",
+      "            floor = surf;",
+      "        }"
+     ]
+    ]
+   ]
+  },
+  "src/engine/surface_collision.h": {
+   "orig": "b89d2fbe90c5f6eccbbbd1f87755f35be863181ac2280ac4ac276eb6fa69c236",
+   "sha256": "a17a38482dbac7ab76abe26b7290b37950a33fd2db299a5877e37e7d45bf903e",
+   "hunks": [
+    [
+     8,
+     1,
+     [
+      "#define LEVEL_BOUNDARY_MAX  0x4000 // 16384 (Studio 64)"
+     ]
+    ]
+   ]
+  },
+  "src/engine/surface_load.c": {
+   "orig": "8c8ebdb88ee1485f8c031d1493ea82cbcf8928d79de951d6dc90a7f97d78068c",
+   "sha256": "d7944d7601c7d4cdcd258ab79043d9cad08bdbeba29e4240f67d861b7971cb38",
+   "hunks": [
+    [
+     33,
+     1,
+     [
+      "s32 sSurfacePoolSize;"
+     ]
+    ],
+    [
+     40,
+     0,
+     [
+      "static s32 sSurfaceNodePoolSize;",
+      ""
+     ]
+    ],
+    [
+     41,
+     1,
+     [
+      "    struct SurfaceNode *node;",
+      "    if (gSurfaceNodesAllocated >= sSurfaceNodePoolSize) {",
+      "        return NULL; // full: the surface goes into fewer cells instead of past the pool's end",
+      "    }",
+      "    node = &sSurfaceNodePool[gSurfaceNodesAllocated];"
+     ]
+    ],
+    [
+     58,
+     2,
+     [
+      "    struct Surface *surface;",
+      "    if (gSurfacesAllocated >= sSurfacePoolSize) {",
+      "        return NULL; // full: the triangle is left out",
+      "    }",
+      "    surface = &sSurfacePool[gSurfacesAllocated];"
+     ]
+    ],
+    [
+     112,
+     0,
+     [
+      "    if (newNode == NULL) {",
+      "        return;",
+      "    }",
+      ""
+     ]
+    ],
+    [
+     144,
+     10,
+     [
+      "    (void) priority;",
+      "    (void) surfacePriority;"
+     ]
+    ],
+    [
+     303,
+     1,
+     [
+      "    s32 offset1, offset2, offset3; // (Studio 64: big levels)"
+     ]
+    ],
+    [
+     354,
+     0,
+     [
+      "    if (surface == NULL) {",
+      "        return NULL;",
+      "    }"
+     ]
+    ],
+    [
+     520,
+     0,
+     [
+      "static s32 surface_has_force(TerrainData surfaceType);",
+      "static s16 lower_cell_index(TerrainData coord);",
+      "static s16 upper_cell_index(TerrainData coord);",
+      "static s16 min_3(TerrainData a0, TerrainData a1, TerrainData a2);",
+      "static s16 max_3(TerrainData a0, TerrainData a1, TerrainData a2);",
+      "",
+      "// How many surfaces an area's collision makes, and how many partition nodes they take.",
+      "static void count_area_terrain(TerrainData *data, s32 *surfaces, s32 *nodes) {",
+      "    TerrainData *vertexData = NULL;",
+      "    TerrainData type;",
+      "    s32 i, n, hasForce;",
+      "",
+      "    while (TRUE) {",
+      "        type = *data++;",
+      "        if (type == TERRAIN_LOAD_VERTICES) {",
+      "            n = *data++;",
+      "            vertexData = data;",
+      "            data += 3 * n;",
+      "        } else if (type == TERRAIN_LOAD_CONTINUE) {",
+      "            continue;",
+      "        } else if (type == TERRAIN_LOAD_END || type == TERRAIN_LOAD_OBJECTS || type == TERRAIN_LOAD_ENVIRONMENT) {",
+      "            break;",
+      "        } else if (TERRAIN_LOAD_IS_SURFACE_TYPE_LOW(type) || TERRAIN_LOAD_IS_SURFACE_TYPE_HIGH(type)) {",
+      "            n = *data++;",
+      "            hasForce = surface_has_force(type);",
+      "            for (i = 0; i < n; i++) {",
+      "                TerrainData *a = vertexData + 3 * data[0];",
+      "                TerrainData *b = vertexData + 3 * data[1];",
+      "                TerrainData *c = vertexData + 3 * data[2];",
+      "                *surfaces += 1;",
+      "                *nodes += (upper_cell_index(max_3(a[0], b[0], c[0])) - lower_cell_index(min_3(a[0], b[0], c[0])) + 1)",
+      "                          * (upper_cell_index(max_3(a[2], b[2], c[2])) - lower_cell_index(min_3(a[2], b[2], c[2])) + 1);",
+      "                data += 3 + hasForce;",
+      "            }",
+      "        } else {",
+      "            break;",
+      "        }",
+      "    }",
+      "}",
+      ""
+     ]
+    ],
+    [
+     521,
+     2,
+     [
+      "    s32 i, surfaces, nodes, maxSurfaces = 0, maxNodes = 0;",
+      "",
+      "    for (i = 0; i < 8; i++) {",
+      "        if (gAreaData[i].terrainData != NULL) {",
+      "            surfaces = nodes = 0;",
+      "            count_area_terrain(gAreaData[i].terrainData, &surfaces, &nodes);",
+      "            if (surfaces > maxSurfaces) maxSurfaces = surfaces;",
+      "            if (nodes > maxNodes) maxNodes = nodes;",
+      "        }",
+      "    }",
+      "    sSurfacePoolSize = maxSurfaces + 600;",
+      "    if (sSurfacePoolSize < 2300) sSurfacePoolSize = 2300;",
+      "    sSurfaceNodePoolSize = maxNodes + 5000;",
+      "    if (sSurfaceNodePoolSize < 7000) sSurfaceNodePoolSize = 7000;",
+      "    sSurfaceNodePool = main_pool_alloc(sSurfaceNodePoolSize * sizeof(struct SurfaceNode), MEMORY_POOL_LEFT);"
+     ]
+    ]
+   ]
+  },
+  "src/engine/surface_load.h": {
+   "orig": "8dd6dae5015ad2022c916b9a91ed32d2074672b116af76d8ea4e447949964bcc",
+   "sha256": "8e793f5f9dc1a4000ef7e0933dda2f5a592f58b943707fadf30550dc82ae43c6",
+   "hunks": [
+    [
+     31,
+     1,
+     [
+      "extern s32 sSurfacePoolSize;"
+     ]
+    ]
+   ]
+  },
+  "src/game/area.c": {
+   "orig": "79c96544f072b74029936d44d280799e6614dee65d4770200cb8101b06e559ac",
+   "sha256": "5328381374e323500870697bb410cabf6db92fae4f8b4b00bfb6556b5219eebf",
+   "hunks": [
+    [
+     23,
+     0,
+     [
+      "#include \"s64/s64_hack.h\""
+     ]
+    ],
+    [
+     246,
+     0,
+     [
+      "        s64_area_loaded();"
+     ]
+    ]
+   ]
+  },
+  "src/game/behaviors/platform_on_track.inc.c": {
+   "orig": "47b56caace657d58e593590de3150ec1ff0283608a6d4ed19f4f9520115089dd",
+   "sha256": "48dc89f6723e3ae55c3353533859abc8d7bf195623663c848f2826035007004f",
+   "hunks": [
+    [
+     69,
+     0,
+     [
+      "        studio_track_override_apply(o); // a track drawn in the studio"
+     ]
+    ]
+   ]
+  },
+  "src/game/camera.c": {
+   "orig": "61be2adc8e87e349f28e161de3585ef68c307270d5fd6cd9735fe1fd922a58ef",
+   "sha256": "137ab63863dc9a8a06658d2539b6cf55a518561985fc13e41d7015b75fab16eb",
+   "hunks": [
+    [
+     405,
+     0,
+     [
+      "s32 studio_shotgun_camera(struct Camera *c);",
+      "s32 studio_katana_camera(struct Camera *c);",
+      "s32 studio_vehicle_camera(f32 *pos, f32 *focus);",
+      "",
+      "s32 s64_is_custom_level(s32 level);",
+      ""
+     ]
+    ],
+    [
+     3075,
+     1,
+     [
+      "    if (c->cutscene == 0 && (studio_shotgun_camera(c) || studio_katana_camera(c))) {",
+      "        // Studio 64: the shotgun's aim camera placed it, or the katana's pull or finale",
+      "    } else if (c->cutscene == 0) {"
+     ]
+    ],
+    [
+     3287,
+     1,
+     [
+      "    gCurrLevelArea = s64_is_custom_level(gCurrLevelNum) ? 0 : gCurrLevelNum * 16 + gCurrentArea->index;"
+     ]
+    ],
+    [
+     3516,
+     0,
+     [
+      "    extern s32 gStudioCamEnabled;",
+      "    extern f32 gStudioCamPos[3], gStudioCamFocus[3];",
+      "    extern s32 studio_play_camera(f32 *pos, f32 *focus);"
+     ]
+    ],
+    [
+     3517,
+     0,
+     [
+      "    // Studio 64: the camera of a story cutscene, a car chase camera, the side-scrolling and top-down area cameras",
+      "    if (gStudioCamEnabled) {",
+      "        gc->rollScreen = 0;",
+      "        gc->roll = 0;",
+      "        vec3f_copy(gc->pos, gStudioCamPos);",
+      "        vec3f_copy(gc->focus, gStudioCamFocus);",
+      "        return;",
+      "    }",
+      "    if (studio_vehicle_camera(gc->pos, gc->focus) || studio_play_camera(gc->pos, gc->focus)) {",
+      "        gc->rollScreen = 0;",
+      "        gc->roll = 0;",
+      "        return;",
+      "    }",
+      ""
+     ]
+    ],
+    [
+     5262,
+     1,
+     [
+      "    gCurrLevelArea = s64_is_custom_level(gCurrLevelNum) ? 0 : gCurrLevelNum * 16 + gCurrentArea->index;"
+     ]
+    ],
+    [
+     6524,
+     1,
+     [
+      "    if (sCameraTriggers[level] != NULL && !s64_is_custom_level(level)) {"
+     ]
+    ]
+   ]
+  },
+  "src/game/game_init.c": {
+   "orig": "5b8e3626c98e917931f350379e3a30705100113d670e726272a8db57ec556525",
+   "sha256": "d9debcb519e60cfee28f89d35d568002a292afb47926b045da23dd1a3a26e3fd",
+   "hunks": [
+    [
+     19,
+     0,
+     [
+      "#include \"s64/s64_hack.h\""
+     ]
+    ],
+    [
+     637,
+     0,
+     [
+      "    s64_load_info();"
+     ]
+    ],
+    [
+     691,
+     0,
+     [
+      "        s64_frame();"
+     ]
+    ]
+   ]
+  },
+  "src/game/game_init.h": {
+   "orig": "c49ab93150fcb982c6e1fa8cb0a2bc91755609d4cdf583be6f86a7b26c510309",
+   "sha256": "fa1fffd76a5b64bf9a3a39ce69ec18e400f32955758a0af320afbf7287e8ad29",
+   "hunks": [
+    [
+     11,
+     1,
+     [
+      "#define GFX_POOL_SIZE 24000 // Size of how large the master display list (gDisplayListHead) can be"
+     ]
+    ]
+   ]
+  },
+  "src/game/hud.c": {
+   "orig": "f6405acb9c6e385af8c686bfc1fa94e4a2d9d4ba21d55cf0defae678f40c93bd",
+   "sha256": "fd5a63e3b34483d4fc332f3fca95e7ad299dd2b83055637118cad5be821548ad",
+   "hunks": [
+    [
+     7,
+     0,
+     [
+      "#include \"studio/objects.h\"",
+      "",
+      "void studio_shotgun_hud(void);",
+      "void s64_vehicle_hud(void);"
+     ]
+    ],
+    [
+     411,
+     1,
+     [
+      "    extern s32 gStudioHideHud;",
+      "    extern void s64_story_render(void);",
+      "    s16 hudDisplayFlags;"
+     ]
+    ],
+    [
+     413,
+     0,
+     [
+      "    s64_vehicle_hud(); // Studio 64: a car's speed, a race (the game's HUD steps aside for a race; s64_hud.c)",
+      "    hudDisplayFlags = gHudDisplay.flags & ~gStudioRules.hudHide; // Studio 64 rules",
+      "    s64_story_render(); // the story's captions and fades",
+      "    if (gStudioHideHud) { // a story cutscene",
+      "        return;",
+      "    }",
+      ""
+     ]
+    ],
+    [
+     463,
+     0,
+     [
+      "",
+      "        studio_shotgun_hud(); // Studio 64: the shotgun's crosshair in aim mode"
+     ]
+    ]
+   ]
+  },
+  "src/game/ingame_menu.c": {
+   "orig": "103bc7764a95b8a465ad13ae01abeff1daa99d5e481637d37716b7d92be90b16",
+   "sha256": "9154e684e379468c681ac80b7255b927c892107aef145e0d456199eebdadbacd",
+   "hunks": [
+    [
+     24,
+     0,
+     [
+      "#include \"studio/studio.h\""
+     ]
+    ],
+    [
+     1080,
+     0,
+     [
+      "        dialog = studio_dialog_redirect(dialog); // Studio 64: tagged characters say project dialogs"
+     ]
+    ],
+    [
+     1087,
+     0,
+     [
+      "        dialog = studio_dialog_redirect(dialog); // Studio 64: tagged characters say project dialogs"
+     ]
+    ],
+    [
+     1095,
+     0,
+     [
+      "        dialog = studio_dialog_redirect(dialog); // Studio 64: tagged characters say project dialogs"
+     ]
+    ],
+    [
+     1102,
+     0,
+     [
+      "        dialog = studio_dialog_redirect(dialog); // Studio 64: tagged characters say project dialogs"
+     ]
+    ],
+    [
+     1989,
+     1,
+     [
+      "    dialog = studio_dialog_entry(gDialogID); // Studio 64: replaced and project dialogs"
+     ]
+    ],
+    [
+     1992,
+     1,
+     [
+      "    if (dialog == NULL || dialog == segmented_to_virtual(NULL)) {"
+     ]
+    ],
+    [
+     2005,
+     1,
+     [
+      "                if (!studio_dialog_sound(gDialogID)) {",
+      "                    play_dialog_sound(gDialogID);",
+      "                }"
+     ]
+    ],
+    [
+     2339,
+     1,
+     [
+      "    dialog = studio_dialog_entry(gDialogID); // Studio 64: replaced and project dialogs"
+     ]
+    ]
+   ]
+  },
+  "src/game/interaction.c": {
+   "orig": "4c78e27752d1e50258124b9a505618fcc42014a2ab79c1eb1f383cf6c7227b99",
+   "sha256": "4ca3e823ecf618f9e3d7fde896684ea3eb6e32863b36ec9e12d76da8a796c8ba",
+   "hunks": [
+    [
+     16,
+     0,
+     [
+      "#include \"studio/objects.h\"",
+      "#include \"s64/s64_hack.h\"",
+      "#include \"studio/studio.h\""
+     ]
+    ],
+    [
+     744,
+     1,
+     [
+      "    if (gStudioRules.coinHeal) {",
+      "        m->healCounter += 4 * o->oDamageOrCoinValue;",
+      "    }"
+     ]
+    ],
+    [
+     748,
+     1,
+     [
+      "    if (COURSE_IS_MAIN_COURSE(gCurrCourseNum) && gStudioRules.coinStar"
+     ]
+    ],
+    [
+     775,
+     0,
+     [
+      "        s64_story_star(o); // Studio 64: \"When Mario collects a star\""
+     ]
+    ],
+    [
+     856,
+     0,
+     [
+      "    u32 studioRet;"
+     ]
+    ],
+    [
+     857,
+     0,
+     [
+      "    if (studio_door_check(m, o, &studioRet)) { // Studio 64: a locked pipe or warp",
+      "        return studioRet;",
+      "    }",
+      ""
+     ]
+    ],
+    [
+     907,
+     0,
+     [
+      "    u32 studioRet;"
+     ]
+    ],
+    [
+     908,
+     0,
+     [
+      "    if ((m->action == ACT_WALKING || m->action == ACT_DECELERATING) && studio_door_check(m, o, &studioRet)) {",
+      "        return studioRet; // Studio 64: a key or an event keeps it shut",
+      "    }",
+      ""
+     ]
+    ],
+    [
+     909,
+     0,
+     [
+      "        s16 needStars = (s16) (o->oBhvParams & 0xFF);",
+      "        if (needStars > 0) {",
+      "            s16 haveStars = save_file_get_total_star_count(gCurrSaveFileNum - 1, COURSE_MIN - 1, COURSE_MAX - 1);",
+      "            if (haveStars < needStars) {",
+      "                if (!sDisplayingDoorText) {",
+      "                    set_mario_action(m, ACT_READING_AUTOMATIC_DIALOG, (DIALOG_024 << 16) + (needStars - haveStars));",
+      "                }",
+      "                sDisplayingDoorText = TRUE;",
+      "                return FALSE;",
+      "            }",
+      "        }"
+     ]
+    ],
+    [
+     1001,
+     0,
+     [
+      "    u32 studioRet;"
+     ]
+    ],
+    [
+     1002,
+     0,
+     [
+      "    if ((m->action == ACT_WALKING || m->action == ACT_DECELERATING) && studio_door_check(m, o, &studioRet)) {",
+      "        return studioRet;",
+      "    }",
+      ""
+     ]
+    ],
+    [
+     1611,
+     0,
+     [
+      "        capTime = studio_rules_cap_time(capFlag, capTime); // Studio 64 rules"
+     ]
+    ]
+   ]
+  },
+  "src/game/level_update.c": {
+   "orig": "d169438ffe43dbe89a24d7577730a0fa247ba741744799adb44ffab6a5666084",
+   "sha256": "9b7dd3d325356e47c0e3013a27375e8ebfe0415bd25a8ba7515401f336d51c8e",
+   "hunks": [
+    [
+     7,
+     0,
+     [
+      "#include \"s64/s64_hack.h\""
+     ]
+    ],
+    [
+     207,
+     0,
+     [
+      "    extern s32 gStudioStoryLock, gStudioStorySkip, gStudioStoryGrace;"
+     ]
+    ],
+    [
+     208,
+     0,
+     [
+      "    // Studio 64: during a story cutscene Start skips it instead of pausing (and a second Start",
+      "    // right after does not open the pause menu)",
+      "    if (gStudioStoryLock) {",
+      "        if (gPlayer1Controller->buttonPressed & START_BUTTON) {",
+      "            gStudioStorySkip = TRUE;",
+      "        }",
+      "        return FALSE;",
+      "    }",
+      "    if (gStudioStoryGrace > 0) {",
+      "        gStudioStoryGrace--;",
+      "        return FALSE;",
+      "    }",
+      ""
+     ]
+    ],
+    [
+     614,
+     0,
+     [
+      "// Studio 64: the story warps Mario (a warp node of its own, 0xEF, leads there)",
+      "static struct ObjectWarpNode sS64WarpNode;",
+      "",
+      "void s64_warp_to(s16 level, s16 area, s16 node) {",
+      "    struct ObjectWarpNode *n;",
+      "    if (gCurrentArea == NULL || sDelayedWarpOp != WARP_OP_NONE) {",
+      "        return;",
+      "    }",
+      "    for (n = gCurrentArea->warpNodes; n != NULL && n != &sS64WarpNode; n = n->next) {",
+      "    }",
+      "    if (n == NULL) {",
+      "        sS64WarpNode.next = gCurrentArea->warpNodes;",
+      "        gCurrentArea->warpNodes = &sS64WarpNode;",
+      "    }",
+      "    sS64WarpNode.node.id = 0xEF;",
+      "    sS64WarpNode.node.destLevel = level;",
+      "    sS64WarpNode.node.destArea = area;",
+      "    sS64WarpNode.node.destNode = node;",
+      "    sS64WarpNode.object = NULL;",
+      "    sSourceWarpNodeId = 0xEF;",
+      "    sDelayedWarpOp = WARP_OP_TELEPORT;",
+      "    sDelayedWarpTimer = 20;",
+      "    sDelayedWarpArg = 0;",
+      "    play_transition(WARP_TRANSITION_FADE_INTO_COLOR, 0x14, 0xFF, 0xFF, 0xFF);",
+      "}",
+      ""
+     ]
+    ],
+    [
+     1021,
+     1,
+     [
+      "            if (s64_info_valid() && gS64Info.exitLevel > 0) {",
+      "                initiate_warp(gS64Info.exitLevel, gS64Info.exitArea, gS64Info.exitNode, 0);",
+      "            } else {",
+      "                initiate_warp(LEVEL_CASTLE, 1, 0x1F, 0);",
+      "            }"
+     ]
+    ],
+    [
+     1184,
+     1,
+     [
+      "                    if (save_file_exists(gCurrSaveFileNum - 1) || s64_skip_intro()) {"
+     ]
+    ]
+   ]
+  },
+  "src/game/mario.c": {
+   "orig": "a16936e42951b0ecf232fbbdb50d9f596bb8f59d13cf5269e5ba9537bca9b26e",
+   "sha256": "0426265f1d2730d22b017ea20ddbbc12332b66f6ca495fa177a3e209495ea113",
+   "hunks": [
+    [
+     17,
+     0,
+     [
+      "",
+      "// Studio 64's modules (s64_ovl_hooks.c)",
+      "void studio_shotgun_before_step(struct MarioState *m);",
+      "void studio_shotgun_after_step(struct MarioState *m);",
+      "void studio_vehicle_before_step(struct MarioState *m);",
+      "s32 studio_vehicle_action(struct MarioState *m);",
+      "void studio_katana_before_step(struct MarioState *m);",
+      "s32 studio_katana_action(struct MarioState *m);",
+      "void studio_katana_after_step(struct MarioState *m);",
+      "#define ACT_STUDIO_DRIVE (0x17A | ACT_FLAG_RIDING_SHELL | ACT_FLAG_INVULNERABLE | ACT_FLAG_ATTACKING \\",
+      "                          | ACT_FLAG_PAUSE_EXIT | ACT_FLAG_WATER_OR_TEXT)",
+      "#define ACT_KT_IS(a) ((((a) & 0x1FF) >= 0x178 && ((a) & 0x1FF) <= 0x17E) && ((a) & 0x1FF) != 0x17A)",
+      "#include \"studio/objects.h\""
+     ]
+    ],
+    [
+     886,
+     0,
+     [
+      "    studio_rules_airborne(m, action); // jump heights (Studio 64 rules)",
+      ""
+     ]
+    ],
+    [
+     979,
+     0,
+     [
+      "    // Studio 64 rules: switched-off moves become another move or nothing",
+      "    action = studio_rules_filter_action(m, action);",
+      "    if (action == 0) {",
+      "        return TRUE;",
+      "    }"
+     ]
+    ],
+    [
+     1713,
+     0,
+     [
+      "        // Studio 64: Shotgun Mario, B at a car's door, Katana Mario (B pulls the blade or cuts)",
+      "        studio_shotgun_before_step(gMarioState);",
+      "        studio_vehicle_before_step(gMarioState);",
+      "        studio_katana_before_step(gMarioState);",
+      ""
+     ]
+    ],
+    [
+     1717,
+     0,
+     [
+      "            if (gMarioState->action == ACT_STUDIO_DRIVE) { // Studio 64: driving",
+      "                inLoop = studio_vehicle_action(gMarioState);",
+      "                continue;",
+      "            }",
+      "            if (ACT_KT_IS(gMarioState->action)) { // Studio 64: Katana Mario's moves",
+      "                inLoop = studio_katana_action(gMarioState);",
+      "                continue;",
+      "            }"
+     ]
+    ],
+    [
+     1748,
+     0,
+     [
+      "        studio_shotgun_after_step(gMarioState);",
+      "        studio_katana_after_step(gMarioState);"
+     ]
+    ]
+   ]
+  },
+  "src/game/mario_actions_airborne.c": {
+   "orig": "09d3b62625a7bb282aab99a9b9c8b77e1da95d3474fbf28e486fd72434c2e1bc",
+   "sha256": "f6bcd07b5589dcc9dc0b7bc11cf361879744577825c0e1e73a029a988ddd2022",
+   "hunks": [
+    [
+     12,
+     0,
+     [
+      "#include \"studio/objects.h\""
+     ]
+    ],
+    [
+     82,
+     0,
+     [
+      "    // Studio 64 rules: how far Mario can fall without getting hurt (0: never); a trampoline catches him",
+      "    if (gStudioRules.fallDamage <= 0.0f) {",
+      "        return FALSE;",
+      "    }",
+      "    if (m->floor != NULL && studio_motion_is_trampoline(m->floor->object)) {",
+      "        return FALSE;",
+      "    }",
+      "    damageHeight = gStudioRules.fallDamage;",
+      "    if (fallHeight > damageHeight * (3000.0f / 1150.0f)) {",
+      "        fallHeight = 3001.0f;",
+      "    } else if (fallHeight > 3000.0f) {",
+      "        fallHeight = 2999.0f;",
+      "    }",
+      ""
+     ]
+    ],
+    [
+     198,
+     2,
+     [
+      "            m->forwardVel += 1.5f * coss(intendedDYaw) * intendedMag * gStudioRules.airControl;",
+      "            m->faceAngle[1] += 512.0f * sins(intendedDYaw) * intendedMag * gStudioRules.airControl;"
+     ]
+    ],
+    [
+     229,
+     2,
+     [
+      "            m->forwardVel += intendedMag * coss(intendedDYaw) * 1.5f * gStudioRules.airControl;",
+      "            sidewaysSpeed = intendedMag * sins(intendedDYaw) * 10.0f * gStudioRules.airControl;"
+     ]
+    ],
+    [
+     1147,
+     1,
+     [
+      "    if ((m->input & INPUT_A_PRESSED) && m->wallKickTimer != 0 && m->prevAction == ACT_AIR_HIT_WALL",
+      "        && !(gStudioRules.disabled & STUDIO_MOVE_WALL_KICK)) {"
+     ]
+    ],
+    [
+     1314,
+     1,
+     [
+      "        if ((m->input & INPUT_A_PRESSED) && !(gStudioRules.disabled & STUDIO_MOVE_WALL_KICK)) {"
+     ]
+    ]
+   ]
+  },
+  "src/game/mario_actions_moving.c": {
+   "orig": "977d91f24c55912df5d90ce56bad1f304646dee8efe4266eed2ccaedd78a6d02",
+   "sha256": "7f93a8351ddbd60b273ee6cf48103c54ac6978a16fc7427f5c77bc9cc39f5a81",
+   "hunks": [
+    [
+     4,
+     0,
+     [
+      "#include \"studio/objects.h\""
+     ]
+    ],
+    [
+     443,
+     1,
+     [
+      "    maxTargetSpeed *= gStudioRules.runSpeed; // Studio 64 rules",
+      "    targetSpeed = m->intendedMag * gStudioRules.runSpeed < maxTargetSpeed ? m->intendedMag * gStudioRules.runSpeed : maxTargetSpeed;"
+     ]
+    ],
+    [
+     452,
+     1,
+     [
+      "        m->forwardVel += (1.1f - m->forwardVel / (43.0f * gStudioRules.runSpeed)) * gStudioRules.runSpeed;"
+     ]
+    ],
+    [
+     457,
+     2,
+     [
+      "    if (m->forwardVel > 48.0f * gStudioRules.runSpeed) {",
+      "        m->forwardVel = 48.0f * gStudioRules.runSpeed;"
+     ]
+    ]
+   ]
+  },
+  "src/game/mario_actions_submerged.c": {
+   "orig": "3194becf6174bb1d5f386cc13bbdf4882004d86b3c03a0807956eacdcfa4644b",
+   "sha256": "2a66ec2120e35f47932b5556e660fa35f854a36e3a5d723dc08a13e6eabdc45f",
+   "hunks": [
+    [
+     12,
+     0,
+     [
+      "#include \"studio/objects.h\""
+     ]
+    ],
+    [
+     174,
+     0,
+     [
+      "",
+      "    if (gStudioRules.swimSpeed != 1.0f && (m->action & ACT_FLAG_SWIMMING)) {",
+      "        step[0] *= gStudioRules.swimSpeed; // Studio 64 rules",
+      "        step[1] *= gStudioRules.swimSpeed;",
+      "        step[2] *= gStudioRules.swimSpeed;",
+      "    }"
+     ]
+    ]
+   ]
+  },
+  "src/game/mario_step.c": {
+   "orig": "db2b0acc0f6f48550b8edb8ff332b1b4635edc2359ae6e212fb7fb9a69a0ab57",
+   "sha256": "46f6e69bbc98011a68fe15ad73c0be2192683cd23e2cddf0e12142767ca0973d",
+   "hunks": [
+    [
+     10,
+     0,
+     [
+      "#include \"studio/objects.h\""
+     ]
+    ],
+    [
+     535,
+     0,
+     [
+      "    f32 studioVelBefore = m->vel[1];"
+     ]
+    ],
+    [
+     580,
+     0,
+     [
+      "    studio_rules_gravity(m, studioVelBefore); // Studio 64 rules"
+     ]
+    ]
+   ]
+  },
+  "src/game/memory.c": {
+   "orig": "d4eed8d96cd9259cf582669a3aa4a38d9699310a469717e2df07863566162d63",
+   "sha256": "153d5b17bd7906827d73d7a609dda5370648a07aee9e8effdac31405ce35bbd9",
+   "hunks": [
+    [
+     81,
+     0,
+     [
+      "    if (segment >= 0x80) { // Studio 64: RAM (its modules' data)",
+      "        return (void *) addr;",
+      "    }"
+     ]
+    ],
+    [
+     250,
+     1,
+     [
+      "void dma_read(u8 *dest, u8 *srcStart, u8 *srcEnd) { // (Studio 64: also used by s64_hack.c)"
+     ]
+    ],
+    [
+     541,
+     1,
+     [
+      "    } else if (size <= 1024) {",
+      "        static u64 sScratch[512];",
+      "        static u32 sScratchAt;",
+      "        sScratchAt = (sScratchAt + size <= sizeof(sScratch)) ? sScratchAt : 0;",
+      "        ptr = (u8 *) sScratch + sScratchAt;",
+      "        sScratchAt += size;"
+     ]
+    ]
+   ]
+  },
+  "src/game/obj_behaviors_2.c": {
+   "orig": "6ca1c8e343658640dee2af51741d0fd2fc2d340fd85b874a729bfc6a6ed5481e",
+   "sha256": "95c7d54fd0b405a3094b558a754265684813230f165cddcf3748a6637c01ee80",
+   "hunks": [
+    [
+     39,
+     0,
+     [
+      "#include \"studio/objects.h\""
+     ]
+    ]
+   ]
+  },
+  "src/game/object_helpers.c": {
+   "orig": "f25b45830541914ee18628e023ff8b7bb93a08559196f5896b85db135b633663",
+   "sha256": "8535611112816535cf31999b2902b8d2e61a28140995c278aa0bbb3bfb78b20d",
+   "hunks": [
+    [
+     24,
+     0,
+     [
+      "#include \"studio/objects.h\""
+     ]
+    ],
+    [
+     1988,
+     0,
+     [
+      "",
+      "    studio_path_override_apply(o); // paths drawn in the studio"
+     ]
+    ]
+   ]
+  },
+  "src/game/rendering_graph_node.c": {
+   "orig": "09ab44b3b92be519b54f0c971d78a975ade627de600548e822ab337db4e2dcfb",
+   "sha256": "05627dc3f681edebbd09ded701355c4b26676f5af0ec0f4586a53bce971bc6ca",
+   "hunks": [
+    [
+     10,
+     0,
+     [
+      "",
+      "f32 s64_fov(f32 fov); // (Studio 64: the field of view of a story cutscene)"
+     ]
+    ],
+    [
+     197,
+     0,
+     [
+      "// Studio 64: a display list drawn with the current matrix (its modules' weapons and effects)",
+      "void studio_geo_append(void *displayList, s16 layer) {",
+      "    geo_append_display_list(displayList, layer);",
+      "}",
+      "",
+      "// Studio 64: Mario carries the shotgun or the katana (their modules set these; s64_glue.c)",
+      "extern s32 gStudioShotgunDraw, gStudioKatanaDraw;",
+      "void studio_shotgun_anim_part(s16 *rotation);",
+      "void studio_shotgun_part_drawn(Mat4 *mtx);",
+      "void studio_katana_anim_part(s16 *rotation);",
+      "void studio_katana_part_drawn(Mat4 *mtx);",
+      ""
+     ]
+    ],
+    [
+     251,
+     1,
+     [
+      "        guPerspective(mtx, &perspNorm, s64_fov(node->fov), aspect, node->near, node->far, 1.0f);"
+     ]
+    ],
+    [
+     588,
+     0,
+     [
+      "        if (gStudioShotgunDraw) {",
+      "            studio_shotgun_anim_part(rotation); // Studio 64: Mario's arms hold the shotgun",
+      "        }",
+      "        if (gStudioKatanaDraw) {",
+      "            studio_katana_anim_part(rotation); // ... or the katana",
+      "        }"
+     ]
+    ],
+    [
+     594,
+     0,
+     [
+      "    if (gStudioShotgunDraw) {",
+      "        studio_shotgun_part_drawn(&gMatStack[gMatStackIndex]); // (the gun on his torso, its effects)",
+      "    }",
+      "    if (gStudioKatanaDraw) {",
+      "        studio_katana_part_drawn(&gMatStack[gMatStackIndex]); // (the blade in his right fist, its effects)",
+      "    }"
+     ]
+    ]
+   ]
+  },
+  "src/game/save_file.c": {
+   "orig": "9689d25f46019b3f319d1633ad6a5c56f7696ae097ce50ada322c73784bb5d66",
+   "sha256": "d31ff06daf0ab23f4f28c70222089f94be39093c752cbf366bab2331f37d9f26",
+   "hunks": [
+    [
+     9,
+     0,
+     [
+      "",
+      "void s64_save_file_loaded(s32 file, struct SaveFile *main);",
+      "void s64_save_file_saved(s32 file, struct SaveFile *main, struct SaveFile *progress);",
+      "void s64_save_file_erased(s32 file, struct SaveFile *progress);",
+      "void s64_save_file_reload(s32 file, struct SaveFile *main);"
+     ]
+    ],
+    [
+     257,
+     3,
+     [
+      "        // Studio 64: the second slot keeps the progress",
+      "        s64_save_file_saved(fileIndex, &gSaveBuffer.files[fileIndex][0], &gSaveBuffer.files[fileIndex][1]);"
+     ]
+    ],
+    [
+     273,
+     0,
+     [
+      "    s64_save_file_erased(fileIndex, &gSaveBuffer.files[fileIndex][1]);"
+     ]
+    ],
+    [
+     283,
+     2,
+     [
+      "    bcopy(gSaveBuffer.files[srcFileIndex], gSaveBuffer.files[destFileIndex], sizeof(gSaveBuffer.files[destFileIndex]));"
+     ]
+    ],
+    [
+     317,
+     0,
+     [
+      "        // Studio 64: the second slot is the progress (a save of the original game: its copy)"
+     ]
+    ],
+    [
+     318,
+     3,
+     [
+      "        if (!validSlots) {",
+      "            if (verify_save_block_signature(&gSaveBuffer.files[file][1], sizeof(gSaveBuffer.files[file][1]), SAVE_FILE_MAGIC)) {",
+      "                bcopy(&gSaveBuffer.files[file][1], &gSaveBuffer.files[file][0], sizeof(gSaveBuffer.files[file][0]));",
+      "                bzero(&gSaveBuffer.files[file][1], sizeof(gSaveBuffer.files[file][1]));",
+      "            } else {"
+     ]
+    ],
+    [
+     322,
+     7,
+     [
+      "            }"
+     ]
+    ],
+    [
+     330,
+     0,
+     [
+      "        s64_save_file_loaded(file, &gSaveBuffer.files[file][0]);"
+     ]
+    ],
+    [
+     342,
+     2,
+     [
+      "    s64_save_file_reload(gCurrSaveFileNum - 1, &gSaveBuffer.files[gCurrSaveFileNum - 1][0]);"
+     ]
+    ]
+   ]
+  },
+  "src/game/sound_init.c": {
+   "orig": "c7b29ae67ec97682a1a01f0d4a55023676fc39102d81c32ee896fb1b71e3a3ff",
+   "sha256": "5ef63bfa690a0246ca0409495e7e0f30de20cca567b47910102af3bcc950c821",
+   "hunks": [
+    [
+     30,
+     0,
+     [
+      "",
+      "void studio_reset_current_music(void) {",
+      "    sCurrentMusic = MUSIC_NONE;",
+      "}"
+     ]
+    ]
+   ]
+  },
+  "tools/Makefile": {
+   "orig": "63965bbdd0b4f7ddfdae51c3262298a2edb4d5b6e468bf579a5f667ee864b728",
+   "sha256": "6636b8c2f9b0f20bd097829169a4ed521c34d60ee7721384184e47a862eb8e2a",
+   "hunks": [
+    [
+     43,
+     1,
+     [
+      "armips_CFLAGS  := -std=gnu++17 -include cstdint -fno-exceptions -fno-rtti -pipe"
+     ]
+    ]
+   ]
+  }
+ }
+}

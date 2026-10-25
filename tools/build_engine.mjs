@@ -10,6 +10,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { spawn } from 'node:child_process';
 import { ROOT, ToolError, ensureToolchain, toolchainEnv, buildEnv, findEmsdk, emsdkEnv, writeCppWrapper, needBinutils, writeBinutilsWrappers, which } from './lib/toolchain.mjs';
+import { ensureEngineSource } from './lib/engine_source.mjs';
 
 const ENGINE = path.join(ROOT, 'engine');
 const say = (s) => console.log(s);
@@ -51,6 +52,13 @@ try {
   fail(err instanceof ToolError ? `${err.title}${err.detail ? `: ${err.detail}` : ''}\n${err.fix}` : err.stack);
 }
 say(`[tools] ${tc.notes.join(', ')}`);
+
+// the game's source: sm64ex (downloaded once) with Studio 64's changes (tools/lib/engine_source.mjs)
+try {
+  await ensureEngineSource({ onStatus: (s) => say(`[source] ${s}`) });
+} catch (err) {
+  fail(err instanceof ToolError ? `${err.title}${err.detail ? `: ${err.detail}` : ''}\n${err.fix}` : err.stack);
+}
 
 const emsdk = findEmsdk();
 if (!emsdk) fail('The Emscripten SDK was not found. Run npm start (the setup installs it), or install it and set EMSDK=/path/to/emsdk.');

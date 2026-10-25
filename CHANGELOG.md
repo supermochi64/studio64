@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.2.0-beta (2026-10-25)
+
+- **No game code or data in the repository.** The engine's source (sm64ex with the decompiled
+  game, its levels, models, animations and text) is no longer kept here: the setup downloads it
+  once (about 10 MB, every file checked against its checksum) and adds Studio 64's own files and
+  changes to it. `engine-upstream/` and `server/romexport/decomp-changes.json` hold only Studio 64's
+  own lines, never the original ones. The game it builds is byte for byte the one before. The
+  trailer files left the repository too (the trailer is on YouTube). See
+  [Building the engine](docs/building-the-engine.md#where-the-engines-source-comes-from).
+- The release ZIP is smaller: 19 MB instead of 29 MB.
+
 ## 0.1.3-beta (2026-10-24)
 
 - **Setup on a Mac** (thanks [@mikesherov](https://github.com/mikesherov)): the game's build stopped
