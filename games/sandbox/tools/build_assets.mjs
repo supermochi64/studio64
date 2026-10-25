@@ -11,6 +11,7 @@ import { Canvas } from './lib/png.mjs';
 import { writeModels } from './models.mjs';
 import { writeFonts } from './fonts.mjs';
 import { buildAudio } from './audio.mjs';
+import { buildSfx } from './sfx.mjs';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const OUT = path.resolve(HERE, '..', 'assets');
@@ -164,3 +165,4 @@ if (stats) {
   const out = path.join(OUT, 'voices.bin');
   if (!fs.existsSync(out) || fs.statSync(out).mtimeMs < Math.max(...src)) buildAudio(OUT);
 }
+buildSfx(OUT); // (quick: always)

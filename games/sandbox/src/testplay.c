@@ -207,6 +207,50 @@ static bool run_test(int n, int t) {
       perf_parts();
       debugf("PERF hood %.1f ms a frame (game %.1f, draw %.1f, wait %.1f ms)\n", (get_ticks_ms() - s_ticks0) / (float)s_frames0, g_perf[0] / 1000.0f, g_perf[1] / 1000.0f, g_perf[2] / 1000.0f);
       return true;
+    case 14: // swimming: into the sea, strokes, a dive, floating up, the water jump
+      if (t == 0) {
+        float z = 600;
+        while (z < 755 && WATER_Y - world_floor(-96, z, 5, NULL) < 4.5f) z += 2;
+        place_player(-96, z, PI / 2); s_start = p->pos; s_val = 0; s_peak = 0;
+      }
+      if (t == 20) check("swim: in the water", p->state == ST_SWIM, "state %.0f", p->state);
+      if (t >= 20 && t < 50) { s_pad.sy = 1; s_pad.a = (t % 12) < 2; }   // stick up: dive
+      if (t == 50) { s_val = p->pos.y; check("swim: dives down", p->pos.y < WATER_Y - 2.2f, "y %.2f", p->pos.y); s_start = p->pos; shot("swim_under"); }
+      if (t >= 50 && t < 140) { s_pad.sy = -0.5f; s_pad.a = (t % 18) < 2; }  // stick back: up and on
+      if (t == 140) { check("swim: strokes carry", v3_dist_xz(p->pos, s_start) > 4, "%.1f m", v3_dist_xz(p->pos, s_start)); check("swim: back at the surface", p->pos.y > WATER_Y - 1.4f, "y %.2f", p->pos.y); }
+      if (t >= 141 && t < 146) { s_pad.sy = -1; s_pad.a = t == 142; }
+      if (t > 141 && t < 175) s_peak = maxf(s_peak, p->pos.y);
+      if (t == 150) shot("swim_jump");
+      if (t == 175) { check("swim: the water jump", s_peak > WATER_Y + 0.3f, "feet %.2f m", s_peak - WATER_Y); check("swim: no damage", p->health > 90, "health %.0f", p->health); }
+      return t >= 175;
+    case 15: // the wall kick: run at a wall, jump, A as it is hit
+      if (t == 0) {
+        place_player(-64, -170, 0);
+        float best = 99, by = 0;
+        for (int k = 0; k < 16; k++) {
+          float yaw = k * TAU / 16, ht; V3 nn;
+          V3 a = {p->pos.x, p->pos.y + 1.2f, p->pos.z}, b = v3_add(a, v3_scale(yaw_dir(yaw), 30));
+          if (!world_raycast(a, b, &ht, &nn) || ht * 30 < 7 || ht * 30 > best || fabsf(nn.y) > 0.2f) continue;
+          // a real wall: wide (both sides hit it too) and square on
+          V3 side = yaw_dir(yaw + PI / 2); bool wide = true;
+          for (int sd = -1; sd <= 1; sd += 2) {
+            float h2; V3 n2; V3 a2 = v3_add(a, v3_scale(side, sd * 1.5f));
+            if (!world_raycast(a2, v3_add(a2, v3_scale(yaw_dir(yaw), 30)), &h2, &n2) || fabsf(h2 - ht) * 30 > 0.6f) wide = false;
+          }
+          if (wide) { best = ht * 30; by = yaw; }
+        }
+        place_player(p->pos.x, p->pos.z, by); s_val = best; s_peak = 0; s_start = p->pos;
+      }
+      if (t > 0 && t < 120) {
+        s_pad.sy = 1;
+        if (p->onGround && v3_dist_xz(p->pos, s_start) > s_val - 3.6f && s_peak == 0) s_peak = 1;
+        if (s_peak == 1) s_pad.a = true; // (held: the full jump)
+        if (p->state == ST_WALLHIT && s_peak == 1) { s_peak = 2; s_pad.a = false; }
+        else if (s_peak == 2) { s_pad.a = true; s_peak = 3; }
+        if (p->state == ST_WALLKICK) s_peak = 4;
+      }
+      if (t == 120 || (s_peak == 4 && p->onGround)) { check("wall kick", s_peak == 4, "step %.0f", s_peak); return true; }
+      return false;
   }
   debugf("TEST done: %d passed, %d failed\n", s_passes, s_fails);
   s_test = 999;

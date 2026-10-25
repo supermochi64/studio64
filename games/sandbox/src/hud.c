@@ -79,6 +79,7 @@ static void radar(void) {
   float mpp = (float)g_world.size / 256.0f;        // meters per map pixel
   float scale = RAD_S / range;                     // radar pixels per meter
   rect(RAD_X - 2, RAD_Y - 2, RAD_S + 4, RAD_S + 4, RGBA32(0, 0, 0, 255));
+  rect(RAD_X, RAD_Y, RAD_S, RAD_S, RGBA32(42, 88, 128, 255)); // the sea, past the map's edge
   rdpq_set_scissor(RAD_X, RAD_Y, RAD_X + RAD_S, RAD_Y + RAD_S);
   rdpq_set_mode_standard();
   rdpq_mode_filter(FILTER_BILINEAR);
@@ -173,9 +174,16 @@ void hud_draw(void) {
   // messages
   if (g.messageTime > 0) {
     g.messageTime -= DT;
-    int w = hud_text_width(g.message, 1);
-    rect(160 - w / 2 - 4, 174, w + 8, 12, RGBA32(0, 0, 0, 120));
-    text_center(176, RGBA32(255, 255, 255, 255), 1, g.message);
+    // above the radar, wrapped at a word into two lines when long
+    char l1[48], l2[48]; const char *m = g.message;
+    int n = strlen(m), cut = n;
+    if (n > 40) { cut = 40; while (cut > 0 && m[cut] != ' ') cut--; if (cut == 0) cut = 40; }
+    snprintf(l1, sizeof(l1), "%.*s", cut, m);
+    snprintf(l2, sizeof(l2), "%s", cut < n ? m + cut + (m[cut] == ' ') : "");
+    int w = maxi(hud_text_width(l1, 1), hud_text_width(l2, 1)), y = l2[0] ? 128 : 138;
+    rect(160 - w / 2 - 4, y - 2, w + 8, l2[0] ? 24 : 12, RGBA32(0, 0, 0, 120));
+    text_center(y, RGBA32(255, 255, 255, 255), 1, l1);
+    if (l2[0]) text_center(y + 12, RGBA32(255, 255, 255, 255), 1, l2);
   }
   if (g.bigTime > 0) {
     g.bigTime -= DT;

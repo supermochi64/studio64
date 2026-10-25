@@ -103,6 +103,7 @@ void player_step(const Pad *pad) {
   // on foot
   V3 move = camera_stick_dir(pad->sx, pad->sy);
   c->move = move;
+  c->rawX = pad->sx; c->rawY = pad->sy;
   c->jump = pad->pa; c->jumpHeld = pad->a;
   c->crouch = pad->z; c->crouchPressed = pad->pz;
   c->attack = pad->pb; c->attackHeld = pad->b;

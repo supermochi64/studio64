@@ -288,12 +288,16 @@ paint('chainlink', 32, 32, (p) => {
   p.rect(0, 0, 32, 1.6, H('#9ca0a4')); p.rect(0, 0, 32, 0.6, H('#d0d4d8'));
 }, true);
 paint('water', 32, 32, (p) => {
-  p.fill(H('#2a6c9c')).mottle(0.12, 3, 3);
+  // deep blue with soft swells and a net of bright ripple lines (warped noise contours, no grid)
+  p.fill(H('#2a6c9c'));
   p.map((x, y, c) => {
-    const n = p.fbm(x, y, 3, 2) * 10;
-    const w = Math.abs(Math.sin((x + n) * 0.39) * Math.sin((y - n) * 0.33));
-    const a = Math.pow(1 - w, 10) * 0.6;
-    return mixc(c, H('#9cd2ee'), a);
+    const sw = p.fbm(x, y, 2, 2);
+    const wx = x + (p.fbm(x + 7, y, 3, 2) - 0.5) * 9, wy = y + (p.fbm(x, y + 11, 3, 2) - 0.5) * 9;
+    const n = p.fbm(wx, wy, 3, 3) * 4.0;
+    const f = Math.abs(n - Math.round(n)) * 2;           // 0 on a contour, 1 between
+    const line = Math.pow(1 - f, 7) * 0.55;
+    const base = mixc(H('#1f5f8e'), H('#3a86b4'), sw);
+    return mixc(base, H('#a8daf2'), line);
   });
 });
 paint('container', 32, 32, (p) => {

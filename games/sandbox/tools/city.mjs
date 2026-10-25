@@ -1423,11 +1423,11 @@ export class City {
       this.lod(px, (z + ze) / 2, (b, m) => b.quad(m('plain'), [[px - pw, py, z], [px - pw, py, ze], [px + pw, py, ze], [px + pw, py, z]], { color: [156, 116, 72, 255] }));
       for (const s of [-1, 1]) this.solid(px + s * pw, (z + ze) / 2, 0.15, (ze - z) / 2, py, py + 1.0, { flags: BOX.THIN });
     }
-    this.solid(px, (pz0 + pz1) / 2, pw, (pz1 - pz0) / 2, py - 0.5, py, { flags: BOX.LOW });
+    this.solid(px, (pz0 + pz1) / 2, pw, (pz1 - pz0) / 2, py - 0.5, py, { flags: BOX.LOW, kind: 4 }); // (kind 4: wooden: footsteps knock)
     // the ramp from the boardwalk
     const rz0 = 586, rz1 = pz0;
     this.emit(px, (rz0 + rz1) / 2, (b, m) => b.quad(m('wood'), [[px - pw, PAD_Y, rz0], [px - pw, py, rz1], [px + pw, py, rz1], [px + pw, PAD_Y, rz0]], { color: WHITE, uv: [[0, 0], [0, 6], [pw, 6], [pw, 0]] }));
-    this.solid(px, (rz0 + rz1) / 2, pw, (rz1 - rz0) / 2, -1, py, { flags: BOX.RAMP, r0: PAD_Y, r1: py });
+    this.solid(px, (rz0 + rz1) / 2, pw, (rz1 - rz0) / 2, -1, py, { flags: BOX.RAMP, r0: PAD_Y, r1: py, kind: 4 });
     // a hut at the end of the pier
     this.emit(px, pz1 - 8, (b, m) => { box(b, m('wood'), [px - 4, py, pz1 - 12], [px + 4, py + 3.2, pz1 - 4], { color: [230, 220, 200, 255], uvScale: 2 }); box(b, m('plain'), [px - 4.6, py + 3.2, pz1 - 12.6], [px + 4.6, py + 3.5, pz1 - 3.4], { color: [40, 120, 150, 255] }); });
     this.solid(px, pz1 - 8, 4, 4, py, py + 3.5);

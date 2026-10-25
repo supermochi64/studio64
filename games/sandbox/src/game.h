@@ -31,6 +31,7 @@ typedef struct {
   V3 move;              // the wanted direction on the ground, length 0..1
   bool sprint, walk;    // (AI) speed limits
   bool jump, jumpHeld, crouch, crouchPressed, attack, attackHeld;
+  float rawX, rawY;     // the stick itself (swimming steers like a tank: turn and pitch)
   bool aim;             // hold to aim (strafe, face aimAt)
   V3 aimAt;
   bool face;            // turn to faceYaw (AI standing still)
@@ -59,6 +60,14 @@ struct Actor {
   float peakY;          // the highest point of the current fall (fall damage)
   bool onGround, shortHop, firedInAir;
   V3 wallNormal;
+  float sideVel;        // sideways drift in the air (the stick across the facing)
+  float pitch;          // swimming: nose up (+) or down (-)
+  float stroke;         // swimming: time left in a breaststroke
+  int chain;            // the jump chain: what the last landing allows (0 single, 1 double, 2 triple)
+  float grabCool;       // no grabbing ledges and poles for a moment after letting go
+  V3 kickNormal;        // the wall hit (a wall kick goes off it)
+  bool skidTurn;        // a skid: turning round (true) or braking (false)
+  float dryTime;        // swimming: time since the head was last above water
   float health, armor, hurt;  // hurt: red flash, decays
   int combo;            // the punch combo stage (0..2)
   float hitTimer;       // a melee hit can land in this window

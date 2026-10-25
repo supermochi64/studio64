@@ -15,6 +15,7 @@ extern RenderView g_view;
 
 // the time of day: 0..24 hours (lights, sky, fog follow it)
 extern float g_hour;
+extern bool g_underwater;   // the eye is under the sea (blue fog all round)
 
 void render_init(void);
 void render_begin(void);                 // starts the 3D frame (sky, fog, lights for the city)

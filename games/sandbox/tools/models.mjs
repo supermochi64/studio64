@@ -296,12 +296,12 @@ function misc(out) {
   // the blob shadow under people and cars: a dark disc (alpha blended)
   mk('shadow', (b, m) => { const mm = m('shadow', { layer: 'blend', fog: false }); const n = 12; for (let i = 0; i < n; i++) { const a0 = (i / n) * Math.PI * 2, a1 = ((i + 1) / n) * Math.PI * 2; b.triangle(mm, [[0, 0, 0], [Math.sin(a0), 0, Math.cos(a0)], [Math.sin(a1), 0, Math.cos(a1)]], { colors: [[0, 0, 0, 150], [0, 0, 0, 0], [0, 0, 0, 0]] }); } });
   // particles: a unit cube (tinted by prim colour: smoke, fire, sparks, blood, debris)
-  mk('fx_cube', (b, m) => box(b, m('fx', { prim: true }), [-0.5, -0.5, -0.5], [0.5, 0.5, 0.5], { color: W }));
+  mk('fx_cube', (b, m) => box(b, m('fx', { prim: true }), [-0.5, -0.5, -0.5], [0.5, 0.5, 0.5], { color: W, shadeSides: false }));
   mk('fx_flash', (b, m) => { const mm = m('flash', { prim: true, cull: false, fog: false }); for (const a of [0, Math.PI / 3, -Math.PI / 3]) b.quad(mm, [[0, -0.06, 0], [Math.sin(a) * 0.15, 0.08 * Math.cos(a), 0.3], [0, 0.06, 0.4], [-Math.sin(a) * 0.15, -0.08 * Math.cos(a), 0.3]], { color: W }); });
   // a tracer: a thin box along +z, length 1 (scaled)
   mk('fx_tracer', (b, m) => box(b, m('tracer', { prim: true, fog: false }), [-0.015, -0.015, 0], [0.015, 0.015, 1], { color: W, shadeSides: false }));
   // the sea: one 64 m tile, drawn round the camera
-  mk('water', (b, m) => { const mm = m('water', { tex: 'water.png', layer: 'blend' }); for (let i = 0; i < 4; i++) for (let j = 0; j < 4; j++) { const x = -32 + i * 16, z = -32 + j * 16; b.quad(mm, [[x, 0, z], [x, 0, z + 16], [x + 16, 0, z + 16], [x + 16, 0, z]], { color: [255, 255, 255, 200], uv: [[0, 0], [0, 4], [4, 4], [4, 0]] }); } });
+  mk('water', (b, m) => { const mm = m('water', { tex: 'water.png', layer: 'blend', cull: false, alphaPrim: 0.7 }); for (let i = 0; i < 4; i++) for (let j = 0; j < 4; j++) { const x = -32 + i * 16, z = -32 + j * 16; b.quad(mm, [[x, 0, z], [x, 0, z + 16], [x + 16, 0, z + 16], [x + 16, 0, z]], { color: [255, 255, 255, 255], uv: [[0, 0], [0, 4], [4, 4], [4, 0]] }); } });
   // the sky: a dome of colour bands (drawn first, around the camera, without fog)
   mk('sky', (b, m) => {
     const mm = m('sky', { fog: false, cull: false });

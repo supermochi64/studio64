@@ -26,6 +26,13 @@ void sound_music(int track);
 int sound_music_now(void);       // the track playing (MUS_NONE if none)
 extern int g_voicesPlayed;     // crossfades; MUS_PASSED plays once, then the previous comes back
 
+// the effects made offline (tools/sfx.mjs; the order of its SFX list)
+enum {
+  SFX_STEP_HARD, SFX_STEP_GRASS = SFX_STEP_HARD + 3, SFX_STEP_SAND = SFX_STEP_GRASS + 3, SFX_STEP_WOOD = SFX_STEP_SAND + 2,
+  SFX_STEP_WATER = SFX_STEP_WOOD + 2, SFX_LAND = SFX_STEP_WATER + 2, SFX_SWIM, SFX_SWIM2, SFX_SPLASH, SFX_GRAB, SFX_COUNT
+};
+void sound_sfx(int id, V3 at, float vol, float pitch);
+
 void sound_init(void);
 void sound_update(void);                 // once a frame (fills the audio buffers)
 void sound_play(int id, V3 at);

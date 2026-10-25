@@ -59,7 +59,12 @@ void fx_step(void) {
     if (falls) p->vel.y -= 18 * DT;
     if (p->type == FX_SMOKE) { p->vel.x *= 0.98f; p->vel.z *= 0.98f; }
     p->pos = v3_mad(p->pos, p->vel, DT);
-    if (falls && p->pos.y < world_terrain(p->pos.x, p->pos.z) + 0.05f && p->pos.y < 0.3f) { p->pos.y = maxf(p->pos.y, 0.05f); p->vel = (V3){p->vel.x * 0.3f, -p->vel.y * 0.2f, p->vel.z * 0.3f}; }
+    if (falls) {
+      float gy = world_terrain(p->pos.x, p->pos.z);
+      // the sea swallows what falls in it; the ground stops it
+      if (gy < WATER_Y) { if (p->pos.y < WATER_Y) { s_parts[i--] = s_parts[--s_np]; continue; } }
+      else if (p->pos.y < gy + 0.05f) { p->pos.y = maxf(p->pos.y, gy + 0.05f); p->vel = (V3){p->vel.x * 0.3f, -p->vel.y * 0.2f, p->vel.z * 0.3f}; }
+    }
     p->size = maxf(0.02f, p->size + p->grow * DT);
   }
   for (int i = 0; i < MAX_TRACERS; i++) if (s_tr[i].life > 0) s_tr[i].life -= DT;

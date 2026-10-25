@@ -140,7 +140,11 @@ static void game_step(const Pad *pad) {
   if (p) {
     int mode = player_camera_mode();
     if (p->vehicle && p->state == ST_VEHICLE) camera_update(p->vehicle->pos, p->vehicle->yaw, fabsf(p->vehicle->speed), mode, player_aim_point(), pad);
-    else camera_update(p->pos, p->yaw, v3_len_xz(p->vel), mode, player_aim_point(), pad);
+    else {
+      g_camGrounded = p->onGround || p->state == ST_POLE || p->state == ST_LEDGE || p->state == ST_LEDGECLIMB || p->state == ST_SWIM;
+      g_camSwimming = p->state == ST_SWIM && p->pos.y < WATER_Y - 1.6f;
+      camera_update(p->pos, p->yaw, v3_len_xz(p->vel), mode, player_aim_point(), pad);
+    }
     // the engine and the radio of the player's vehicle
     if (p->vehicle && p->state == ST_VEHICLE && g_vdefs[p->vehicle->def].motor) {
       sound_engine(true, clampf(fabsf(p->vehicle->speed) / g_vdefs[p->vehicle->def].maxSpeed + fabsf(p->vehicle->throttle) * 0.2f, 0, 1.2f), p->vehicle->pos);

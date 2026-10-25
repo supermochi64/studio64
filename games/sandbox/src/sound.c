@@ -10,7 +10,7 @@
 #define CH_COUNT 24
 
 typedef struct { int16_t *data; int len; bool loop; waveform_t wave; } Sample;
-static Sample s_snd[SND_COUNT], s_engine, s_siren, s_voice[VO_COUNT];
+static Sample s_snd[SND_COUNT], s_engine, s_siren, s_voice[VO_COUNT], s_sfx[SFX_COUNT];
 static int s_next = CH_FIRST_SFX, s_nextVoice = CH_FIRST_VOICE;
 static bool s_ok;
 
@@ -76,6 +76,19 @@ static void make_noise(Sample *s, float len, float cut, float decay, float attac
   }
 }
 
+static void load_bank(const char *file, Sample *out, int max) {
+  int size = 0;
+  uint8_t *bank = asset_load(file, &size);
+  int n = (bank[4] << 24) | (bank[5] << 16) | (bank[6] << 8) | bank[7];
+  int16_t *pcm = (int16_t *)(bank + 8 + n * 8);
+  for (int i = 0; i < n && i < max; i++) {
+    uint32_t *e = (uint32_t *)(bank + 8 + i * 8);
+    Sample *v = &out[i];
+    v->data = pcm + e[0]; v->len = e[1]; v->loop = false;
+    v->wave = (waveform_t){.name = "bank", .bits = 16, .channels = 1, .frequency = RATE, .len = v->len, .loop_len = 0, .read = wv_read, .ctx = v};
+  }
+}
+
 void sound_init(void) {
   audio_init(RATE, 4);
   mixer_init(CH_COUNT);
@@ -112,19 +125,9 @@ void sound_init(void) {
   // the siren: a slow wail
   alloc(&s_siren, 2.0f, true);
   { float ph = 0; for (int i = 0; i < s_siren.len; i++) { float t = (float)i / RATE; float f = 700 + 400 * sinf(t * PI); ph += f / RATE; put(&s_siren, i, (fmodf(ph, 1) < 0.5f ? 0.25f : -0.25f)); } }
-  // the voices: one bank of 16-bit clips made by tools/audio.mjs
-  {
-    int size = 0;
-    uint8_t *bank = asset_load("rom:/voices.bin", &size);
-    int n = (bank[4] << 24) | (bank[5] << 16) | (bank[6] << 8) | bank[7];
-    int16_t *pcm = (int16_t *)(bank + 8 + n * 8);
-    for (int i = 0; i < n && i < VO_COUNT; i++) {
-      uint32_t *e = (uint32_t *)(bank + 8 + i * 8);
-      Sample *v = &s_voice[i];
-      v->data = pcm + e[0]; v->len = e[1]; v->loop = false;
-      v->wave = (waveform_t){.name = "vo", .bits = 16, .channels = 1, .frequency = RATE, .len = v->len, .loop_len = 0, .read = wv_read, .ctx = v};
-    }
-  }
+  // the voices and the offline effects: banks of 16-bit clips made by tools/audio.mjs, tools/sfx.mjs
+  load_bank("rom:/voices.bin", s_voice, VO_COUNT);
+  load_bank("rom:/sfx.bin", s_sfx, SFX_COUNT);
   static const char *MUS_FILES[MUS_COUNT] = {"day", "night", "war", "title", "radio", "passed", "beach"};
   for (int i = 0; i < MUS_COUNT; i++) {
     char fn[48]; snprintf(fn, sizeof fn, "rom:/mus_%s.wav64", MUS_FILES[i]);
@@ -190,12 +193,22 @@ void sound_play(int id, V3 at) {
   place(ch, at, id == SND_EXPLOSION ? 1.0f : 0.8f);
   mixer_ch_set_freq(ch, RATE * rnd_range(0.94f, 1.06f));
 }
+void sound_sfx(int id, V3 at, float vol, float pitch) {
+  if (!s_ok || id < 0 || id >= SFX_COUNT || !s_sfx[id].data) return;
+  if (v3_dist(at, g_view.eye) > 60) return;
+  int ch = s_next;
+  s_next = s_next + 1 >= CH_COUNT ? CH_FIRST_SFX : s_next + 1;
+  mixer_ch_play(ch, &s_sfx[id].wave);
+  place(ch, at, vol);
+  mixer_ch_set_freq(ch, RATE * pitch);
+}
 void sound_play_ui(int id) {
-  if (!s_ok) return;
+  if (!s_ok || id < 0 || id >= SND_COUNT) return;
   int ch = s_next;
   s_next = s_next + 1 >= CH_COUNT ? CH_FIRST_SFX : s_next + 1;
   mixer_ch_play(ch, &s_snd[id].wave);
   mixer_ch_set_vol(ch, 0.7f, 0.7f);
+  mixer_ch_set_freq(ch, RATE);
 }
 void sound_engine(bool on, float rpm, V3 at) {
   if (!s_ok) return;

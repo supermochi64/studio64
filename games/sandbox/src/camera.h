@@ -10,7 +10,10 @@ typedef struct {
   int mode;
   V3 focus, eye;
   float lookTimer;       // C-buttons used recently: no automatic turning for a moment
+  float groundY;         // the height it frames: the ground under the player (not each jump)
 } Camera;
+// on foot: tell the camera whether the player stands (on the ground, a pole, a ledge, in water)
+extern bool g_camGrounded, g_camSwimming;
 extern Camera g_cam;
 
 void camera_init(V3 at, float yaw);

@@ -29,7 +29,7 @@ FS_MODELS = $(patsubst assets/%.glb,filesystem/%.t3dm,$(GLB))
 FS_SPRITES = $(patsubst assets/%.png,filesystem/%.sprite,$(PNG))
 MUS = $(wildcard assets/audio/mus_*.wav)
 FS_MUSIC = $(patsubst assets/audio/%.wav,filesystem/%.wav64,$(MUS))
-FS_DATA = filesystem/voices.bin filesystem/world.bin filesystem/font1.font64 filesystem/font2.font64 filesystem/font3.font64
+FS_DATA = filesystem/voices.bin filesystem/sfx.bin filesystem/world.bin filesystem/font1.font64 filesystem/font2.font64 filesystem/font3.font64
 
 all: assets/.stamp
 	@$(MAKE) --no-print-directory $(ROM)
@@ -75,6 +75,10 @@ filesystem/%.wav64: assets/audio/%.wav
 	@$(N64_AUDIOCONV) --wav-compress 1 --wav-loop $(if $(findstring passed,$*),false,true) -o filesystem "$<" > /dev/null
 
 filesystem/voices.bin: assets/voices.bin
+	@mkdir -p filesystem
+	@cp $< $@
+
+filesystem/sfx.bin: assets/sfx.bin
 	@mkdir -p filesystem
 	@cp $< $@
 

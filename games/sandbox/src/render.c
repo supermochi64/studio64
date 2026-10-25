@@ -114,7 +114,13 @@ void render_light_lit(void) {
 
 // the sky: a gradient painted behind everything in screen space (bands between colour stops at fixed
 // heights above the horizon, placed from the camera's pitch), the haze colour at and below the horizon
+bool g_underwater;
 static void draw_sky(V3 eye, V3 target) {
+  if (g_underwater) {
+    // under the sea: the water's own colour all round
+    rdpq_set_mode_fill(RGBA32(s_fog[0], s_fog[1], s_fog[2], 255)); rdpq_fill_rectangle(0, 0, 320, 240); rdpq_set_mode_standard();
+    return;
+  }
   static const struct { float deg; uint8_t c[3]; } STOP[] = {{3, {170, 206, 236}}, {14, {116, 166, 222}}, {40, {72, 122, 202}}, {90, {50, 92, 178}}};
   V3 d = v3_sub(target, eye);
   float pitch = atan2f(d.y, sqrtf(d.x * d.x + d.z * d.z));
@@ -161,6 +167,8 @@ void render_begin(void) {
   s_frame = (s_frame + 1) % FB_COUNT;
   s_matUsed = 0;
   sky_at(g_hour, s_fog, s_amb, s_sun);
+  g_underwater = g_view.eye.y < WATER_Y - 0.05f;
+  if (g_underwater) { float d = 0.35f + 0.65f * clampf(s_day * 1.4f, 0, 1); s_fog[0] = (uint8_t)(22 * d); s_fog[1] = (uint8_t)(86 * d); s_fog[2] = (uint8_t)(122 * d); }
   s_day = clampf(1.0f - fabsf(g_hour - 13.0f) / 8.5f, 0, 1) * 1.4f;
   s_day = clampf(s_day, 0, 1);
 
@@ -185,7 +193,7 @@ void render_begin(void) {
 
   rdpq_mode_fog(RDPQ_FOG_STANDARD);
   rdpq_set_fog_color(fogc);
-  t3d_fog_set_range(95.0f, 205.0f);
+  if (g_underwater) t3d_fog_set_range(2.0f, 36.0f); else t3d_fog_set_range(95.0f, 205.0f);
   t3d_fog_set_enabled(true);
   render_light_baked();
 }
@@ -194,7 +202,9 @@ static void draw_water(void) {
   // the sea in 64 m tiles round the eye, out to the fog
   float ex = g_view.eye.x, ez = g_view.eye.z;
   int ci = (int)floorf(ex / 64.0f), cj = (int)floorf(ez / 64.0f);
-  float scroll = fmodf(get_ticks_ms() * 0.00008f, 1.0f) * 16.0f;
+  // the texture drifts: the tiles slide (by up to one 4 m repeat) under the fog's far edge
+  float t = get_ticks_ms() * 0.001f;
+  float sx = fmodf(t * 0.35f, 4.0f), sz = fmodf(t * 0.22f, 4.0f);
   for (int j = -3; j <= 3; j++) for (int i = -3; i <= 3; i++) {
     float x = (ci + i) * 64.0f + 32.0f, z = (cj + j) * 64.0f + 32.0f;
     // skip tiles whose ground is all above the water (inland)
@@ -202,7 +212,7 @@ static void draw_water(void) {
     T3DVec3 c = {{x, WATER_Y, z}};
     if (!t3d_frustum_vs_sphere(&g_view.frustum, &c, 46.0f)) continue;
     T3DMat4 m;
-    mat_place(&m, (V3){x, WATER_Y, z + scroll * 0}, 0, 0, 0, 0, MODEL_SCALE);
+    mat_place(&m, (V3){x + sx, WATER_Y, z + sz}, 0, 0, 0, 0, MODEL_SCALE);
     t3d_matrix_push(render_mat(&m));
     t3d_model_draw(s_water);
     t3d_matrix_pop(1);
