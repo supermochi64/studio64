@@ -479,7 +479,13 @@ export class City {
       const mx = (q[0][0] + q[1][0]) / 2, mz = (q[0][2] + q[1][2]) / 2;
       this.emit(mx, mz, (b, m) => b.quad(m('plain'), q, { color: [170, 166, 158, 255] }));
     }
-    this.lod(cx, cz, (b, m) => b.quad(m('plain'), [[x0, PAD_Y, z0], [x0, PAD_Y, z1], [x1, PAD_Y, z1], [x1, PAD_Y, z0]], { color: [176, 172, 162, 255] }));
+    // its far model, cut along the chunks (each chunk draws its own part, near or far)
+    const C = WORLD.chunk, cut = (a, b) => { const out = [a]; for (let v = Math.ceil((a - WORLD.min) / C) * C + WORLD.min; v < b; v += C) if (v > a) out.push(v); out.push(b); return out; };
+    const xs = cut(x0, x1), zs = cut(z0, z1);
+    for (let i = 0; i < xs.length - 1; i++) for (let j = 0; j < zs.length - 1; j++) {
+      const [ax, bx, az, bz] = [xs[i], xs[i + 1], zs[j], zs[j + 1]];
+      this.lod((ax + bx) / 2, (az + bz) / 2, (b, m) => b.quad(m('plain'), [[ax, PAD_Y, az], [ax, PAD_Y, bz], [bx, PAD_Y, bz], [bx, PAD_Y, az]], { color: [176, 172, 162, 255] }));
+    }
     // walkers' network: the pad's corners (on the sidewalk, 1.8 m in)
     const c = [[x0 + 1.8, z0 + 1.8], [x1 - 1.8, z0 + 1.8], [x1 - 1.8, z1 - 1.8], [x0 + 1.8, z1 - 1.8]].map(([x, z]) => this.walkNode(x, z));
     for (let i = 0; i < 4; i++) this.walkEdge(c[i], c[(i + 1) % 4]);

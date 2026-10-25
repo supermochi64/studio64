@@ -12,10 +12,12 @@
 
 static sprite_t *s_map;
 static rdpq_font_t *s_fonts[4];
+static sprite_t *s_logo;
 static char s_district[24]; static float s_districtTime;
 
 void hud_init(void) {
   s_map = sprite_load("rom:/map.sprite");
+  s_logo = sprite_load("rom:/logo.sprite");
   for (int k = 1; k <= 3; k++) {
     char p[32]; sprintf(p, "rom:/font%d.font64", k);
     s_fonts[k] = rdpq_font_load(p);
@@ -24,7 +26,7 @@ void hud_init(void) {
 }
 
 // ---- text: our own pixel font (tools/fonts.mjs) at 1x, 2x, 3x, through rdpq_text ----
-int hud_text_width(const char *str, int scale) { return (int)strlen(str) * 6 * scale; }
+int hud_text_width(const char *str, int scale) { return (int)strlen(str) * 6 * (scale < 1 ? 1 : scale > 3 ? 3 : scale); }
 static void text_raw(int x, int y, color_t c, int scale, const char *str) {
   scale = scale < 1 ? 1 : scale > 3 ? 3 : scale;
   rdpq_font_style(s_fonts[scale], 0, &(rdpq_fontstyle_t){.color = c});
@@ -235,8 +237,9 @@ void hud_draw_title(float t, bool hasSave, int choice) {
   // the title over the city (the 3D scene is drawn behind it)
   rect(0, 0, 320, 240, RGBA32(0, 0, 0, 90));
   float bob = sinf(t * 2) * 2;
-  text_center(48 + (int)bob, RGBA32(30, 30, 30, 255), 5, "SANDBOX");
-  text_center(46 + (int)bob, RGBA32(255, 214, 90, 255), 5, "SANDBOX");
+  rdpq_set_mode_standard();
+  rdpq_mode_alphacompare(1);
+  rdpq_sprite_blit(s_logo, 160 - 128, 16 + (int)bob, NULL);
   text_center(92, RGBA32(240, 240, 240, 255), 1, "COSTA VERDE");
   const char *items[2] = {hasSave ? "CONTINUE" : "NEW GAME", hasSave ? "NEW GAME" : NULL};
   for (int i = 0; i < 2; i++) {

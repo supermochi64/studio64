@@ -25,6 +25,7 @@
 Game g;
 float g_perf[3];
 float g_perfDraw[5];
+V3 g_titleHome;
 bool g_profile;     // (tests) wait for the RSP/RDP after each part, so the times are the GPU's // the city, vehicles, people, pickups+fx, the HUD // smoothed microseconds: the game step, building the frame, waiting for a free frame buffer
 Models g_models;
 uint32_t g_rng = 0x2545F491;
@@ -216,6 +217,7 @@ int main(void) {
   Pad pad;
   // the title: the camera drifts over Palm Court
   V3 home = spot_pos(SPOT_HOME, (V3){-320, 0.15f, 30}, NULL);
+  g_titleHome = home;
 #ifdef TESTPLAY
   new_game(false);
   state = S_PLAY;
@@ -234,12 +236,12 @@ int main(void) {
       input_update(&pad);
       titleT += real;
       float a = titleT * 0.08f;
-      g_view.eye = (V3){home.x + sinf(a) * 60, 28, home.z + cosf(a) * 60};
-      g_view.target = (V3){home.x, 4, home.z};
+      g_view.eye = (V3){home.x + sinf(a) * 42, 14, home.z + cosf(a) * 42};
+      g_view.target = (V3){home.x, 6, home.z};
       stream_update(home);
       if (hasSave && (pad.pdu || pad.pdd || pad.sy > 0.5f || pad.sy < -0.5f)) choice = pad.sy < -0.5f || pad.pdd ? 1 : 0;
       if (pad.pstart || pad.pa) { new_game(hasSave && choice == 0); state = S_PLAY; sound_play_ui(SND_PICKUP); }
-      render_begin(); stream_draw(); render_end();
+      render_begin(); draw_world(); render_end();
       hud_draw_title(titleT, hasSave, choice);
       render_present();
       sound_update();

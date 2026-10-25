@@ -219,7 +219,7 @@ static const Stop TOUR[] = {
   {"home", -384, 14, PI, 16}, {"court", -384, 150, PI, 16}, {"commerce", -150, 62, PI * 0.6f, 15}, {"downtown", -64, -100, PI * 0.9f, 14},
   {"park", 20, 280, PI, 16}, {"violet", 300, 40, PI * 0.75f, 16}, {"gold", 192, 420, PI, 17}, {"docks", 560, 250, PI / 2, 16},
   {"hills", -420, -420, PI * 1.2f, 15}, {"beach", -96, 598, 0.3f, 15.5f}, {"oak", -512, -230, PI, 16}, {"night", -64, -100, PI * 0.9f, 22.5f},
-  {"sunset", -64, 576, PI / 2, 18.6f}, {"night_hood", -384, 14, PI, 21.5f}, {"night_shops", -150, 62, PI * 0.6f, 21.0f}, {"night_lamp", -61, -99, PI, 22.0f},
+  {"sunset", -64, 576, PI / 2, 18.6f}, {"night_hood", -384, 14, PI, 21.5f}, {"night_shops", -150, 62, PI * 0.6f, 21.0f}, {"night_lamp", -61, -99, PI, 22.0f}, {"band", -384, -150, PI, 16}, {"title_0", -384, 14, PI, 16}, {"title_1", -384, 14, PI, 16}, {"title_2", -384, 14, PI, 16}, {"title_3", -384, 14, PI, 16}, {"title_4", -384, 14, PI, 16}, {"title_5", -384, 14, PI, 16}, {"title_6", -384, 14, PI, 16}, {"title_7", -384, 14, PI, 16},
 };
 static bool tour(int t) {
   int i = t / 90, f = t % 90;
@@ -227,6 +227,12 @@ static bool tour(int t) {
   extern bool g_camLock; extern V3 g_camEye, g_camAt;
   if (f == 0) { place_player(TOUR[i].x, TOUR[i].z, TOUR[i].yaw); extern float g_hour; g_hour = TOUR[i].hour; g_camLock = false; }
   // the lamp stop: look down at the lamp and the light under it
+  if (strncmp(TOUR[i].name, "title_", 6) == 0 && f > 10) {
+    // the title screen's orbit round home (src/main.c)
+    extern V3 g_titleHome; float a = (TOUR[i].name[6] - '0') * (PI / 4);
+    g_camLock = true; g_camEye = (V3){g_titleHome.x + sinf(a) * 60, 28, g_titleHome.z + cosf(a) * 60}; g_camAt = (V3){g_titleHome.x, 4, g_titleHome.z};
+  }
+  if (strcmp(TOUR[i].name, "band") == 0 && f > 10) { g_camLock = true; g_camEye = (V3){-384, 30, -150}; g_camAt = (V3){-384, 25, -400}; }
   if (strcmp(TOUR[i].name, "night_lamp") == 0 && f > 10) { g_camLock = true; g_camEye = (V3){-56, 9, -104}; g_camAt = (V3){-59.8f, 0, -109.3f}; }
   if (f == 80) { extern int g_nightBlocks, g_nightTris; debugf("TOUR %s: %d night blocks, %d tris\n", TOUR[i].name, g_nightBlocks, g_nightTris); shot(TOUR[i].name); }
   return false;

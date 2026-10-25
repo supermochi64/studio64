@@ -19,7 +19,7 @@ void render_init(void) {
   g_view.vp = t3d_viewport_create_buffered(FB_COUNT);
   g_view.fov = 62.0f;
   s_mats = malloc_uncached(sizeof(T3DMat4FP) * MATS_PER_FRAME * FB_COUNT);
-  s_sky = t3d_model_load("rom:/sky.t3dm");
+  (void)s_sky; // (the sky is painted in screen space: draw_sky)
   s_water = t3d_model_load("rom:/water.t3dm");
 }
 
@@ -112,6 +112,51 @@ void render_light_lit(void) {
   t3d_light_set_count(1);
 }
 
+// the sky: a gradient painted behind everything in screen space (bands between colour stops at fixed
+// heights above the horizon, placed from the camera's pitch), the haze colour at and below the horizon
+static void draw_sky(V3 eye, V3 target) {
+  static const struct { float deg; uint8_t c[3]; } STOP[] = {{3, {170, 206, 236}}, {14, {116, 166, 222}}, {40, {72, 122, 202}}, {90, {50, 92, 178}}};
+  V3 d = v3_sub(target, eye);
+  float pitch = atan2f(d.y, sqrtf(d.x * d.x + d.z * d.z));
+  float f = 120.0f / tanf(T3D_DEG_TO_RAD(g_view.fov) * 0.5f);
+  float ar = (90 + 165 * s_day) / 255.0f, ab = (110 + 145 * s_day) / 255.0f;
+  // the stops: below the horizon (the haze), at it, then up
+  float ys[6], cs[6][3];
+  int n = 0;
+  const float deg[6] = {-89, 0, STOP[0].deg, STOP[1].deg, STOP[2].deg, STOP[3].deg};
+  for (int k = 0; k < 6; k++) {
+    float rel = T3D_DEG_TO_RAD(deg[k]) - pitch;
+    rel = clampf(rel, -1.45f, 1.45f);
+    ys[n] = 120.0f - f * tanf(rel);
+    if (k < 2) { cs[n][0] = s_fog[0] / 255.0f; cs[n][1] = s_fog[1] / 255.0f; cs[n][2] = s_fog[2] / 255.0f; }
+    else { const uint8_t *c = STOP[k - 2].c; cs[n][0] = c[0] / 255.0f * ar; cs[n][1] = c[1] / 255.0f * ar; cs[n][2] = c[2] / 255.0f * ab; }
+    n++;
+  }
+  rdpq_set_mode_standard();
+  rdpq_mode_combiner(RDPQ_COMBINER_SHADE);
+  rdpq_mode_dithering(DITHER_SQUARE_SQUARE);
+  // the top of the screen first: anything above the last stop is the zenith's colour
+  float top = fminf(ys[5], 0);
+  if (ys[5] > 0) { rdpq_set_mode_fill(RGBA32((uint8_t)(cs[5][0] * 255), (uint8_t)(cs[5][1] * 255), (uint8_t)(cs[5][2] * 255), 255)); rdpq_fill_rectangle(0, 0, 320, (int)ys[5] + 1); rdpq_set_mode_standard(); rdpq_mode_combiner(RDPQ_COMBINER_SHADE); }
+  (void)top;
+  for (int k = 0; k < n - 1; k++) {
+    float y0 = ys[k + 1], y1 = ys[k]; // (y grows down: the higher stop is the smaller y)
+    if (y1 <= 0 || y0 >= 240 || y1 - y0 < 0.5f) continue;
+    float a0 = clampf(y0, -2, 242), a1 = clampf(y1, -2, 242);
+    // colours at the clamped edges
+    float t0 = (a0 - y0) / (y1 - y0), t1 = (a1 - y0) / (y1 - y0);
+    float c0[3], c1[3];
+    for (int q = 0; q < 3; q++) { c0[q] = cs[k + 1][q] + (cs[k][q] - cs[k + 1][q]) * t0; c1[q] = cs[k + 1][q] + (cs[k][q] - cs[k + 1][q]) * t1; }
+    float v0[6] = {0, a0, c0[0], c0[1], c0[2], 1}, v1[6] = {320, a0, c0[0], c0[1], c0[2], 1};
+    float v2[6] = {320, a1, c1[0], c1[1], c1[2], 1}, v3[6] = {0, a1, c1[0], c1[1], c1[2], 1};
+    rdpq_triangle(&TRIFMT_SHADE, v0, v1, v2);
+    rdpq_triangle(&TRIFMT_SHADE, v0, v2, v3);
+  }
+  // below the lowest stop: the haze
+  if (ys[0] < 240) { rdpq_set_mode_fill(RGBA32(s_fog[0], s_fog[1], s_fog[2], 255)); rdpq_fill_rectangle(0, (int)fmaxf(0, ys[0]), 320, 240); }
+  rdpq_set_mode_standard();
+}
+
 void render_begin(void) {
   s_frame = (s_frame + 1) % FB_COUNT;
   s_matUsed = 0;
@@ -127,33 +172,14 @@ void render_begin(void) {
   g_view.frustum = g_view.vp.viewFrustum;
 
   rdpq_attach(display_get(), display_get_zbuf());
+  // the sky first, in 2D: then Tiny3D sets up its modes for the 3D (perspective textures, depth)
+  draw_sky(eye, g_view.target);
   t3d_frame_start();
   t3d_viewport_attach(&g_view.vp);
   color_t fogc = RGBA32(s_fog[0], s_fog[1], s_fog[2], 255);
-  // (no colour clear: the sky covers the screen)
   rdpq_mode_antialias(AA_REDUCED);
+  rdpq_mode_zbuf(true, true);
   rdpq_set_prim_color(RGBA32(255, 255, 255, 255));
-
-  // the sky dome round the eye (no fog, behind everything: drawn first, then the depth is cleared)
-  t3d_fog_set_enabled(false);
-  t3d_light_set_ambient((uint8_t[]){(uint8_t)(90 + 165 * s_day), (uint8_t)(90 + 165 * s_day), (uint8_t)(110 + 145 * s_day), 255});
-  t3d_light_set_count(0);
-  T3DMat4 m;
-  mat_place(&m, (V3){eye.x, eye.y * 0.3f, eye.z}, 0, 0, 0, 0, MODEL_SCALE * 0.85f);
-  t3d_matrix_push(render_mat(&m));
-  {
-    // without the depth test and write: nothing is behind it, and the depth buffer is cleared after
-    T3DModelState st = t3d_model_state_create();
-    T3DModelIter it = t3d_model_iter_create(s_sky, T3D_CHUNK_TYPE_OBJECT);
-    while (t3d_model_iter_next(&it)) {
-      t3d_model_draw_material(it.object->material, &st);
-      rdpq_mode_zbuf(false, false);
-      t3d_state_set_drawflags(T3D_FLAG_SHADED);
-      t3d_model_draw_object(it.object, NULL);
-    }
-    rdpq_mode_zbuf(true, true);
-  }
-  t3d_matrix_pop(1);
   t3d_screen_clear_depth();
 
   rdpq_mode_fog(RDPQ_FOG_STANDARD);

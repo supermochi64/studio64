@@ -52,7 +52,7 @@ const T = {};
 const def = (name, w, h, fn) => { T[name] = { w, h, fn }; };
 
 // ---- the world's textures: painted (tools/lib/paint.mjs), soft and seamless ----
-const paint = (name, w, h, fn) => { T[name] = { w, h, paint: fn }; };
+const paint = (name, w, h, fn, cutout = false, opts = {}) => { T[name] = { w, h, paint: fn, opts }; };
 const H = hexc;
 const WHITE_ = [255, 255, 255];
 
@@ -410,6 +410,26 @@ for (const word of SIGNS) {
   });
 }
 
+// the title logo: fat rounded letters with a sunset gradient, an outline and a shadow, a sun and a palm
+paint('logo', 256, 72, (p) => {
+  p.clear();
+  // the sun behind the letters, cut by stripes
+  p.circle(198, 32, 27, (x, y) => mixc(H('#ffe27a'), H('#ff6a3a'), Math.max(0, Math.min(1, (y - 6) / 52))), 0.6);
+  p.map((x, y, c) => (c[3] > 0 && ((y > 41 && y < 43.4) || (y > 48 && y < 50) || (y > 54 && y < 55.6)) && Math.hypot(x - 198, y - 32) < 28.5 ? [c[0], c[1], c[2], 0] : undefined));
+  // a palm on the left
+  p.line(14, 72, 22, 18, 3.4, H('#4a2e1a'), 0.5);
+  for (const [dx, dy] of [[-15, 8], [-12, -5], [2, -10], [14, -5], [16, 7], [-5, 11]]) p.line(22, 18, 22 + dx, 18 + dy, 3.2, H('#2a7a34'), 0.6);
+  const word = 'SANDBOX', cell = 4.8, x0 = 34 + (222 - (word.length * 6 - 1) * cell) / 2, y0 = 15;
+  const dots = [];
+  [...word].forEach((ch, k) => { const g = FONT5x7[ch]; for (let j = 0; j < 7; j++) for (let i = 0; i < 5; i++) if (g[j][i] === '1') dots.push([x0 + (k * 6 + i) * cell, y0 + j * cell]); });
+  const draw = (grow, c, r, dx = 0, dy = 0) => { for (const [x, y] of dots) p.rect(x - grow + dx, y - grow + dy, x + cell + grow + dx, y + cell + grow + dy, c, { r, soft: 0.5 }); };
+  draw(2.4, [20, 10, 40, 170], 2.4, 2.5, 3.5);           // the shadow
+  draw(2.2, H('#2a1238'), 2.2);                          // the outline
+  draw(0.35, (x, y) => mixc(H('#fff6b0'), H('#ff7a22'), Math.max(0, Math.min(1, (y - y0) / (7 * cell)))), 0.4);
+  // a glossy sheen across the upper half of the letters
+  p.map((x, y, c) => (c[3] > 0 && y > y0 + 0.5 && y < y0 + 3.2 && c[0] > 200 ? mixc(c, [255, 255, 255, 255], 0.35) : undefined));
+}, true, { wrap: false, sharpen: 0.1 });
+
 // the people's default palette (the game puts each person's own colours in its place)
 def('palette', 8, 4, (c) => {
   c.rect(0, 0, 8, 4, [0, 0, 0, 0]);
@@ -440,7 +460,7 @@ export function writeTextures(dir) {
   let seed = 7;
   for (const [name, t] of Object.entries(T)) {
     let c;
-    if (t.paint) { const p = new Paint(t.w, t.h, { seed: seed++ * 977 }); t.paint(p); c = p.toCanvas(); }
+    if (t.paint) { const p = new Paint(t.w, t.h, { seed: seed++ * 977, ...(t.opts || {}) }); t.paint(p); c = p.toCanvas(t.opts || {}); }
     else { c = new Canvas(t.w, t.h); t.fn(c, rng(seed++ * 977)); }
     c.save(`${dir}/${name}.png`);
     out.push(name);
