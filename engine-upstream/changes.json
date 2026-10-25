@@ -3543,7 +3543,7 @@
    ]
   },
   "src/pc/gfx/gfx_sdl2.c": {
-   "sha256": "ebcb0e7cb6c63a653722787e9ce98ee6d6498b0b3b1593103652c5cfc9aaff86",
+   "sha256": "1140c0d6280bf780df01197483981dc23b47638c05f384032ed5258ed4380093",
    "hunks": [
     [
      204,
@@ -3560,11 +3560,27 @@
       "#endif",
       ""
      ]
+    ],
+    [
+     316,
+     0,
+     [
+      "#ifndef TARGET_WEB"
+     ]
+    ],
+    [
+     317,
+     0,
+     [
+      "#endif",
+      "    // (Studio 64: not in the browser, where requestAnimationFrame paces the frames; usleep has no",
+      "    // real sleep there and spun the main thread for the rest of each 33 ms, every frame)"
+     ]
     ]
    ]
   },
   "src/pc/pc_main.c": {
-   "sha256": "9f033a90f06fa4d3cb92481219bb894b39d12a9a27be7150df3e1b23b4f7402c",
+   "sha256": "1b0cbc0cdb6ee15fb855e6875932fe8c3d2aa907fa56562fa9d07e6915ca2a20",
    "hunks": [
     [
      27,
@@ -3698,9 +3714,13 @@
      ]
     ],
     [
-     163,
-     1,
+     162,
+     2,
      [
+      "        // (Studio 64: a quarter frame early counts as on time. The screen's frames come with some",
+      "        // jitter, and waiting for the exact time showed game frames for 1 or 3 refreshes of a",
+      "        // 60 Hz screen instead of 2; a 120 Hz screen gets every 4th refresh.)",
+      "        if (time >= target_time - 0.25) {",
       "            extern s32 studio_debug_gate(void); // studio/debug.c: frame advance, slow motion",
       "            if (studio_debug_gate()) produce_one_frame();"
      ]

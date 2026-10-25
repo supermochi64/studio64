@@ -80,6 +80,19 @@ For Windows and macOS, `.github/workflows/setup.yml` does the same on GitHub's f
 `windows-2022`, `macos-14` and `ubuntu-24.04` machines (the launcher, the wizard, an object
 placed, a second start), with the ROM from a repository secret (see the file).
 
+## How smoothly play mode runs
+
+```sh
+node tools/perf_play.mjs --url http://127.0.0.1:8064 --level 9            # a new project in a course
+node tools/perf_play.mjs --project <id> --level any --profile               # a project of yours, with a CPU profile
+```
+
+It opens the project in Chrome on this computer's GPU (headless, through ANGLE), plays it with Mario
+running in circles and prints: the game's frame rate (30 is full speed), how evenly new game frames
+reach the screen (33.3 ms apart on a 60 Hz screen), how often the screen missed a refresh, and how
+many milliseconds the engine takes per browser frame. `--profile` adds the functions that take the
+most time. A healthy run: 30 fps, 0 uneven, 0 hitches, the engine well under 16 ms.
+
 ## Writing a test
 
 A test is `tests/suite/<name>.test.mjs`: a plain node script using `tests/lib/harness.mjs`.

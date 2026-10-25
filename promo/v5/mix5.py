@@ -1,7 +1,8 @@
 """Sound for trailer v5: the score, the cues of edit5's timeline (CC0 one-shots from promo/work/audio/sfx, the
 keyboard, and effects synthesised here: glass, shotgun, swishes, the pipe, water), Bowser's arrival from the old
 fight's audio tap; mastered to -14 LUFS.
-    uv run --with numpy --with scipy --with soxr --with pyloudnorm python promo/v5/mix5.py TIMELINE MUSIC OUT"""
+    uv run --with numpy --with scipy --with soxr --with pyloudnorm python promo/v5/mix5.py TIMELINE MUSIC OUT
+MARIO_CUT=1 (for music_trap.py): no bells on the wipe, the music plays the game's puzzle jingle there."""
 import json, os, sys, random
 import numpy as np
 from scipy.signal import butter, sosfilt
@@ -112,7 +113,7 @@ for f, kind, _ in TL['events']:
         if kind == 'shatter': M.add('sfx', s('sonicboom_fs816376_00.wav'), t, gain_db=-6)
         M.add('sfx', s('rubble_fs550342_04.wav'), t + 0.15, gain_db=-12, fade_out=0.6)
     elif kind == 'wipe':
-        M.add('sfx', bells(), t, gain_db=-3)
+        if not os.environ.get('MARIO_CUT'): M.add('sfx', bells(), t, gain_db=-3)
         M.add('sfx', s('teleport_fs715784_00.wav'), t, gain_db=-6)
         M.add('sfx', s('cine_hit_fs255111_00.wav'), t + 0.62, gain_db=-8)
     elif kind == 'shotgun': M.add('sfx', shotgun(), t, gain_db=-3)

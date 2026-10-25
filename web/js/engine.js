@@ -241,6 +241,21 @@ export class Engine {
       c.getContext('2d').drawImage(this.canvas, 0, 0);
       for (const fn of this.frameWaiters.splice(0)) fn(c);
     }
+    if (this.thumbWaiters?.length) {
+      // straight from the frame at the small size (no full-size picture encoded first: that held
+      // up a frame noticeably right after entering a level)
+      for (const [w, h, q, fn] of this.thumbWaiters.splice(0)) {
+        let url = null;
+        try {
+          const src = this.canvas, c = document.createElement('canvas');
+          c.width = w; c.height = h;
+          const s = Math.max(w / src.width, h / src.height);
+          c.getContext('2d').drawImage(src, (w - src.width * s) / 2, (h - src.height * s) / 2, src.width * s, src.height * s);
+          url = c.toDataURL('image/jpeg', q);
+        } catch (err) { console.error(err); }
+        fn(url);
+      }
+    }
     if (!this.shotWaiters.length) return;
     const waiters = this.shotWaiters.splice(0);
     let url = null;
@@ -272,6 +287,14 @@ export class Engine {
     return new Promise((resolve) => {
       const wait = (n) => { (this.frameWaiters ||= []).push(n > 0 ? () => wait(n - 1) : resolve); };
       wait(skip);
+    });
+  }
+
+  // A small picture of the next frame (w x h, filled and centered): a JPEG data URL, or null.
+  thumbnail(w = 320, h = 180, quality = 0.72, timeoutMs = 1500) {
+    return new Promise((resolve) => {
+      const t = setTimeout(() => resolve(null), timeoutMs);
+      (this.thumbWaiters ||= []).push([w, h, quality, (url) => { clearTimeout(t); resolve(url); }]);
     });
   }
 

@@ -1,5 +1,16 @@
 # Changelog
 
+## Unreleased
+
+- **Smooth play in the browser.** The game no longer spins the browser's main thread for the rest
+  of every frame: the desktop frame limiter's sleep is a busy wait in the browser, so the page
+  only got 30 (on slower computers 15) refreshes a second, a whole CPU core was busy, and anything
+  else on the page made the game slow down. Now the engine takes about 2 ms of each 16.7 ms frame,
+  the page refreshes at the screen's rate, and every game frame is shown for exactly two refreshes
+  of a 60 Hz screen (before, some got one or three: a slight stutter).
+- The level thumbnail taken after entering a level no longer holds up a frame.
+- `node tools/perf_play.mjs` measures how smoothly play mode runs on this computer's GPU.
+
 ## 0.2.0-beta (2026-10-25)
 
 - **No game code or data in the repository.** The engine's source (sm64ex with the decompiled

@@ -199,19 +199,10 @@ export class LevelsUI {
 
   async captureThumb(key) {
     if (this.engine.areaKey() !== key || this.engine.crashed) return;
-    const url = await this.engine.screenshot();
-    if (!url) return;
-    const img = new Image();
-    img.onload = () => {
-      const c = el('canvas');
-      c.width = 320; c.height = 180;
-      const s = Math.max(320 / img.width, 180 / img.height);
-      c.getContext('2d').drawImage(img, (320 - img.width * s) / 2, (180 - img.height * s) / 2, img.width * s, img.height * s);
-      const data = c.toDataURL('image/jpeg', 0.72);
-      this.getThumbs()[key] = data;
-      this.send({ type: 'thumb', key, data });
-    };
-    img.src = url;
+    const data = await this.engine.thumbnail(320, 180, 0.72);
+    if (!data) return;
+    this.getThumbs()[key] = data;
+    this.send({ type: 'thumb', key, data });
   }
 
   // ---- launcher -------------------------------------------------------------------
