@@ -198,6 +198,8 @@ void weapon_explode(V3 at, float radius, float damage, Actor *by) {
     float k = 1 - d / radius;
     V3 dir = v3_norm((V3){a->pos.x - at.x, 0.4f, a->pos.z - at.z});
     if (a->vehicle && a->state == ST_VEHICLE) continue; // the vehicle takes it
+    // a wall between shields (most of) the blast
+    if (d > 1.0f && !world_los(v3_add(at, (V3){0, 0.4f, 0}), actor_chest(a))) k *= 0.15f;
     actor_damage(a, damage * k, dir, 6 + 12 * k, by);
   }
   for (int i = 0; i < MAX_VEHICLES; i++) {
@@ -206,6 +208,7 @@ void weapon_explode(V3 at, float radius, float damage, Actor *by) {
     float d = v3_dist(v->pos, at);
     if (d > radius * 1.2f) continue;
     float k = 1 - d / (radius * 1.2f);
+    if (d > 1.5f && !world_los(v3_add(at, (V3){0, 0.4f, 0}), v3_add(v->pos, (V3){0, 0.8f, 0}))) k *= 0.15f;
     vehicle_damage(v, damage * 4 * k, at, by);
     vehicle_push(v, v3_scale(v3_norm(v3_sub(v->pos, at)), 9 * k), 7 * k);
   }

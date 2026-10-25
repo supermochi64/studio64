@@ -90,9 +90,10 @@ static void respawn(void) {
     // arrested: the guns are taken
     p->weapons = 1 << W_FIST; p->weapon = W_FIST;
     for (int w = 0; w < W_COUNT; w++) { p->ammo[w] = 0; p->clip[w] = 0; }
-    g.money = maxi(0, g.money - 100);
-  } else g.money = maxi(0, g.money - 100);
-  g.wanted = 0; g.wantedPoints = 0; g.war = 0; g.deadTimer = 0;
+    g.money = maxi(0, g.money - 250); // the fine
+  } else g.money = maxi(0, g.money - 100); // the clinic's bill
+  if (g.war) { game_big("WAR LOST"); g.respect = maxi(0, g.respect - 5); gang_war_end(); }
+  g.wanted = 0; g.wantedPoints = 0; g.deadTimer = 0;
   camera_init(p->pos, 0);
 }
 
@@ -268,6 +269,8 @@ int main(void) {
       if (pad.pz || pad.pr) page ^= 1;
       if (pad.pstart) state = S_PLAY;
       acc = 0;
+      // paused: the world is quiet (the music plays on)
+      sound_engine(false, 0, g_view.eye); sound_radio(false); sound_siren(false, g_view.eye);
     }
     stream_update(g.player ? g.player->pos : g_view.eye);
     uint32_t t1 = get_ticks_us();

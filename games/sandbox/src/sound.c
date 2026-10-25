@@ -144,7 +144,9 @@ static int music_wanted(void) {
 
 void sound_update(void) {
   if (!s_ok) return;
-  const float dt = 1.0f / 30;
+  // (real time: called once a drawn frame, 15 to 30 a second)
+  static uint32_t last; uint32_t now = get_ticks_ms();
+  float dt = last ? clampf((now - last) / 1000.0f, 0, 0.1f) : 1.0f / 30; last = now;
   if (s_passedTime > 0) s_passedTime -= dt;
   int want = music_wanted();
   if (want != s_slot[s_cur]) {

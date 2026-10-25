@@ -11,6 +11,7 @@ typedef struct { V3 a, b; float life; color_t c; } Tracer;
 static Part s_parts[MAX_PARTS];
 static Tracer s_tr[MAX_TRACERS];
 static int s_np, s_nt;
+static Part *s_last; // the last one fx_burst made
 
 void fx_init(void) { s_np = 0; s_nt = 0; }
 
@@ -21,7 +22,7 @@ static Part *add(void) {
 
 void fx_burst(V3 at, int type, int count) {
   for (int i = 0; i < count; i++) {
-    Part *p = add();
+    Part *p = s_last = add();
     p->pos = at; p->type = type; p->grow = 0;
     V3 v = {rnd_range(-1, 1), rnd_range(0, 1), rnd_range(-1, 1)};
     switch (type) {
@@ -44,7 +45,7 @@ void fx_tracer(V3 from, V3 to, color_t c) {
 }
 
 void fx_explosion(V3 at, float size) {
-  for (int i = 0; i < 14; i++) { fx_burst(v3_add(at, (V3){rnd_range(-1, 1) * size, rnd_range(0, 1) * size, rnd_range(-1, 1) * size}), FX_FIRE, 1); s_parts[s_np - 1].size = 1.2f * size; s_parts[s_np - 1].grow = 2.0f; s_parts[s_np - 1].life = s_parts[s_np - 1].max = 0.6f; }
+  for (int i = 0; i < 14; i++) { fx_burst(v3_add(at, (V3){rnd_range(-1, 1) * size, rnd_range(0, 1) * size, rnd_range(-1, 1) * size}), FX_FIRE, 1); s_last->size = 1.2f * size; s_last->grow = 2.0f; s_last->life = s_last->max = 0.6f; }
   fx_burst(at, FX_SMOKE, 10);
   fx_burst(at, FX_DEBRIS, 8);
   g_view.shake = maxf(g_view.shake, clampf(1.6f - v3_dist(at, g_view.eye) / 40.0f, 0, 1.6f));

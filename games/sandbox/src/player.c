@@ -47,12 +47,12 @@ static int pick_target(Actor *p, V3 forward, float maxAngle, float range) {
 
 static void recruit(Actor *p) {
   int idx = -1;
-  if (p->target >= 0 && g.actors[p->target].gang == GANG_PALM && g.actors[p->target].kind == AK_GANG) idx = p->target;
+  if (p->target >= 0 && g.actors[p->target].gang == GANG_PALM && g.actors[p->target].kind == AK_GANG && !g.actors[p->target].vehicle) idx = p->target;
   else {
     float bd = 6;
     for (int i = 0; i < MAX_ACTORS; i++) {
       Actor *a = &g.actors[i];
-      if (!actor_alive(a) || a->kind != AK_GANG || a->gang != GANG_PALM || a->recruited) continue;
+      if (!actor_alive(a) || a->kind != AK_GANG || a->gang != GANG_PALM || a->recruited || a->vehicle) continue;
       float d = v3_dist(a->pos, p->pos);
       if (d < bd) { bd = d; idx = i; }
     }
@@ -71,8 +71,8 @@ void player_step(const Pad *pad) {
   // weapons
   if (pad->pdl) weapon_select(p, -1);
   if (pad->pdr) weapon_select(p, 1);
-  if (pad->pdu) recruit(p);
-  if (pad->pdd) gang_dismiss_all();
+  if (pad->pdu && !p->vehicle) recruit(p);  // (in a police car D-up is the siren)
+  if (pad->pdd && !p->vehicle) gang_dismiss_all();
 
   if (p->vehicle && p->state == ST_VEHICLE) {
     Vehicle *v = p->vehicle;

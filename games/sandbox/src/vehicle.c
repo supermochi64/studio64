@@ -141,6 +141,10 @@ void vehicle_leave(Vehicle *v, Actor *a, bool thrown) {
     a->yaw = v->yaw;
     a->onGround = true; a->vel = (V3){0, 0, 0}; a->speed = 0;
   }
+  // never inside a wall: pushed out, and up onto what is under the feet
+  for (int k = 0; k < 3; k++) world_push(&a->pos.x, &a->pos.z, 0.35f, a->pos.y + 0.3f, a->pos.y + 1.7f);
+  float fl = world_floor(a->pos.x, a->pos.z, a->pos.y + 1.0f, NULL);
+  if (!thrown || a->pos.y < fl) a->pos.y = fl;
 }
 
 bool vehicle_enter(Actor *a, Vehicle *v, int seat) {
@@ -162,8 +166,9 @@ bool vehicle_enter(Actor *a, Vehicle *v, int seat) {
   return true;
 }
 void vehicle_exit(Actor *a) {
-  if (!a->vehicle) return;
-  if (fabsf(a->vehicle->speed) > 8 && !vehicle_is_bike(a->vehicle)) return; // not at speed (bikes: you jump off)
+  if (!a->vehicle || a->state == ST_EXIT || a->state == ST_ENTER) return;
+  // not at speed (bikes: you jump off; a burning car: you bail out)
+  if (fabsf(a->vehicle->speed) > 8 && !vehicle_is_bike(a->vehicle) && !a->vehicle->burning) return;
   actor_set_state(a, ST_EXIT);
   a->enterTimer = 0;
 }
@@ -180,7 +185,7 @@ void vehicle_board_step(Actor *a) {
     if (a->enterTimer > 0.45f) { actor_set_state(a, ST_VEHICLE); sound_play(SND_DOOR, v->pos); a->speed = 0; }
   } else {
     if (a->enterTimer > 0.25f) {
-      bool fast = vehicle_is_bike(v) && fabsf(v->speed) > 6;
+      bool fast = (vehicle_is_bike(v) || v->burning) && fabsf(v->speed) > 6;
       vehicle_leave(v, a, fast);
       sound_play(SND_DOOR, a->pos);
     }
@@ -246,12 +251,16 @@ void vehicle_step(Vehicle *v) {
   }
   v->speed = vf;
   v->yaw = wrap_angle(v->yaw + v->yawVel * DT);
-  v->pos.x += v->vel.x * DT;
-  v->pos.z += v->vel.z * DT;
-
-  // walls
+  // walls (fast: in steps, so a thin wall is never passed through)
   float depth;
-  V3 n = world_push_rect(&v->pos.x, &v->pos.z, v->yaw, d->wid * 0.5f, d->len * 0.5f, v->pos.y + 0.6f, v->pos.y + d->height, &depth);
+  int nsteps = clampf(ceilf(v3_len_xz(v->vel) * DT / 0.45f), 1, 4);
+  V3 n = {0, 0, 0};
+  for (int k = 0; k < nsteps; k++) {
+    v->pos.x += v->vel.x * DT / nsteps;
+    v->pos.z += v->vel.z * DT / nsteps;
+    V3 nk = world_push_rect(&v->pos.x, &v->pos.z, v->yaw, d->wid * 0.5f, d->len * 0.5f, v->pos.y + 0.6f, v->pos.y + d->height, &depth);
+    if (nk.x != 0 || nk.z != 0) n = nk;
+  }
   if (n.x != 0 || n.z != 0) {
     float into = -(v->vel.x * n.x + v->vel.z * n.z);
     if (into > 0) {
@@ -334,7 +343,7 @@ void vehicle_damage(Vehicle *v, float dmg, V3 at, Actor *by) {
   v->health -= dmg;
   if (v->health <= 0 && !v->burning) { v->burning = true; v->burnTimer = 4.5f; }
   // the driver of a car shot at panics
-  if (by && v->aiDriven) v->panic = true;
+  if (by && v->aiDriven) { v->panic = true; v->panicTime = 0; }
 }
 
 // ---- vehicles against vehicles and people ----
@@ -491,12 +500,14 @@ void vehicle_ai_drive(Vehicle *v) {
   const VehicleDef *d = &g_vdefs[v->def];
   if (v->edge < 0) vehicle_ai_start(v);
   if (v->edge < 0) return;
+  if (v->panic && (v->panicTime += DT) > 14) { v->panic = false; v->panicTime = 0; } // calms down
   const StreetEdge *e = &w->sedges[v->edge];
   StreetNode *A = &w->snodes[v->fromNode], *B = &w->snodes[v->toNode];
   float ex = B->x - A->x, ez = B->z - A->z, len = sqrtf(ex * ex + ez * ez);
   float ux = ex / len, uz = ez / len;
   float rx = -uz, rz = ux;                       // the right of the direction of travel
   float off = lane_offset(e);
+  if (v->waitTime > 4) off = -off * 0.4f; // going round something: out into the other lane
   float t = (v->pos.x - A->x) * ux + (v->pos.z - A->z) * uz;
   bool chasing = g_chase_target && d->police && actor_alive(g_chase_target);
   float distTarget = chasing ? v3_dist_xz(v->pos, g_chase_target->pos) : 1e9f;
@@ -525,6 +536,7 @@ void vehicle_ai_drive(Vehicle *v) {
     if (!o->used || o == v) continue;
     float dx = o->pos.x - v->pos.x, dz = o->pos.z - v->pos.z;
     float fwd = dx * f.x + dz * f.z, side = fabsf(dx * f.z - dz * f.x);
+    if (v->waitTime > 4 && fabsf(o->speed) < 1) continue; // waited long enough: going round it
     if (fwd > 0 && fwd < 16 && side < 2.4f) block = minf(block, fwd - (d->len + g_vdefs[o->def].len) * 0.5f);
   }
   bool person = false;
@@ -536,6 +548,10 @@ void vehicle_ai_drive(Vehicle *v) {
     if (fwd > 0 && fwd < 12 && side < 1.8f) { block = minf(block, fwd - d->len * 0.5f - 0.5f); if (a->kind == AK_PLAYER) person = true; }
   }
   if (!v->panic && !chasing && block < 1e8f) want = minf(want, maxf(0, (block - 1.5f) * 1.2f));
+  // stuck behind a car that does not move (parked badly, wrecked, deserted): after a while, round it
+  if (want < 1 && fabsf(v->speed) < 0.5f && !person) v->waitTime += DT;
+  else if (v->waitTime > 4) { v->waitTime += DT; if (v->waitTime > 9) v->waitTime = 0; }
+  else v->waitTime = 0;
   v->horn = person && block < 6 && !chasing;
   // stuck: back up a bit
   if (fabsf(v->speed) < 0.6f && want > 3) v->stuck += DT; else if (v->stuck > 0 && v->stuck < 3) v->stuck = maxf(0, v->stuck - DT);

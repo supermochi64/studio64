@@ -89,6 +89,8 @@ struct Actor {
   float think, alert, fear, timer2;
   V3 goal, home;
   bool recruited, hostile, scared, warrior; // warrior: an attacker in a gang war
+  bool keep;            // a mission needs it: never despawned
+  bool drawNear;        // drawn with the detailed model now
   int followSlot;
   Controls ctl;
   // drawing
@@ -130,7 +132,8 @@ struct Vehicle {
   color_t paint, paint2;
   // AI driving
   int edge, fromNode, toNode; float laneSide; bool aiDriven, panic, parked;
-  float stuck, honk, despawnTimer;
+  float stuck, honk, despawnTimer, panicTime, waitTime;
+  bool keep;            // a mission needs it: never despawned
   T3DSkeleton skel;
   int id;
 };

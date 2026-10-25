@@ -9,6 +9,7 @@
 #include "sound.h"
 #include "save.h"
 #include "pickup.h"
+#include "ai.h"
 
 // ---- the steps a mission is made of ----
 enum {
@@ -77,6 +78,7 @@ static uint32_t s_done;
 static int s_kills[GANG_COUNT];   // the player's crew's kills per gang (counted by on_death)
 static Vehicle *s_car;
 static Actor *s_boss;
+static bool s_carPending;
 static bool s_collected;
 static char s_banner[48]; static float s_bannerTime;
 
@@ -94,10 +96,32 @@ void mission_init(void) { s_active = -1; }
 
 static void banner(const char *t) { strncpy(s_banner, t, sizeof(s_banner) - 1); s_bannerTime = 3.5f; }
 
+// what the mission made is ordinary again (it can go when far away)
+static void release(void) {
+  if (s_car && s_car->used) s_car->keep = false;
+  if (s_boss && s_boss->used) s_boss->keep = false;
+  for (int i = 0; i < MAX_ACTORS; i++) { Actor *a = &g.actors[i]; if (a->used && a->keep) a->keep = false; if (a->used && a->warrior && !g.war) { a->warrior = false; a->brain = BR_WALK; } }
+  s_car = NULL; s_boss = NULL; s_carPending = false;
+}
+
+// the car to take, with two guards: made when the player comes near (far away nothing stays)
+static void spawn_car(const Step *st) {
+  V3 p = {st->x, 0, st->z}; p.y = world_floor(p.x, p.z, 5, NULL);
+  s_car = vehicle_spawn(st->param, p, 0);
+  if (!s_car) return;
+  s_car->parked = true; s_car->keep = true; s_car->paint = RGBA32(130, 50, 160, 255);
+  s_carPending = false;
+  for (int k = 0; k < 2; k++) {
+    Actor *a = population_spawn_person((V3){p.x + 3 - k * 6, p.y, p.z + 3}, 0, AK_GANG, GANG_VIOLET);
+    if (a) { a->brain = 2; a->home = a->pos; a->warrior = false; }
+  }
+}
+
 static void fail(const char *why) {
   game_big("MISSION FAILED");
   game_message("%s", why);
   s_active = -1; s_failTime = 4;
+  release();
   sound_play_ui(SND_WASTED);
 }
 
@@ -107,21 +131,18 @@ static void begin_step(void) {
   s_stepTime = 0;
   s_count0 = s_kills[st->gang];
   game_message("%s", st->text);
-  if (st->kind == OBJ_ENTER && st->x != 0) {
-    // the car to take, with two guards
-    V3 p = {st->x, 0, st->z}; p.y = world_floor(p.x, p.z, 5, NULL);
-    s_car = vehicle_spawn(st->param, p, 0);
-    if (s_car) { s_car->parked = true; s_car->paint = RGBA32(130, 50, 160, 255); }
-    for (int k = 0; k < 2; k++) {
-      Actor *a = population_spawn_person((V3){p.x + 3 - k * 6, p.y, p.z + 3}, 0, AK_GANG, GANG_VIOLET);
-      if (a) { a->brain = 2; a->home = a->pos; a->warrior = false; }
-    }
-  }
+  if (st->kind == OBJ_ENTER && st->x != 0) { s_car = NULL; s_carPending = true; }
   if (st->kind == OBJ_WAVES) { s_waves = 0; }
   if (st->kind == OBJ_KILL_BOSS) {
     V3 p = {st->x, 0, st->z}; p.y = world_floor(p.x, p.z, 5, NULL);
+    // room for him: the farthest passer-by goes if everyone is taken
     s_boss = population_spawn_person(p, PI, AK_GANG, st->gang);
-    if (s_boss) { s_boss->health = 260; weapon_give(s_boss, W_SMG, 300); s_boss->brain = 2; s_boss->home = p; s_boss->look.height = 1.12f; s_boss->look.hasHat = true; s_boss->look.hat = RGBA32(255, 215, 40, 255); }
+    if (!s_boss) {
+      Actor *far = NULL; float fd = 0;
+      for (int i = 0; i < MAX_ACTORS; i++) { Actor *o = &g.actors[i]; if (o->used && o != g.player && !o->keep && !o->vehicle && !o->recruited && v3_dist(o->pos, p) > fd) { fd = v3_dist(o->pos, p); far = o; } }
+      if (far) { actor_free(far); s_boss = population_spawn_person(p, PI, AK_GANG, st->gang); }
+    }
+    if (s_boss) { s_boss->keep = true; s_boss->health = 260; weapon_give(s_boss, W_SMG, 300); s_boss->brain = 2; s_boss->home = p; s_boss->look.height = 1.12f; s_boss->look.hasHat = true; s_boss->look.hat = RGBA32(255, 215, 40, 255); }
     for (int k = 0; k < 3; k++) {
       Actor *a = population_spawn_person((V3){p.x + rnd_range(-5, 5), p.y, p.z + rnd_range(-5, 5)}, 0, AK_GANG, st->gang);
       if (a) { a->brain = 2; a->home = a->pos; weapon_give(a, W_PISTOL, 60); }
@@ -140,6 +161,7 @@ static void pass(void) {
   game_message("%s  +$%d", m->passed, m->reward);
   sound_play_ui(SND_CASH);
   s_active = -1;
+  release();
   save_write();
 }
 
@@ -187,7 +209,8 @@ void mission_step(void) {
     return;
   }
   const Mission *m = &MISSIONS[s_active];
-  if (!actor_alive(p) || g.deadTimer > 0) { fail(g.deadKind == 2 ? "You were arrested" : "You were knocked out"); return; }
+  if (!actor_alive(p)) { fail("You were knocked out"); return; }
+  if (g.deadTimer > 0) { fail(g.deadKind == 2 ? "You were arrested" : "You were knocked out"); return; }
   if (s_introTime > 0) { s_introTime -= DT; if (s_introTime <= 0) begin_step(); return; }
   const Step *st = &m->steps[s_step];
   s_stepTime += DT;
@@ -196,18 +219,29 @@ void mission_step(void) {
     case OBJ_GOTO: done = at(st->x, st->z, st->radius); break;
     case OBJ_RECRUIT: done = gang_recruit_count() >= st->param; break;
     case OBJ_ENTER:
+      if (s_carPending && at(st->x, st->z, 110)) spawn_car(st);
       if (s_car && (!s_car->used || s_car->wrecked)) { fail("The car was wrecked"); return; }
-      done = p->vehicle && p->state == ST_VEHICLE && (st->param < 0 || p->vehicle->def == st->param) && (!s_car || p->vehicle == s_car);
+      if (s_carPending) break;
+      done = p->vehicle && p->state == ST_VEHICLE && (st->param < 0 || p->vehicle->def == st->param) && (!(st->x != 0) || p->vehicle == s_car);
       break;
     case OBJ_DRIVE_TO:
       if (s_car && (!s_car->used || s_car->wrecked)) { fail("The car was wrecked"); return; }
       done = p->vehicle && (!s_car || p->vehicle == s_car) && at(st->x, st->z, st->radius) && fabsf(p->vehicle->speed) < 3;
       break;
-    case OBJ_KILL_GANG: done = s_kills[st->gang] - s_count0 >= st->param; break;
+    case OBJ_KILL_GANG: {
+      done = s_kills[st->gang] - s_count0 >= st->param;
+      // (their blocks may all be ours by now: then they come looking for us)
+      int near = 0;
+      for (int i = 0; i < MAX_ACTORS; i++) { Actor *a = &g.actors[i]; if (actor_alive(a) && a->kind == AK_GANG && a->gang == st->gang && v3_dist(a->pos, p->pos) < 70) near++; }
+      if (!done && near < 2 && fmodf(s_stepTime, 6.0f) < DT && s_stepTime > 5) population_spawn_attackers(st->gang, p->pos, 3);
+      break;
+    }
     case OBJ_WAVES: {
+      // it is held where it is: away from it, the waves wait; far away, it is lost
+      if (!at(st->x, st->z, 150)) { fail("You left the court to them"); return; }
       int alive = 0;
       for (int i = 0; i < MAX_ACTORS; i++) if (g.actors[i].warrior && actor_alive(&g.actors[i])) alive++;
-      if (alive == 0 && s_stepTime > 2) {
+      if (alive == 0 && s_stepTime > 2 && at(st->x, st->z, 60)) {
         if (s_waves >= st->param) { done = true; break; }
         s_waves++;
         population_spawn_attackers(st->gang, (V3){st->x, 0, st->z}, 3 + s_waves);
@@ -216,7 +250,10 @@ void mission_step(void) {
       }
       break;
     }
-    case OBJ_KILL_BOSS: done = s_boss && !actor_alive(s_boss); break;
+    case OBJ_KILL_BOSS:
+      if (!s_boss || !s_boss->used) { fail("The boss got away"); return; }
+      done = s_boss->state == ST_DEAD || s_boss->health <= 0;
+      break;
     case OBJ_COLLECT: done = at(st->x, st->z, 1.6f) && !p->vehicle; if (done) gang_crime(14); break; // the police were waiting
     case OBJ_LOSE_WANTED: done = g.wanted == 0 && s_stepTime > 1; break;
   }
@@ -243,6 +280,7 @@ bool mission_target(V3 *out) {
   if (s_introTime > 0) return false;
   const Step *st = &MISSIONS[s_active].steps[s_step];
   if (st->kind == OBJ_ENTER && s_car && s_car->used) { *out = s_car->pos; return true; }
+  if (st->kind == OBJ_ENTER && s_carPending) { *out = (V3){st->x, 0, st->z}; return true; }
   if (st->kind == OBJ_KILL_BOSS && s_boss && actor_alive(s_boss)) { *out = s_boss->pos; return true; }
   if (st->kind == OBJ_GOTO || st->kind == OBJ_DRIVE_TO || st->kind == OBJ_COLLECT) { *out = (V3){st->x, 0, st->z}; return true; }
   if (st->kind == OBJ_WAVES || st->kind == OBJ_KILL_GANG) return false;

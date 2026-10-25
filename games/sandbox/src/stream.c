@@ -22,6 +22,8 @@ typedef struct {
   T3DMat4FP *mat;
   float cx, cz;
   int freeIn;           // frames left before the memory is released (the RSP may still read it)
+  bool shownNear;       // (detailed) drawn instead of the far model now
+  uint8_t fineOn;       // (detailed) which small-things groups are drawn now
 } Slot;
 
 static Slot s_slots[MAX_SLOTS];
@@ -83,7 +85,7 @@ static void load(int idx, bool detail) {
   char path[48];
   sprintf(path, "rom:/city/%c%d_%d.t3dm", detail ? 'd' : 'l', cx, cz);
   s->model = t3d_model_load(path);
-  s->idx = idx; s->detail = detail;
+  s->idx = idx; s->detail = detail; s->shownNear = false; s->fineOn = 0;
   s->cx = w->min + cx * w->chunk + w->chunk * 0.5f;
   s->cz = w->min + cz * w->chunk + w->chunk * 0.5f;
   for (int g = 0; g < NGROUPS; g++) s->group[g] = NULL;
@@ -118,9 +120,16 @@ void stream_update(V3 f) {
     if (abs(cx - fcx) > r || abs(cz - fcz) > r) release(s);
   }
   // load what is missing, nearest first, at most two a step (the cartridge is fast, decompressing is not)
-  int loads = 0;
-  for (int ring = 0; ring <= FAR_R && loads < 2; ring++) {
-    for (int dz = -ring; dz <= ring && loads < 2; dz++) for (int dx = -ring; dx <= ring && loads < 2; dx++) {
+  // (after a jump across the city, a respawn: the ground under the feet is missing, so the near
+  // ring comes in at once: one long frame instead of a second with no city)
+  int loads = 0, maxLoads = 2;
+  if (fcx >= 0 && fcz >= 0 && fcx < w->chunks && fcz < w->chunks) {
+    int here = fcz * w->chunks + fcx;
+    if ((w->chunkFlags[here] & 1) && !find(here, true)) maxLoads = 12;
+  }
+  for (int ring = 0; ring <= FAR_R && loads < maxLoads; ring++) {
+    if (ring == 2 && maxLoads > 2) maxLoads = loads + 2; // only the near ring all at once
+    for (int dz = -ring; dz <= ring && loads < maxLoads; dz++) for (int dx = -ring; dx <= ring && loads < maxLoads; dx++) {
       if (abs(dx) != ring && abs(dz) != ring) continue;
       int cx = fcx + dx, cz = fcz + dz;
       if (cx < 0 || cz < 0 || cx >= w->chunks || cz >= w->chunks) continue;
@@ -146,16 +155,34 @@ void stream_draw(void) {
   bool night = g_hour < 6.5f || g_hour >= 19.0f;
   g_nightBlocks = 0; g_nightTris = 0;
   uint32_t tk = get_ticks_us();
+  // detailed or far, small things or not: each switches a few metres past its distance, so a
+  // camera that sways on the line never makes a chunk blink between its two models
+  for (int i = 0; i < MAX_SLOTS; i++) {
+    Slot *s = &s_slots[i];
+    if (s->idx < 0 || s->freeIn || !s->detail) continue;
+    int cx = s->idx % w->chunks, cz = s->idx / w->chunks;
+    float nx = clampf(g_view.eye.x, s->cx - 32, s->cx + 32), nz = clampf(g_view.eye.z, s->cz - 32, s->cz + 32);
+    float d = sqrtf(sqrf(nx - g_view.eye.x) + sqrf(nz - g_view.eye.z));
+    bool inRing = abs(cx - fcx) <= DETAIL_R + (s->shownNear ? 1 : 0) && abs(cz - fcz) <= DETAIL_R + (s->shownNear ? 1 : 0);
+    s->shownNear = inRing && d < NEAR_M + (s->shownNear ? 5.0f : -1.0f);
+    for (int g = 4; g < 8; g++) {
+      if (!s->group[g]) continue;
+      float dx = fmaxf(fmaxf(s->gmin[g].v[0] - g_view.eye.x, 0), g_view.eye.x - s->gmax[g].v[0]);
+      float dz = fmaxf(fmaxf(s->gmin[g].v[2] - g_view.eye.z, 0), g_view.eye.z - s->gmax[g].v[2]);
+      bool on = s->fineOn & (1 << g);
+      float r = FINE_M + (on ? 4.0f : 0);
+      if (dx * dx + dz * dz < r * r) s->fineOn |= 1 << g; else s->fineOn &= ~(1 << g);
+    }
+  }
   for (int pass = 0; pass < 2; pass++) {
     for (int i = 0; i < MAX_SLOTS; i++) {
       Slot *s = &s_slots[i];
       if (s->idx < 0 || s->freeIn) continue;
-      int cx = s->idx % w->chunks, cz = s->idx / w->chunks;
-      // the detailed model only where the chunk comes within NEAR_M of the eye (else its far model)
+      // the detailed model where the chunk comes near the eye, else its far model
       float nx = clampf(g_view.eye.x, s->cx - 32, s->cx + 32), nz = clampf(g_view.eye.z, s->cz - 32, s->cz + 32);
       float d2 = sqrf(nx - g_view.eye.x) + sqrf(nz - g_view.eye.z);
-      bool near = abs(cx - fcx) <= DETAIL_R && abs(cz - fcz) <= DETAIL_R && d2 < NEAR_M * NEAR_M;
-      if (s->detail ? !near : (near && find(s->idx, true))) continue;
+      if (s->detail) { if (!s->shownNear) continue; }
+      else { Slot *d = find(s->idx, true); if (d && d->shownNear) continue; }
       if (!s->detail && d2 > FAR_CULL * FAR_CULL) continue;
       for (int g = 0; g < NGROUPS; g++) {
         if (!s->group[g]) continue;
@@ -163,12 +190,7 @@ void stream_draw(void) {
         if (!s->detail && g == 1) kind = 2;
         if ((kind == 0) != (pass == 0)) continue;
         if (kind == 2 && !night) continue;
-        if (kind == 1) {
-          // the small things: only near (the distance to their box)
-          float dx = fmaxf(fmaxf(s->gmin[g].v[0] - g_view.eye.x, 0), g_view.eye.x - s->gmax[g].v[0]);
-          float dz = fmaxf(fmaxf(s->gmin[g].v[2] - g_view.eye.z, 0), g_view.eye.z - s->gmax[g].v[2]);
-          if (dx * dx + dz * dz > FINE_M * FINE_M) continue;
-        }
+        if (kind == 1 && !(s->fineOn & (1 << g))) continue; // the small things: only near
         if (!t3d_frustum_vs_aabb(&g_view.frustum, &s->gmin[g], &s->gmax[g])) continue;
         rspq_block_run(s->group[g]); s_tris += s->gtris[g]; s_blocks++; s_objs += s->gobjs[g];
         if (kind == 2) { g_nightBlocks++; g_nightTris += s->gtris[g]; }

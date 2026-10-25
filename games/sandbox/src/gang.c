@@ -6,6 +6,7 @@
 #include "population.h"
 #include "save.h"
 #include "vehicle.h"
+#include "ai.h"
 
 const GangDef g_gangs[GANG_COUNT] = {
   [GANG_NONE] = {"", {200, 200, 200, 255}, 0, {W_FIST, W_FIST, W_FIST}},
@@ -121,13 +122,19 @@ static void on_damaged(Actor *a, Actor *by, float dmg, bool died) {
   }
 }
 
+// the war is over: the attackers left are ordinary rivals again (they go when far away)
+void gang_war_end(void) {
+  g.war = 0; s_rivalKills = 0; s_killBlock = -1; s_killWindow = 0;
+  for (int i = 0; i < MAX_ACTORS; i++) { Actor *a = &g.actors[i]; if (a->used && a->warrior) { a->warrior = false; a->brain = BR_WALK; } }
+}
+
 static void war_step(void) {
   if (!g.war) { if (s_killWindow > 0 && (s_killWindow -= DT) <= 0) s_rivalKills = 0; return; }
   int b = g.war - 1;
   float cx = (g_world.lines[b % 9] + g_world.lines[b % 9 + 1]) * 0.5f, cz = (g_world.lines[b / 9] + g_world.lines[b / 9 + 1]) * 0.5f;
   Actor *p = g.player;
   if (!actor_alive(p) || v3_dist_xz(p->pos, (V3){cx, 0, cz}) > 160) {
-    g.war = 0; game_big("WAR LOST"); g.respect = maxi(0, g.respect - 5); return;
+    gang_war_end(); game_big("WAR LOST"); g.respect = maxi(0, g.respect - 5); return;
   }
   if (g.warTimer > 0) { g.warTimer -= DT; return; }
   int left = 0;
@@ -137,7 +144,7 @@ static void war_step(void) {
     if (g.warWave >= 3) {
       // the block is ours now
       g_world.owner[b] = GANG_PALM;
-      g.war = 0; g.respect += 12; g.money += 500;
+      gang_war_end(); g.respect += 12; g.money += 500;
       game_big("TERRITORY TAKEN");
       game_message("%s now belongs to the Palm Court Crew  +$500", world_district_name(cx, cz));
       sound_play_ui(SND_CASH);

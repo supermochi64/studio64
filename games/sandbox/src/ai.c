@@ -21,7 +21,7 @@ static void on_gunshot(V3 at, Actor *shooter) {
   // drivers near shots speed off
   for (int i = 0; i < MAX_VEHICLES; i++) {
     Vehicle *v = &g.vehicles[i];
-    if (v->used && v->aiDriven && v3_dist(v->pos, at) < 30 && !g_vdefs[v->def].police) v->panic = true;
+    if (v->used && v->aiDriven && v3_dist(v->pos, at) < 30 && !g_vdefs[v->def].police) { v->panic = true; v->panicTime = 0; }
   }
 }
 void ai_init(void) { g_on_gunshot = on_gunshot; }
@@ -206,14 +206,25 @@ void ai_think(Actor *a) {
   // in a vehicle
   if (a->vehicle && a->state == ST_VEHICLE) {
     Vehicle *v = a->vehicle;
+    if (a->seat == 0 && a->recruited) { v->throttle = 0; v->handbrake = true; v->steer = 0; vehicle_exit(a); return; }
     if (a->seat == 0 && !a->recruited) {
       vehicle_ai_drive(v);
+      if (g_vdefs[v->def].police) v->siren = g.wanted >= 2;
       // a police car next to the wanted player: out and after them
       if (a->kind == AK_COP && g.wanted >= 2 && actor_alive(g.player) && v3_dist(v->pos, g.player->pos) < 14 && fabsf(v->speed) < 4) { vehicle_exit(a); a->brain = BR_COP; }
       if (v->burning || v->wrecked || v->health < 120) vehicle_exit(a);
       return;
     }
-    // a passenger: shoots out of the window at whoever fights the crew
+    // a passenger: out when the driver is gone or the car is on fire; a cop gets out with the driver
+    // or next to the wanted player; one not of the crew any more gets out of the player's car
+    Actor *drv = v->seat[0];
+    bool driverGone = !drv || !actor_alive(drv) || drv->state != ST_VEHICLE;
+    if (!a->recruited && (driverGone || drv == g.player || v->burning || v->wrecked ||
+        (a->kind == AK_COP && g.wanted >= 2 && actor_alive(g.player) && v3_dist(v->pos, g.player->pos) < 14 && fabsf(v->speed) < 4))) {
+      vehicle_exit(a);
+      return;
+    }
+    // shoots out of the window at whoever fights the crew
     Actor *f = foe_of(a);
     if (!f && fmodf(a->think, 0.6f) < DT) { int i = scan_hostile(a, 30); if (i >= 0) a->foe = i; f = foe_of(a); }
     if (a->recruited && g.player && !g.player->vehicle) { vehicle_exit(a); return; }

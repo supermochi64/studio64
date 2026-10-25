@@ -20,13 +20,14 @@ void shop_init(void) {
 
 bool shop_step(const Pad *pad) {
   Actor *p = g.player;
-  s_inside = s_has && actor_alive(p) && !p->vehicle && v3_dist_xz(p->pos, s_at) < 1.6f;
+  s_inside = s_has && actor_alive(p) && !p->vehicle && g.deadTimer <= 0 && v3_dist_xz(p->pos, s_at) < 1.6f;
   if (!s_inside) return false;
   if (pad->pdl) { do s_pick = s_pick <= W_BAT ? W_LAUNCHER : s_pick - 1; while (!g_weapons[s_pick].price); sound_play_ui(SND_BLIP); }
   if (pad->pdr) { do s_pick = s_pick >= W_LAUNCHER ? W_BAT : s_pick + 1; while (!g_weapons[s_pick].price); sound_play_ui(SND_BLIP); }
   if (pad->pcu) {
     int price = g_weapons[s_pick].price;
-    if (g.money < price) { game_message("Not enough money"); sound_play_ui(SND_EMPTY); }
+    if (!g_weapons[s_pick].startAmmo && (p->weapons & (1 << s_pick))) { game_message("You have one already"); sound_play_ui(SND_EMPTY); }
+    else if (g.money < price) { game_message("Not enough money"); sound_play_ui(SND_EMPTY); }
     else { g.money -= price; weapon_give(p, s_pick, g_weapons[s_pick].startAmmo); game_message("Bought: %s", g_weapons[s_pick].name); sound_play_ui(SND_CASH); }
   }
   return true; // the shop has the D-pad and C-up while you stand in it

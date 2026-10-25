@@ -125,6 +125,8 @@ static void bar(int x, int y, int w, float v, color_t c) {
 }
 
 void hud_draw(void) {
+  // the timers run on game time (not drawn frames: those come at 15 to 30 a second)
+  static float lastT; float hdt = clampf(g.time - lastT, 0, 0.2f); lastT = g.time;
   Actor *p = g.player;
   if (!p) return;
 
@@ -165,7 +167,7 @@ void hud_draw(void) {
   const char *dn = world_district_name(p->pos.x, p->pos.z);
   if (strncmp(dn, s_district, sizeof(s_district) - 1)) { strncpy(s_district, dn, sizeof(s_district) - 1); s_districtTime = 3.5f; }
   if (s_districtTime > 0) {
-    s_districtTime -= DT;
+    s_districtTime -= hdt;
     int w = hud_text_width(s_district, 2);
     hud_text(320 - 14 - w, 196, RGBA32(240, 230, 200, 255), 2, "%s", s_district);
     int b = world_block(p->pos.x, p->pos.z), o = gang_block_owner(b);
@@ -173,7 +175,7 @@ void hud_draw(void) {
   }
   // messages
   if (g.messageTime > 0) {
-    g.messageTime -= DT;
+    g.messageTime -= hdt;
     // above the radar, wrapped at a word into two lines when long
     char l1[48], l2[48]; const char *m = g.message;
     int n = strlen(m), cut = n;
@@ -186,7 +188,7 @@ void hud_draw(void) {
     if (l2[0]) text_center(y + 12, RGBA32(255, 255, 255, 255), 1, l2);
   }
   if (g.bigTime > 0) {
-    g.bigTime -= DT;
+    g.bigTime -= hdt;
     color_t c = !strcmp(g.bigMessage, "KNOCKED OUT") || !strcmp(g.bigMessage, "ARRESTED") || !strcmp(g.bigMessage, "WAR LOST") ? RGBA32(230, 60, 50, 255) : RGBA32(255, 220, 80, 255);
     text_center(90, c, 3, g.bigMessage);
   }

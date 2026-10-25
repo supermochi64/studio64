@@ -16,6 +16,7 @@ void gang_step(void);                         // wars, the wanted level, respect
 bool gang_hostile(const Actor *a, const Actor *b);
 void gang_recruit(Actor *a);
 void gang_dismiss_all(void);
+void gang_war_end(void);                      // the war is over (won, lost): its attackers go home
 int gang_recruit_count(void);
 int gang_max_recruits(void);
 void gang_on_jacked(Actor *driver, Actor *by, Vehicle *v);

@@ -135,6 +135,11 @@ void actor_free(Actor *a) {
   if (!a) return;
   if (a->vehicle) vehicle_leave(a->vehicle, a, false);
   a->used = false;
+  // nobody keeps fighting or aiming at the slot (it is given to someone new)
+  int idx = (int)(a - g.actors);
+  for (int i = 0; i < MAX_ACTORS; i++) { Actor *o = &g.actors[i]; if (o->foe == idx) o->foe = -1; if (o->target == idx) o->target = -1; }
+  for (int i = 0; i < MAX_RECRUITS; i++) if (g.recruits[i] == idx) g.recruits[i] = -1;
+  a->recruited = false; a->warrior = false;
 }
 
 void actor_set_state(Actor *a, int st) {
@@ -1088,7 +1093,8 @@ void actor_draw(Actor *a) {
 
   float sp = a->state == ST_POLE ? 0 : v3_len_xz(a->vel);
   a->animPhase += sp * DT * (sp > 5 ? 1.05f : 1.6f);
-  bool near = me || d2 < 17.0f * 17.0f;
+  float lr = a->drawNear ? 18.5f : 17.0f; // (a margin: no blinking between the two models on the line)
+  bool near = a->drawNear = me || d2 < lr * lr;
   // far people move less often (the skeleton is the costly part)
   if (near || ((g.frame + a->id) & 1) == 0) animate(a);
 

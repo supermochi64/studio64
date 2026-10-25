@@ -63,7 +63,8 @@ static void take(Pickup *p, Actor *a) {
   else if (t == PK_ARMOR) { if (a->armor >= 100) return; a->armor = 100; game_message("Body armour"); sound_play_ui(SND_PICKUP); }
   else {
     int w = t - PK_WEAPON0;
-    weapon_give(a, w, g_weapons[w].startAmmo);
+    // a gun dropped by someone holds what they had left (a little at least); a placed one a full load
+    weapon_give(a, w, p->fixed ? g_weapons[w].startAmmo : maxi(p->amount, g_weapons[w].startAmmo / 4));
     game_message("%s", g_weapons[w].name);
     sound_play_ui(SND_PICKUP);
   }
