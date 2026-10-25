@@ -167,7 +167,8 @@ void render_begin(void) {
   V3 eye = g_view.eye;
   if (g_view.shake > 0.01f) { eye.x += rnd_range(-1, 1) * g_view.shake * 0.15f; eye.y += rnd_range(-1, 1) * g_view.shake * 0.15f; g_view.shake *= 0.85f; }
   T3DVec3 e = t3v(eye), t = t3v(g_view.target), up = {{0, 1, 0}};
-  t3d_viewport_set_projection(&g_view.vp, T3D_DEG_TO_RAD(g_view.fov), 0.4f, 420.0f);
+  // (the near plane as far out as the camera allows: the 16-bit depth buffer's precision depends on it)
+  t3d_viewport_set_projection(&g_view.vp, T3D_DEG_TO_RAD(g_view.fov), 0.8f, 420.0f);
   t3d_viewport_look_at(&g_view.vp, &e, &t, &up);
   g_view.frustum = g_view.vp.viewFrustum;
 

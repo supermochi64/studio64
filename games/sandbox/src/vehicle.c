@@ -583,6 +583,8 @@ void vehicle_draw(Vehicle *v) {
   // the round shadow
   float fl = world_floor(v->pos.x, v->pos.z, v->pos.y + 0.5f, NULL);
   T3DMat4 sm;
-  mat_place(&sm, (V3){v->pos.x, fl + 0.05f, v->pos.z}, v->yaw, 0, 0, 0, MODEL_SCALE * d->len * 0.55f);
+  mat_place(&sm, (V3){v->pos.x, fl, v->pos.z}, v->yaw, 0, 0, 0, MODEL_SCALE * d->len * 0.55f);
+  rdpq_mode_zmode(ZMODE_DECAL);
   render_colored(g_models.shadow, &sm, RGBA32(0, 0, 0, 255));
+  rdpq_mode_zmode(ZMODE_STANDARD);
 }

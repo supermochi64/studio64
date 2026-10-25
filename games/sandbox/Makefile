@@ -38,6 +38,13 @@ assets/.stamp: $(wildcard tools/*.mjs tools/lib/*.mjs)
 	node tools/build_assets.mjs
 	@touch $@
 
+# the city: in world space at 32 units a metre (the island fits in 16 bits; see src/stream.c)
+filesystem/city/%.t3dm: assets/city/%.glb
+	@mkdir -p $(dir $@)
+	@echo "    [T3D] $@"
+	@$(T3D_GLTF_TO_3D) "$<" $@ --asset-path=assets --base-scale=32 > /dev/null
+	@$(N64_BINDIR)/mkasset -c 1 -o $(dir $@) $@
+
 filesystem/%.t3dm: assets/%.glb
 	@mkdir -p $(dir $@)
 	@echo "    [T3D] $@"

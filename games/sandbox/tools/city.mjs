@@ -94,7 +94,7 @@ export class City {
     const cz = Math.max(0, Math.min(WORLD.chunks - 1, Math.floor((z - WORLD.min) / WORLD.chunk)));
     const key = `${cx},${cz}`;
     if (!this.chunks.has(key)) {
-      const mk = () => { const g = new Gltf(); return { g, b: new MeshBuilder(), m: (name) => g.material(name, MATS[name]) }; };
+      const mk = () => { const g = new Gltf(); return { g, b: new MeshBuilder(), m: (name) => g.material(name, MATS[name] || MATS[name.replace(/@d$/, '')]) }; };
       const detail = mk(); detail.parts = Array.from({ length: 12 }, () => new MeshBuilder());
       const lod = mk(); lod.night = new MeshBuilder();
       this.chunks.set(key, { cx, cz, detail, lod, ox: WORLD.min + cx * WORLD.chunk + WORLD.chunk / 2, oz: WORLD.min + cz * WORLD.chunk + WORLD.chunk / 2 });
@@ -114,6 +114,7 @@ export class City {
 
   // a soft shadow on the ground round a footprint (centre, half extents, yaw): darkest at the wall
   shadowRect(cx, cz, hx, hz, yaw, y, width = 1.5, alpha = 0.42) {
+    y = PAD_Y; // (a decal on the lot and the sidewalk; where it reaches the street it is hidden)
     const c = Math.cos(yaw), s = Math.sin(yaw);
     const P = (lx, lz) => [cx + lx * c + lz * s, y, cz - lx * s + lz * c];
     const ein = [[-hx, hz], [hx, hz], [hx, -hz], [-hx, -hz]];
@@ -123,20 +124,21 @@ export class City {
       for (let k = 0; k < 4; k++) {
         const k1 = (k + 1) % 4;
         const q = [P(...ein[k]), P(...eout[k]), P(...eout[k1]), P(...ein[k1])];
-        b.quad(m('shadow'), q, { colors: [dark, clear, clear, dark], normal: [0, 1, 0] });
+        b.quad(m('shadow@d'), q, { colors: [dark, clear, clear, dark], normal: [0, 1, 0] });
       }
     });
   }
   // a pool of warm lamp light on the ground (drawn at night only)
   lightPool(x, z, r) {
-    const y = Math.max(PAD_Y, this.heightAt(x, z)) + 0.05, n = 10;
+    // two decals: one on the street's plane, one on the sidewalk's (each only shows on its own surface)
+    const n = 10;
     const core = [255, 255, 255, 175], mid = [255, 255, 255, 110], rim = [255, 255, 255, 0];
-    this.night(x, z, (b, m) => {
+    for (const y of [0.02, PAD_Y]) this.night(x, z, (b, m) => {
       const P = (a, rr) => [x + Math.sin(a) * rr, y, z + Math.cos(a) * rr];
       for (let k = 0; k < n; k++) {
         const a0 = (k / n) * Math.PI * 2, a1 = ((k + 1) / n) * Math.PI * 2;
-        b.triangle(m('lightpool'), [[x, y, z], P(a1, r * 0.45), P(a0, r * 0.45)], { colors: [core, mid, mid], normal: [0, 1, 0] });
-        b.quad(m('lightpool'), [P(a0, r * 0.45), P(a1, r * 0.45), P(a1, r), P(a0, r)], { colors: [mid, mid, rim, rim], normal: [0, 1, 0] });
+        b.triangle(m('lightpool@d'), [[x, y, z], P(a1, r * 0.45), P(a0, r * 0.45)], { colors: [core, mid, mid], normal: [0, 1, 0] });
+        b.quad(m('lightpool@d'), [P(a0, r * 0.45), P(a1, r * 0.45), P(a1, r), P(a0, r)], { colors: [mid, mid, rim, rim], normal: [0, 1, 0] });
       }
     }, false);
   }
@@ -225,13 +227,21 @@ export class City {
   // the terrain where it shows: hills, coasts and beaches (the city stands on its own surfaces)
   drawTerrain() {
     const n = this.hn - 1;
-    const covered = new Uint8Array(n * n);
+    // what the streets and the blocks cover, on a 1 m grid: a terrain cell they cover completely is not
+    // drawn; one they cover in part sits well under them (never a few centimetres: that flickers)
+    const F = 4 * n, fine = new Uint8Array(F * F);
     const mark = (x0, z0, x1, z1) => {
-      for (let j = Math.ceil((z0 - WORLD.min) / 4); j < Math.floor((z1 - WORLD.min) / 4); j++)
-        for (let i = Math.ceil((x0 - WORLD.min) / 4); i < Math.floor((x1 - WORLD.min) / 4); i++) if (i >= 0 && j >= 0 && i < n && j < n) covered[j * n + i] = 1;
+      for (let j = Math.max(0, Math.floor(z0 - WORLD.min)); j < Math.min(F, Math.ceil(z1 - WORLD.min)); j++)
+        for (let i = Math.max(0, Math.floor(x0 - WORLD.min)); i < Math.min(F, Math.ceil(x1 - WORLD.min)); i++) fine[j * F + i] = 1;
     };
     for (const s of this.segments) mark(Math.min(s.x0, s.x1) - (s.x0 === s.x1 ? s.half : 0), Math.min(s.z0, s.z1) - (s.z0 === s.z1 ? s.half : 0), Math.max(s.x0, s.x1) + (s.x0 === s.x1 ? s.half : 0), Math.max(s.z0, s.z1) + (s.z0 === s.z1 ? s.half : 0));
     for (const p of this.pads) mark(p.x0, p.z0, p.x1, p.z1);
+    const covered = new Uint8Array(n * n), partial = new Uint8Array(n * n);
+    for (let j = 0; j < n; j++) for (let i = 0; i < n; i++) {
+      let c = 0;
+      for (let b = 0; b < 4; b++) for (let a = 0; a < 4; a++) c += fine[(j * 4 + b) * F + i * 4 + a];
+      if (c === 16) covered[j * n + i] = 1; else if (c > 0) partial[j * n + i] = 1;
+    }
     const cell = (i, j) => {
       const hs = [this.heights[this.hIndex(i, j)], this.heights[this.hIndex(i + 1, j)], this.heights[this.hIndex(i + 1, j + 1)], this.heights[this.hIndex(i, j + 1)]];
       const g = this.ground[j * n + i];
@@ -255,11 +265,11 @@ export class City {
       let run = 1;
       if (C.flat) while (run < 8 && (i + run) % 8 !== 0 && i + run < n && !covered[j * n + i + run]) {
         const D = cell(i + run, j);
-        if (!D.flat || D.mat !== mat || D.hs[0] !== hs[0]) break;
+        if (!D.flat || D.mat !== mat || D.hs[0] !== hs[0] || partial[j * n + i + run] !== partial[j * n + i]) break;
         run++;
       }
       // (low flat ground sits a little under the streets that overlap it, so they never flicker)
-      const sink = (h) => (h < 0.3 ? h - 0.06 : h);
+      const sink = (h) => (h < 0.3 ? h - (partial[j * n + i] ? 0.15 : 0.06) : h);
       const p = [[x0, sink(hs[0]), z0], [x0, sink(hs[3]), z0 + 4], [x0 + 4 * run, sink(run > 1 ? hs[0] : hs[2]), z0 + 4], [x0 + 4 * run, sink(run > 1 ? hs[0] : hs[1]), z0]];
       const u0 = i % 8, v0 = j % 8;
       const uvq = [[u0, v0], [u0, v0 + 1], [u0 + run, v0 + 1], [u0 + run, v0]];
@@ -355,62 +365,99 @@ export class City {
       if (N[e.b].deg > 2) pieces.push([s1 - cw, s1, 'crosswalk']);
       // a frame along the street: s along it, t across (local -> world)
       const P = (sAlong, tAcross, y = 0.02) => horiz ? [A.x + sAlong, y, A.z + tAcross] : [A.x - tAcross, y, A.z + sAlong];
-      const strip = (s0_, s1_, t0, t1, col, y = 0.05) => {
-        const q = [P(s0_, t0, y), P(s0_, t1, y), P(s1_, t1, y), P(s1_, t0, y)];
-        const cx = horiz ? A.x + (s0_ + s1_) / 2 : A.x, cz = horiz ? A.z : A.z + (s0_ + s1_) / 2;
-        this.emit(cx, cz, (bb, m) => bb.quad(m('plain'), q, { color: col }));
-      };
       const w = e.half;
+      const wht = [222, 220, 212, 255], yel = [232, 184, 44, 255], patchCol = [70, 72, 76, 255];
+      // the markings as rectangles in (s along, t across): they become part of the surface itself
+      // (the asphalt is cut round them), so nothing lies on top of anything and nothing can flicker
+      const rects = [];
+      const R = (sa, sb, ta, tb, col) => rects.push([sa, sb, ta, tb, col]);
       for (const [p0, p1, mat] of pieces) {
-        // in pieces of at most 32 m (texture coordinates stay small; chunks get their own part)
-        for (let q = p0; q < p1 - 0.01; q += 32) {
-          const q1 = Math.min(p1, q + 32);
-          let quad;
-          if (horiz) quad = [[A.x + q, 0.02, A.z - w], [A.x + q, 0.02, A.z + w], [A.x + q1, 0.02, A.z + w], [A.x + q1, 0.02, A.z - w]];
-          else quad = [[A.x + w, 0.02, A.z + q], [A.x - w, 0.02, A.z + q], [A.x - w, 0.02, A.z + q1], [A.x + w, 0.02, A.z + q1]];
-          // the surface: asphalt tiled every 4 m in world space
-          const ox = Math.floor(Math.min(...quad.map((pt) => pt[0])) / 32) * 32, oz = Math.floor(Math.min(...quad.map((pt) => pt[2])) / 32) * 32;
-          const uv = quad.map((pt) => [(pt[0] - ox) / 4, (pt[2] - oz) / 4]);
-          const cx = horiz ? A.x + (q + q1) / 2 : A.x, cz = horiz ? A.z : A.z + (q + q1) / 2;
-          this.emit(cx, cz, (bb, m) => bb.quad(m('asphalt'), quad, { color: WHITE, uv }));
-          this.lod(cx, cz, (bb, m) => bb.quad(m('plain'), quad, { color: [86, 88, 92, 255] }));
-          // the markings: crisp painted strips
-          const wht = [222, 220, 212, 255], yel = [232, 184, 44, 255];
-          if (mat === 'crosswalk') {
-            for (let t = -w + 0.9; t < w - 0.9; t += 1.2) strip(q + 0.2, q1 - 0.2, t, t + 0.6, wht);
-            continue;
-          }
-          strip(q, q1, -w + 0.45, -w + 0.6, wht); strip(q, q1, w - 0.6, w - 0.45, wht);
-          if (e.kind !== 'local' && e.kind !== 'culdesac') { strip(q, q1, -0.24, -0.1, yel); strip(q, q1, 0.1, 0.24, yel); }
-          else for (let d = Math.ceil(q / 6) * 6; d < q1 - 2; d += 6) strip(d, d + 2.4, -0.07, 0.07, yel);
-          if (e.lanes === 2) for (const t of [-w / 2, w / 2]) for (let d = Math.ceil(q / 9) * 9; d < q1 - 3; d += 9) strip(d, d + 3, t - 0.07, t + 0.07, wht);
-          // the odd manhole and patched asphalt
-          const rr = rng(Math.floor(A.x * 7 + A.z * 13 + q));
-          if (rr() < 0.5) {
-            const sm = q + 4 + rr() * Math.max(1, q1 - q - 8), tm = (rr() < 0.5 ? -1 : 1) * w * 0.5;
-            const c = P(sm, tm, 0.045);
-            this.fine(c[0], c[2], (bb, m) => { const pts = []; for (let k = 0; k < 10; k++) { const an = -(k / 10) * Math.PI * 2; pts.push([c[0] + Math.sin(an) * 0.42, 0.045, c[2] + Math.cos(an) * 0.42]); } for (let k = 0; k < 10; k++) bb.triangle(m('plain2'), [c, pts[k], pts[(k + 1) % 10]], { colors: [[70, 70, 72, 255], [52, 52, 54, 255], [52, 52, 54, 255]] }); });
-          }
-          if (rr() < 0.35) {
-            const sm = q + rr() * Math.max(1, q1 - q - 5), tm = (rr() - 0.5) * w;
-            strip(sm, sm + 2 + rr() * 3, tm, tm + 1.2 + rr() * 2, [70, 72, 76, 255], 0.035);
-          }
-        }
+        if (mat === 'crosswalk') { for (let t = -w + 0.9; t < w - 0.9; t += 1.2) R(p0 + 0.2, p1 - 0.2, t, t + 0.6, wht); continue; }
+        R(p0, p1, -w + 0.45, -w + 0.6, wht); R(p0, p1, w - 0.6, w - 0.45, wht);
+        if (e.kind !== 'local' && e.kind !== 'culdesac') { R(p0, p1, -0.24, -0.1, yel); R(p0, p1, 0.1, 0.24, yel); }
+        else for (let d = Math.ceil(p0 / 6) * 6; d < p1 - 2; d += 6) R(d, d + 2.4, -0.07, 0.07, yel);
+        if (e.lanes === 2) for (const t of [-w / 2, w / 2]) for (let d = Math.ceil(p0 / 9) * 9; d < p1 - 3; d += 9) R(d, d + 3, t - 0.07, t + 0.07, wht);
+        // patched asphalt now and then (kept off the lines)
+        const rr = rng(Math.floor(A.x * 7 + A.z * 13 + p0));
+        for (let q = p0; q < p1 - 8; q += 32) if (rr() < 0.35) { const sm = q + 2 + rr() * Math.max(1, Math.min(32, p1 - q) - 8), tm = 0.6 + rr() * Math.max(0.1, w - 3.2); const sg = rr() < 0.5 ? 1 : -1; R(sm, sm + 2 + rr() * 3, sg > 0 ? tm : -tm - 1.4, sg > 0 ? tm + 1.4 : -tm, patchCol); }
       }
       // stop lines before the crossings
-      if (N[e.a].deg > 2) strip(s0 + cw + 0.3, s0 + cw + 0.7, 0.3, w - 0.6, [222, 220, 212, 255]);
-      if (N[e.b].deg > 2) strip(s1 - cw - 0.7, s1 - cw - 0.3, -w + 0.6, -0.3, [222, 220, 212, 255]);
+      if (N[e.a].deg > 2) R(s0 + cw + 0.3, s0 + cw + 0.7, 0.3, w - 0.6, wht);
+      if (N[e.b].deg > 2) R(s1 - cw - 0.7, s1 - cw - 0.3, -w + 0.6, -0.3, wht);
+      // the surface, piece by piece (at most 32 m: small texture coordinates, one chunk each)
+      const surface = (sa, sb, ta, tb, col) => {
+        const q = [P(sa, ta), P(sa, tb), P(sb, tb), P(sb, ta)];
+        const cx = horiz ? A.x + (sa + sb) / 2 : A.x - (ta + tb) / 2, cz = horiz ? A.z + (ta + tb) / 2 : A.z + (sa + sb) / 2;
+        if (col) { this.emit(cx, cz, (bb, m) => bb.quad(m('plain'), q, { color: col, normal: [0, 1, 0] })); return; }
+        const ox = Math.floor(Math.min(...q.map((pt) => pt[0])) / 32) * 32, oz = Math.floor(Math.min(...q.map((pt) => pt[2])) / 32) * 32;
+        this.emit(cx, cz, (bb, m) => bb.quad(m('asphalt'), q, { color: WHITE, uv: q.map((pt) => [(pt[0] - ox) / 4, (pt[2] - oz) / 4]), normal: [0, 1, 0] }));
+      };
+      const sStart = pieces[0][0], sEnd = pieces[pieces.length - 1][1];
+      for (let q = sStart; q < sEnd - 0.01; q += 32) {
+        const q1 = Math.min(sEnd, q + 32);
+        const mine = rects.filter((r) => r[1] > q + 1e-4 && r[0] < q1 - 1e-4).map((r) => [Math.max(q, r[0]), Math.min(q1, r[1]), r[2], r[3], r[4]]);
+        const ts = [...new Set([-w, w, ...mine.flatMap((r) => [r[2], r[3]])])].filter((t) => t >= -w && t <= w).sort((x, y) => x - y);
+        for (let k = 0; k < ts.length - 1; k++) {
+          const ta = ts[k], tb = ts[k + 1];
+          if (tb - ta < 1e-3) continue;
+          const tm = (ta + tb) / 2;
+          const here = mine.filter((r) => r[2] <= tm && r[3] >= tm);
+          const ss = [...new Set([q, q1, ...here.flatMap((r) => [r[0], r[1]])])].sort((x, y) => x - y);
+          // runs of the same colour along s become one quad
+          let runStart = ss[0], runCol;
+          for (let j = 0; j < ss.length - 1; j++) {
+            const sm = (ss[j] + ss[j + 1]) / 2;
+            const hit = here.find((r) => r[0] <= sm && r[1] >= sm);
+            const col = hit ? hit[4] : null;
+            if (j === 0) runCol = col;
+            else if (col !== runCol) { surface(runStart, ss[j], ta, tb, runCol); runStart = ss[j]; runCol = col; }
+          }
+          surface(runStart, ss[ss.length - 1], ta, tb, runCol);
+        }
+        const quad = [P(q, -w), P(q, w), P(q1, w), P(q1, -w)];
+        const cx = horiz ? A.x + (q + q1) / 2 : A.x, cz = horiz ? A.z : A.z + (q + q1) / 2;
+        this.lod(cx, cz, (bb, m) => bb.quad(m('plain'), quad, { color: [86, 88, 92, 255] }));
+        // the odd manhole (a small decal, drawn only near)
+        const rr = rng(Math.floor(A.x * 7 + A.z * 13 + q) + 99);
+        if (rr() < 0.5) {
+          const sm = q + 4 + rr() * Math.max(1, q1 - q - 8), tmh = (rr() < 0.5 ? -1 : 1) * w * 0.5;
+          const c = P(sm, tmh);
+          this.fine(c[0], c[2], (bb, m) => { const pts = []; for (let k = 0; k < 10; k++) { const an = -(k / 10) * Math.PI * 2; pts.push([c[0] + Math.sin(an) * 0.42, 0.02, c[2] + Math.cos(an) * 0.42]); } for (let k = 0; k < 10; k++) bb.triangle(m('plain2@d'), [c, pts[k], pts[(k + 1) % 10]], { colors: [[70, 70, 72, 255], [52, 52, 54, 255], [52, 52, 54, 255]] }); });
+        }
+      }
     }
     // intersections: plain asphalt squares
     N.forEach((n, i) => {
       if (n.deg < 2) {
         // a dead end: the cul-de-sac's turning circle
-        const r = 13;
-        const pts = 12;
-        for (let k = 0; k < pts; k++) {
-          const a0 = (k / pts) * Math.PI * 2, a1 = ((k + 1) / pts) * Math.PI * 2;
+        const r = 13, pts = 24;
+        // the circle without the strip its street already covers (no two surfaces on one spot)
+        const ed = this.streetEdges.find((ee) => ee.a === i || ee.b === i), other = N[ed.a === i ? ed.b : ed.a];
+        const ul = Math.hypot(other.x - n.x, other.z - n.z), ux = (other.x - n.x) / ul, uz = (other.z - n.z) / ul, hw = ed.half;
+        const circle = []; for (let k = 0; k < pts; k++) { const a = (k / pts) * Math.PI * 2; circle.push([n.x + Math.sin(a) * r, n.z + Math.cos(a) * r]); }
+        // clip a convex polygon to the half plane a.x * px + a.z * pz <= c
+        const clip = (poly, ax, az, c) => { const out = []; for (let k = 0; k < poly.length; k++) { const P0 = poly[k], P1 = poly[(k + 1) % poly.length]; const d0 = ax * P0[0] + az * P0[1] - c, d1 = ax * P1[0] + az * P1[1] - c; if (d0 <= 0) out.push(P0); if ((d0 < 0) !== (d1 < 0) && Math.abs(d0 - d1) > 1e-9) { const t = d0 / (d0 - d1); out.push([P0[0] + (P1[0] - P0[0]) * t, P0[1] + (P1[1] - P0[1]) * t]); } } return out; };
+        const along = ux * n.x + uz * n.z, across = -uz * n.x + ux * n.z;
+        const parts = [
+          clip(circle, ux, uz, along),                                        // behind the street's end
+          clip(clip(circle, -ux, -uz, -along), -uz, ux, across - hw),         // beside it, one side
+          clip(clip(circle, -ux, -uz, -along), uz, -ux, -(across + hw)),      // and the other
+        ];
+        for (const poly of parts) {
+          if (poly.length < 3) continue;
+          const cx = poly.reduce((a, q) => a + q[0], 0) / poly.length, cz = poly.reduce((a, q) => a + q[1], 0) / poly.length;
+          for (let k = 1; k < poly.length - 1; k++) {
+            let tri = [[poly[0][0], 0.02, poly[0][1]], [poly[k][0], 0.02, poly[k][1]], [poly[k + 1][0], 0.02, poly[k + 1][1]]];
+            // facing up (counter-clockwise from above)
+            const cr = (tri[1][0] - tri[0][0]) * (tri[2][2] - tri[0][2]) - (tri[1][2] - tri[0][2]) * (tri[2][0] - tri[0][0]);
+            if (cr > 0) tri = [tri[0], tri[2], tri[1]];
+            const T = tri;
+            this.emit(cx, cz, (b, m) => b.triangle(m('asphalt'), T, { color: WHITE, uv: T.map((p) => [(p[0] - n.x) / 4, (p[2] - n.z) / 4]), normal: [0, 1, 0] }));
+          }
+        }
+        for (let k = 0; k < 12; k++) {
+          const a0 = (k / 12) * Math.PI * 2, a1 = ((k + 1) / 12) * Math.PI * 2;
           const tri = [[n.x, 0.02, n.z], [n.x + Math.sin(a0) * r, 0.02, n.z + Math.cos(a0) * r], [n.x + Math.sin(a1) * r, 0.02, n.z + Math.cos(a1) * r]];
-          this.emit(n.x, n.z, (b, m) => b.triangle(m('asphalt'), tri, { color: WHITE, uv: tri.map((p) => [(p[0] - n.x) / 8, (p[2] - n.z) / 8]) }));
           this.lod(n.x, n.z, (b, m) => b.triangle(m('plain'), tri, { color: [86, 88, 92, 255] }));
         }
         this.spot(SPOT.HOME, n.x, n.z - 4);
@@ -514,6 +561,9 @@ export class City {
   /** A textured flat surface from (ax,az) to (bx,bz) at height y, split at chunk lines; rep = meters per repeat */
   tiles(ax, az, bx, bz, y, mat, rep, color = WHITE) {
     if (bx - ax < 0.05 || bz - az < 0.05) return;
+    // an overlay on the lot (paths, lines, a court, a pool's deck): drawn on the same plane as a decal,
+    // never a few millimetres above it (that flickers at a distance)
+    if (y > PAD_Y + 0.001 && y < PAD_Y + 0.05) { y = PAD_Y; mat += '@d'; }
     const step = 32;
     for (let x = ax; x < bx - 0.01; x = Math.min(bx, Math.floor((x + step) / step) * step)) {
       const xe = Math.min(bx, Math.floor((x + step) / step) * step);
@@ -693,8 +743,8 @@ export class City {
         b.quad(m(mat), [P(p0[0], g, p0[1]), P(p1[0], g, p1[1]), P(p1[0], g + wallH, p1[1]), P(p0[0], g + wallH, p0[1])], { color: col, uv: [[0, two ? 2 : 1], [u, two ? 2 : 1], [u, 0], [0, 0]] });
         if (mat !== 'housewin') return;
         // its lit windows at night, a few centimetres out from the wall
-        const dx = p1[0] - p0[0], dz = p1[1] - p0[1], l = Math.hypot(dx, dz), ox = (dz / l) * 0.03, oz = (-dx / l) * 0.03;
-        this.night(x, z, (nb, nm) => nb.quad(nm('night_house'), [P(p0[0] + ox, g, p0[1] + oz), P(p1[0] + ox, g, p1[1] + oz), P(p1[0] + ox, g + wallH, p1[1] + oz), P(p0[0] + ox, g + wallH, p0[1] + oz)], { color: WHITE, uv: [[0, (two ? 2 : 1) / 2], [u / 2, (two ? 2 : 1) / 2], [u / 2, 0], [0, 0]] }), false);
+        const ox = 0, oz = 0; // (on the wall's plane: a decal)
+        this.night(x, z, (nb, nm) => nb.quad(nm('night_house@d'), [P(p0[0] + ox, g, p0[1] + oz), P(p1[0] + ox, g, p1[1] + oz), P(p1[0] + ox, g + wallH, p1[1] + oz), P(p0[0] + ox, g + wallH, p0[1] + oz)], { color: WHITE, uv: [[0, (two ? 2 : 1) / 2], [u / 2, (two ? 2 : 1) / 2], [u / 2, 0], [0, 0]] }), false);
       };
       // front: windows, a door in the middle bay, the garage at the side
       const bays = Math.max(2, Math.round((w - gw) / 3));
@@ -775,7 +825,7 @@ export class City {
     // which sides face streets: all of a pad's sides do (pads are surrounded by streets)
     const depth = 13, lotW = 15;
     // yard surfaces: grass everywhere inside, then houses on top
-    this.tiles(inner.x0, inner.z0, inner.x1, inner.z1, PAD_Y + 0.005, 'grass', 4);
+    this.tiles(inner.x0, inner.z0, inner.x1, inner.z1, PAD_Y, 'grass', 4);
     this.setGround(inner.x0, inner.z0, inner.x1, inner.z1, GROUND.GRASS);
     const W = inner.x1 - inner.x0, D = inner.z1 - inner.z0;
     // houses along the north and south edges (front to the street), the corners left as yards
@@ -819,23 +869,23 @@ export class City {
       // walls: brick with windows above, stucco fronts
       const brick = r() < 0.5;
       box(b, m(brick ? 'brickwin' : 'housewin'), [x0, g, z0], [x1, g + h, z1], { color: brick ? WHITE : col, uvScale: [3.5, fh], faces: ['n', 's', 'e', 'w'], vTop: 0 });
-      if (floors > 1) this.night((x0 + x1) / 2, (z0 + z1) / 2, (nb, nm) => box(nb, nm(brick ? 'night_brick' : 'night_house'), [x0 - 0.03, g + fh, z0 - 0.03], [x1 + 0.03, g + h, z1 + 0.03], { color: WHITE, uvScale: [7, fh * 2], faces: ['n', 's', 'e', 'w'], vTop: 0 }));
+      if (floors > 1) this.night((x0 + x1) / 2, (z0 + z1) / 2, (nb, nm) => box(nb, nm(brick ? 'night_brick@d' : 'night_house@d'), [x0, g + fh, z0], [x1, g + h, z1], { color: WHITE, uvScale: [7, fh * 2], faces: ['n', 's', 'e', 'w'], vTop: 0 }));
       b.quad(m('roofflat'), [[x0, g + h, z0], [x0, g + h, z1], [x1, g + h, z1], [x1, g + h, z0]], { color: WHITE, uv: [[0, 0], [0, (z1 - z0) / 4], [(x1 - x0) / 4, (z1 - z0) / 4], [(x1 - x0) / 4, 0]] });
       // the shop front on the street side (just outside the wall)
-      const e = 0.06;
+      const e = 0; // (decals on the wall's plane)
       const front = [
         [[x0, z1 + e], [x1, z1 + e]], [[x1 + e, z1], [x1 + e, z0]], [[x1, z0 - e], [x0, z0 - e]], [[x0 - e, z0], [x0 - e, z1]],
       ][facing];
       const [[ax, az], [bx, bz]] = front;
       const len = Math.hypot(bx - ax, bz - az);
-      b.quad(m('shopfront'), [[ax, g, az], [bx, g, bz], [bx, g + 3.4, bz], [ax, g + 3.4, az]], { color: WHITE, uv: [[0, 1], [Math.max(1, Math.round(len / 4)), 1], [Math.max(1, Math.round(len / 4)), 0], [0, 0]] });
-      { const ex = (bz - az) / len * -0.03, ez = (bx - ax) / len * 0.03; // just in front of the glass
-        this.night((ax + bx) / 2, (az + bz) / 2, (nb, nm) => nb.quad(nm('night_shop'), [[ax + ex, g, az + ez], [bx + ex, g, bz + ez], [bx + ex, g + 3.4, bz + ez], [ax + ex, g + 3.4, az + ez]], { color: WHITE, uv: [[0, 1], [Math.max(1, Math.round(len / 4)), 1], [Math.max(1, Math.round(len / 4)), 0], [0, 0]] }), false); }
+      b.quad(m('shopfront@d'), [[ax, g, az], [bx, g, bz], [bx, g + 3.4, bz], [ax, g + 3.4, az]], { color: WHITE, uv: [[0, 1], [Math.max(1, Math.round(len / 4)), 1], [Math.max(1, Math.round(len / 4)), 0], [0, 0]] });
+      { const ex = 0, ez = 0; // (on the glass's plane)
+        this.night((ax + bx) / 2, (az + bz) / 2, (nb, nm) => nb.quad(nm('night_shop@d'), [[ax + ex, g, az + ez], [bx + ex, g, bz + ez], [bx + ex, g + 3.4, bz + ez], [ax + ex, g + 3.4, az + ez]], { color: WHITE, uv: [[0, 1], [Math.max(1, Math.round(len / 4)), 1], [Math.max(1, Math.round(len / 4)), 0], [0, 0]] }), false); }
       // the sign board and an awning
       const dx = (bx - ax) / len, dz = (bz - az) / len, nx = -dz, nz = dx; // (nx, nz) points out of the building
       const sl = Math.min(len - 1, 8), sm = 0.5 * (len - sl);
-      const sa = [ax + dx * sm + nx * 0.1, az + dz * sm + nz * 0.1], sb = [ax + dx * (sm + sl) + nx * 0.1, az + dz * (sm + sl) + nz * 0.1];
-      b.quad(m(`sign_${word.toLowerCase()}`), [[sa[0], g + 3.5, sa[1]], [sb[0], g + 3.5, sb[1]], [sb[0], g + 4.6, sb[1]], [sa[0], g + 4.6, sa[1]]], { color: [255, 230 - Math.floor(r() * 120), 140 + Math.floor(r() * 110), 255].map(Math.round), uv: [[0, 1], [1, 1], [1, 0], [0, 0]] });
+      const sa = [ax + dx * sm, az + dz * sm], sb = [ax + dx * (sm + sl), az + dz * (sm + sl)];
+      b.quad(m(`sign_${word.toLowerCase()}@d`), [[sa[0], g + 3.5, sa[1]], [sb[0], g + 3.5, sb[1]], [sb[0], g + 4.6, sb[1]], [sa[0], g + 4.6, sa[1]]], { color: [255, 230 - Math.floor(r() * 120), 140 + Math.floor(r() * 110), 255].map(Math.round), uv: [[0, 1], [1, 1], [1, 0], [0, 0]] });
       const ac = [[214, 52, 48, 255], [52, 132, 76, 255], [52, 92, 176, 255], [232, 170, 50, 255], [200, 90, 150, 255]][Math.floor(r() * 5)];
       // a striped awning (sloped, with a hanging valance) over the windows either side of the door
       const ar = Math.max(1, Math.round(len / 2));
@@ -844,7 +894,7 @@ export class City {
       // the parapet and its coping
       box(b, m('plain'), [x0 - 0.15, g + h, z0 - 0.15], [x1 + 0.15, g + h + 0.6, z1 + 0.15], { color: brick ? [176, 160, 140, 255] : col.map((v, i) => (i < 3 ? Math.round(v * 0.85) : v)), faces: ['top', 'n', 's', 'e', 'w'] });
       // a base course along the front
-      b.quad(m('plain'), [[ax + nx * 0.04, g, az + nz * 0.04], [bx + nx * 0.04, g, bz + nz * 0.04], [bx + nx * 0.04, g + 0.35, bz + nz * 0.04], [ax + nx * 0.04, g + 0.35, az + nz * 0.04]], { color: [96, 98, 104, 255] });
+      b.quad(m('plain@d'), [[ax, g, az], [bx, g, bz], [bx, g + 0.35, bz], [ax, g + 0.35, az]], { color: [96, 98, 104, 255] });
     });
     const scx = (x0 + x1) / 2, scz = (z0 + z1) / 2;
     this.shadowRect(scx, scz, (x1 - x0) / 2, (z1 - z0) / 2, 0, g + 0.025, 1.3, 0.36);
@@ -860,7 +910,7 @@ export class City {
   commercial(p, inner) {
     const r = this.r;
     // shops on every side of the block, the middle a car park, a gas station or a mall
-    this.tiles(inner.x0, inner.z0, inner.x1, inner.z1, PAD_Y + 0.005, 'asphalt', 4);
+    this.tiles(inner.x0, inner.z0, inner.x1, inner.z1, PAD_Y, 'asphalt', 4);
     const W = inner.x1 - inner.x0, D = inner.z1 - inner.z0;
     const sd = Math.min(15, D / 3.5);
     const row = (a, b, place) => { let t = a; while (t < b - 7) { const w = Math.min(b - t, 10 + r() * 9); if (b - t - w < 7) { place(t, b); break; } place(t, t + w - 0.5); t += w; } };
@@ -886,11 +936,11 @@ export class City {
     const g = PAD_Y;
     this.emit(x, z, (b, m) => {
       box(b, m('plain'), [x - 10, g + 4.6, z - 6], [x + 10, g + 5.2, z + 6], { color: [230, 230, 230, 255], colors: { bottom: [250, 250, 240, 255] } });
-      box(b, m('plain'), [x - 10.05, g + 4.6, z - 6.05], [x + 10.05, g + 4.9, z + 6.05], { color: [200, 40, 40, 255], faces: ['n', 's', 'e', 'w'], shadeSides: false });
+      box(b, m('plain'), [x - 10.15, g + 4.55, z - 6.15], [x + 10.15, g + 4.95, z + 6.15], { color: [200, 40, 40, 255], faces: ['n', 's', 'e', 'w'], shadeSides: false });
       for (const [dx, dz] of [[-8, -4], [8, -4], [-8, 4], [8, 4]]) box(b, m('plain'), [x + dx - 0.2, g, z + dz - 0.2], [x + dx + 0.2, g + 4.6, z + dz + 0.2], { color: [220, 220, 220, 255] });
       for (const dx of [-4, 4]) for (const dz of [-1.5, 1.5]) {
         box(b, m('plain'), [x + dx - 0.4, g, z + dz - 0.25], [x + dx + 0.4, g + 1.6, z + dz + 0.25], { color: [200, 50, 40, 255] });
-        box(b, m('plain'), [x + dx - 0.3, g + 1.0, z + dz + 0.26], [x + dx + 0.3, g + 1.4, z + dz + 0.27], { color: [40, 40, 40, 255], faces: ['s'] });
+        box(b, m('plain@d'), [x + dx - 0.3, g + 1.0, z + dz + 0.25], [x + dx + 0.3, g + 1.4, z + dz + 0.25], { color: [40, 40, 40, 255], faces: ['s'] });
       }
     });
     this.lod(x, z, (b, m) => box(b, m('plain'), [x - 10, g + 4.6, z - 6], [x + 10, g + 5.2, z + 6], { color: [220, 220, 220, 255] }));
@@ -906,7 +956,7 @@ export class City {
     if (k < 0.22) {
       const w = 3 + r() * 2, d = 5 + r() * 2;
       this.tiles(x - w / 2 - 0.6, z - d / 2 - 0.6, x + w / 2 + 0.6, z + d / 2 + 0.6, PAD_Y + 0.012, 'concrete', 3);
-      this.emit(x, z, (b, m) => b.quad(m('plain'), [[x - w / 2, PAD_Y + 0.02, z - d / 2], [x - w / 2, PAD_Y + 0.02, z + d / 2], [x + w / 2, PAD_Y + 0.02, z + d / 2], [x + w / 2, PAD_Y + 0.02, z - d / 2]], { color: [60, 170, 220, 255] }));
+      this.emit(x, z, (b, m) => b.quad(m('plain@d'), [[x - w / 2, PAD_Y, z - d / 2], [x - w / 2, PAD_Y, z + d / 2], [x + w / 2, PAD_Y, z + d / 2], [x + w / 2, PAD_Y, z - d / 2]], { color: [60, 170, 220, 255] }));
     } else if (k < 0.45) {
       const c = PASTELS[Math.floor(r() * PASTELS.length)];
       this.emit(x, z, (b, m) => { box(b, m('wood'), [x - 1.2, PAD_Y, z - 1], [x + 1.2, PAD_Y + 2.1, z + 1], { color: c, uvScale: 2, faces: ['n', 's', 'e', 'w'] }); box(b, m('plain'), [x - 1.4, PAD_Y + 2.1, z - 1.2], [x + 1.4, PAD_Y + 2.3, z + 1.2], { color: [110, 70, 50, 255] }); });
@@ -927,7 +977,7 @@ export class City {
     this.emit(mx, mz, (b, m) => {
       // the lobby: glass between stone piers, a canopy over the entrances
       box(b, m('lobby'), [x0 + 0.3, g, z0 + 0.3], [x1 - 0.3, g + lobbyH, z1 - 0.3], { color: WHITE, uvScale: [4, lobbyH], faces: ['n', 's', 'e', 'w'] });
-      this.night(mx, mz, (nb, nm) => box(nb, nm('night_lobby'), [x0 + 0.26, g, z0 + 0.26], [x1 - 0.26, g + lobbyH, z1 - 0.26], { color: WHITE, uvScale: [4, lobbyH], faces: ['n', 's', 'e', 'w'] }), false);
+      this.night(mx, mz, (nb, nm) => box(nb, nm('night_lobby@d'), [x0 + 0.3, g, z0 + 0.3], [x1 - 0.3, g + lobbyH, z1 - 0.3], { color: WHITE, uvScale: [4, lobbyH], faces: ['n', 's', 'e', 'w'] }), false);
       box(b, m('plain'), [x0 - 0.25, g + lobbyH, z0 - 0.25], [x1 + 0.25, g + lobbyH + 0.5, z1 + 0.25], { color: trim, faces: ['top', 'bottom', 'n', 's', 'e', 'w'] });
       for (const [cx, cz, ax] of [[mx, z1, 'z'], [mx, z0, 'z'], [x1, mz, 'x'], [x0, mz, 'x']]) {
         const half = ax === 'z' ? [3, 1.6] : [1.6, 3];
@@ -937,7 +987,7 @@ export class City {
       // the shaft (and its setback), corner piers, a cornice at each top
       const shaft = (ax0, az0, ax1, az1, yb, yt) => {
         box(b, m(kind), [ax0, yb, az0], [ax1, yt, az1], { color: col, uvScale: [3.5, 4], vTop: 0, faces: ['n', 's', 'e', 'w'] });
-        this.night(mx, mz, (nb, nm) => box(nb, nm(kind === 'office' ? 'night_office' : 'night_office2'), [ax0 - 0.04, yb, az0 - 0.04], [ax1 + 0.04, yt, az1 + 0.04], { color: WHITE, uvScale: [14, 16], vTop: 0, faces: ['n', 's', 'e', 'w'] }));
+        this.night(mx, mz, (nb, nm) => box(nb, nm(kind === 'office' ? 'night_office@d' : 'night_office2@d'), [ax0, yb, az0], [ax1, yt, az1], { color: WHITE, uvScale: [14, 16], vTop: 0, faces: ['n', 's', 'e', 'w'] }));
         for (const [px, pz] of [[ax0, az0], [ax1, az0], [ax1, az1], [ax0, az1]]) box(b, m('plain'), [px - 0.45, yb, pz - 0.45], [px + 0.45, yt + 0.2, pz + 0.45], { color: trim, faces: ['n', 's', 'e', 'w'] });
         box(b, m('plain'), [ax0 - 0.5, yt, az0 - 0.5], [ax1 + 0.5, yt + 0.9, az1 + 0.5], { color: trim, faces: ['top', 'bottom', 'n', 's', 'e', 'w'] });
         b.quad(m('roofflat'), [[ax0, yt + 0.6, az0], [ax0, yt + 0.6, az1], [ax1, yt + 0.6, az1], [ax1, yt + 0.6, az0]], { color: WHITE, uv: [[0, 0], [0, (az1 - az0) / 6], [(ax1 - ax0) / 6, (az1 - az0) / 6], [(ax1 - ax0) / 6, 0]] });
@@ -962,7 +1012,7 @@ export class City {
 
   downtown(p, inner) {
     const r = this.r;
-    this.tiles(inner.x0, inner.z0, inner.x1, inner.z1, PAD_Y + 0.005, 'concrete', 4);
+    this.tiles(inner.x0, inner.z0, inner.x1, inner.z1, PAD_Y, 'concrete', 4);
     const W = inner.x1 - inner.x0, D = inner.z1 - inner.z0;
     // 2x2 towers with a plaza between
     const gap = 10;
@@ -987,7 +1037,7 @@ export class City {
       box(b, m('metal'), [x0, g, z0], [x1, g + h, z1], { color: col, uvScale: [2, h], faces: ['n', 's', 'e', 'w'] });
       b.quad(m('roofflat'), [[x0, g + h, z0], [x0, g + h, z1], [x1, g + h, z1], [x1, g + h, z0]], { color: WHITE, uv: [[0, 0], [0, (z1 - z0) / 6], [(x1 - x0) / 6, (z1 - z0) / 6], [(x1 - x0) / 6, 0]] });
       // roll-up doors on the south side
-      for (let x = x0 + 3; x < x1 - 6; x += 9) b.quad(m('garage'), [[x, g, z1 + 0.05], [x + 5, g, z1 + 0.05], [x + 5, g + 5, z1 + 0.05], [x, g + 5, z1 + 0.05]], { color: [200, 200, 200, 255] });
+      for (let x = x0 + 3; x < x1 - 6; x += 9) b.quad(m('garage@d'), [[x, g, z1], [x + 5, g, z1], [x + 5, g + 5, z1], [x, g + 5, z1]], { color: [200, 200, 200, 255] });
     });
     this.lod((x0 + x1) / 2, (z0 + z1) / 2, (b, m) => box(b, m('plain'), [x0, g, z0], [x1, g + h, z1], { color: col, faces: ['top', 'n', 's', 'e', 'w'] }));
     this.solid((x0 + x1) / 2, (z0 + z1) / 2, (x1 - x0) / 2, (z1 - z0) / 2, g, g + h);
@@ -1001,7 +1051,7 @@ export class City {
   }
   industrial(p, inner) {
     const r = this.r;
-    this.tiles(inner.x0, inner.z0, inner.x1, inner.z1, PAD_Y + 0.005, 'concrete', 4);
+    this.tiles(inner.x0, inner.z0, inner.x1, inner.z1, PAD_Y, 'concrete', 4);
     const W = inner.x1 - inner.x0, D = inner.z1 - inner.z0;
     this.warehouse(inner.x0 + 2, inner.z0 + 2, inner.x0 + W * 0.55, inner.z0 + D * 0.45, r);
     // container yard
@@ -1018,7 +1068,7 @@ export class City {
 
   park(p, inner, kind) {
     const r = this.r;
-    this.tiles(inner.x0, inner.z0, inner.x1, inner.z1, PAD_Y + 0.005, 'grass', 4);
+    this.tiles(inner.x0, inner.z0, inner.x1, inner.z1, PAD_Y, 'grass', 4);
     this.setGround(inner.x0, inner.z0, inner.x1, inner.z1, GROUND.GRASS);
     const mx = (inner.x0 + inner.x1) / 2, mz = (inner.z0 + inner.z1) / 2;
     if (kind === 'G') {
@@ -1083,6 +1133,7 @@ export class City {
   // ---- park and waterfront dressing ----
   // a flat ring or disc of a material (paths round a fountain, flower beds)
   disc(x, z, r0, r1, y, mat, color = WHITE, n = 16, rep = 2, layer = 'emit') {
+    if (y > PAD_Y + 0.001 && y < PAD_Y + 0.05) { y = PAD_Y; mat += '@d'; }
     const put = layer === 'fine' ? this.fine.bind(this) : this.emit.bind(this);
     for (let k = 0; k < n; k++) {
       const a0 = (k / n) * Math.PI * 2, a1 = ((k + 1) / n) * Math.PI * 2;
@@ -1098,6 +1149,7 @@ export class City {
   }
   // a straight path of a material between two points (any angle)
   path(ax, az, bx, bz, w, y, mat, rep = 2) {
+    if (y > PAD_Y + 0.001 && y < PAD_Y + 0.05) { y = PAD_Y; mat += '@d'; }
     const len = Math.hypot(bx - ax, bz - az), yaw = Math.atan2(bx - ax, bz - az);
     const n = Math.max(1, Math.ceil(len / 24));
     for (let k = 0; k < n; k++) {
@@ -1192,7 +1244,7 @@ export class City {
     });
     // a towel beside it
     const tx = x + 1.2, tz = z + 0.6, tc = [[240, 90, 80, 255], [80, 160, 230, 255], [250, 210, 60, 255], [140, 220, 140, 255]][Math.floor(this.r() * 4)];
-    this.fine(tx, tz, (b, m) => b.quad(m('awning'), [[tx - 0.45, g + 0.03, tz - 0.9], [tx - 0.45, g + 0.03, tz + 0.9], [tx + 0.45, g + 0.03, tz + 0.9], [tx + 0.45, g + 0.03, tz - 0.9]], { color: tc, uv: [[0, 0], [0, 0.9], [2, 0.9], [2, 0]], normal: [0, 1, 0] }));
+    this.fine(tx, tz, (b, m) => b.quad(m('awning'), [[tx - 0.45, g + 0.08, tz - 0.9], [tx - 0.45, g + 0.08, tz + 0.9], [tx + 0.45, g + 0.08, tz + 0.9], [tx + 0.45, g + 0.08, tz - 0.9]], { color: tc, uv: [[0, 0], [0, 0.9], [2, 0.9], [2, 0]], normal: [0, 1, 0] }));
   }
   volleyNet(x, z) {
     const g = this.heightAt(x, z);
@@ -1250,7 +1302,7 @@ export class City {
       for (let k = 0; k < n; k++) {
         const lx = (k - (n - 1) / 2) * 0.55, col = cols[Math.floor(this.r() * cols.length)];
         boxRotated(b, m('plain'), W(lx, g + 0.55, 0), [0.24, 0.42, 0.22], yaw, { color: col });
-        boxRotated(b, m('plain'), W(lx, g + 0.72, 0.225), [0.18, 0.14, 0.005], yaw, { color: [52, 66, 84, 255], faces: ['s'], shadeSides: false });
+        boxRotated(b, m('plain@d'), W(lx, g + 0.72, 0.22), [0.18, 0.14, 0], yaw, { color: [52, 66, 84, 255], faces: ['s'], shadeSides: false });
         boxRotated(b, m('plain'), W(lx, g + 0.06, 0), [0.2, 0.07, 0.18], yaw, { color: [60, 60, 60, 255] });
       }
     });
@@ -1258,7 +1310,7 @@ export class City {
   }
   parkingMeter(x, z) {
     const g = PAD_Y;
-    this.fine(x, z, (b, m) => { cylinder(b, m('plain'), x, z, g, g + 1.1, 0.035, 5, { color: [90, 94, 98, 255], cap: false }); box(b, m('plain'), [x - 0.1, g + 1.1, z - 0.08], [x + 0.1, g + 1.42, z + 0.08], { color: [150, 156, 160, 255] }); box(b, m('plain'), [x - 0.07, g + 1.24, z + 0.081], [x + 0.07, g + 1.36, z + 0.09], { color: [210, 220, 170, 255], faces: ['s'], shadeSides: false }); });
+    this.fine(x, z, (b, m) => { cylinder(b, m('plain'), x, z, g, g + 1.1, 0.035, 5, { color: [90, 94, 98, 255], cap: false }); box(b, m('plain'), [x - 0.1, g + 1.1, z - 0.08], [x + 0.1, g + 1.42, z + 0.08], { color: [150, 156, 160, 255] }); box(b, m('plain@d'), [x - 0.07, g + 1.24, z + 0.08], [x + 0.07, g + 1.36, z + 0.08], { color: [210, 220, 170, 255], faces: ['s'], shadeSides: false }); });
   }
   phoneBooth(x, z, yaw) {
     const W = this.frame(x, z, yaw), g = PAD_Y;
@@ -1266,7 +1318,7 @@ export class City {
       for (const [lx, lz] of [[-0.45, -0.45], [0.45, -0.45], [0.45, 0.45], [-0.45, 0.45]]) boxRotated(b, m('plain'), W(lx, g + 1.1, lz), [0.04, 1.1, 0.04], yaw, { color: [180, 40, 36, 255] });
       boxRotated(b, m('plain'), W(0, g + 2.25, 0), [0.5, 0.1, 0.5], yaw, { color: [180, 40, 36, 255] });
       boxRotated(b, m('plain'), W(0, g + 1.15, 0), [0.43, 0.85, 0.43], yaw, { color: [168, 200, 220, 255], faces: ['n', 'e', 'w'] });
-      boxRotated(b, m('plain'), W(0, g + 2.25, 0.505), [0.4, 0.07, 0.005], yaw, { color: [250, 250, 250, 255], faces: ['s'], shadeSides: false });
+      boxRotated(b, m('plain'), W(0, g + 2.25, 0.53), [0.4, 0.07, 0.02], yaw, { color: [250, 250, 250, 255], faces: ['s'], shadeSides: false });
     });
     this.solid(x, z, 0.5, 0.5, g, g + 2.35, { yaw });
   }
@@ -1314,7 +1366,7 @@ export class City {
 
   beachfront(p, inner) {
     const r = this.r;
-    this.tiles(inner.x0, inner.z0, inner.x1, inner.z1, PAD_Y + 0.005, 'sand', 4);
+    this.tiles(inner.x0, inner.z0, inner.x1, inner.z1, PAD_Y, 'sand', 4);
     this.setGround(inner.x0, inner.z0, inner.x1, inner.z1, GROUND.SAND);
     const W = inner.x1 - inner.x0;
     let x = inner.x0;
@@ -1394,8 +1446,8 @@ export class City {
     for (let z = -560; z < 560; z += 24) {
       const ze = Math.min(560, z + 24);
       this.emit(qx1 - 1.2, (z + ze) / 2, (b, m) => {
-        b.quad(m('plain'), [[qx1 - 1.35, 0.63, z], [qx1 - 1.35, 0.63, ze], [qx1 - 1.1, 0.63, ze], [qx1 - 1.1, 0.63, z]], { color: [236, 190, 40, 255], normal: [0, 1, 0] });
-        for (const rx of [598.5, 600, 607.5, 609]) b.quad(m('plain'), [[rx - 0.07, 0.625, z], [rx - 0.07, 0.625, ze], [rx + 0.07, 0.625, ze], [rx + 0.07, 0.625, z]], { color: [120, 116, 110, 255], normal: [0, 1, 0] });
+        b.quad(m('plain@d'), [[qx1 - 1.35, 0.6, z], [qx1 - 1.35, 0.6, ze], [qx1 - 1.1, 0.6, ze], [qx1 - 1.1, 0.6, z]], { color: [236, 190, 40, 255], normal: [0, 1, 0] });
+        for (const rx of [598.5, 600, 607.5, 609]) b.quad(m('plain@d'), [[rx - 0.07, 0.6, z], [rx - 0.07, 0.6, ze], [rx + 0.07, 0.6, ze], [rx + 0.07, 0.6, z]], { color: [120, 116, 110, 255], normal: [0, 1, 0] });
       });
     }
     for (let z = -550; z < 556; z += 14) this.bollard(qx1 - 0.6, z);

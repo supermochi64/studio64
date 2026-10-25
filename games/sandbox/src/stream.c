@@ -9,6 +9,7 @@
 #define NEAR_M 60.0f     // detail within this distance of the eye
 #define FINE_M 40.0f     // small things (the f* groups) within this distance
 #define FAR_CULL 212.0f  // far models beyond this are lost in the fog anyway
+#define CITY_SCALE (1.0f / 32.0f) // the city's models: world space, 32 units a metre (Makefile)
 #define NGROUPS 12       // a detailed chunk: four quadrants (q0..q3), their small things (f0..f3), lit windows (n0..n3)
 
 typedef struct {
@@ -28,7 +29,10 @@ static int s_tris, s_blocks, s_objs;
 int g_nightBlocks, g_nightTris;
 
 void stream_init(void) {
-  for (int i = 0; i < MAX_SLOTS; i++) { s_slots[i].idx = -1; s_slots[i].freeIn = 0; s_slots[i].mat = malloc_uncached(sizeof(T3DMat4FP)); }
+  // one matrix for every chunk (their vertices are in world space): shared edges match to the pixel
+  static T3DMat4FP *shared;
+  if (!shared) { shared = malloc_uncached(sizeof(T3DMat4FP)); T3DMat4 m; mat_place(&m, (V3){0, 0, 0}, 0, 0, 0, 0, CITY_SCALE); t3d_mat4_to_fixed(shared, &m); }
+  for (int i = 0; i < MAX_SLOTS; i++) { s_slots[i].idx = -1; s_slots[i].freeIn = 0; s_slots[i].mat = shared; }
 }
 
 static Slot *find(int idx, bool detail) {
@@ -54,14 +58,20 @@ static void build_group(Slot *s, int g, const char *name) {
   while (t3d_model_iter_next(&it)) {
     if (!it.object->name || strcmp(it.object->name, name) != 0) continue;
     t3d_model_draw_material(it.object->material, &st);
+    // a decal (a material named ...@d): drawn on the plane of what is under it, with the RDP's decal
+    // depth test, so it never flickers against it
+    const char *mn = it.object->material ? it.object->material->name : NULL;
+    bool decal = mn && strlen(mn) > 2 && strcmp(mn + strlen(mn) - 2, "@d") == 0;
+    if (decal) rdpq_mode_zmode(ZMODE_DECAL);
     t3d_model_draw_object(it.object, NULL);
+    if (decal) rdpq_mode_zmode(ZMODE_STANDARD);
   }
   t3d_matrix_pop(1);
   s->group[g] = rspq_block_end();
   s->gtris[g] = tris; s->gobjs[g] = objs;
-  // model units to the world (MODEL_SCALE), round the chunk's centre
-  s->gmin[g] = (T3DVec3){{s->cx + mn[0] * MODEL_SCALE, mn[1] * MODEL_SCALE, s->cz + mn[2] * MODEL_SCALE}};
-  s->gmax[g] = (T3DVec3){{s->cx + mx[0] * MODEL_SCALE, mx[1] * MODEL_SCALE, s->cz + mx[2] * MODEL_SCALE}};
+  // model units to the world (the city is stored in world space, CITY_SCALE)
+  s->gmin[g] = (T3DVec3){{mn[0] * CITY_SCALE, mn[1] * CITY_SCALE, mn[2] * CITY_SCALE}};
+  s->gmax[g] = (T3DVec3){{mx[0] * CITY_SCALE, mx[1] * CITY_SCALE, mx[2] * CITY_SCALE}};
 }
 
 static void load(int idx, bool detail) {
@@ -76,9 +86,6 @@ static void load(int idx, bool detail) {
   s->idx = idx; s->detail = detail;
   s->cx = w->min + cx * w->chunk + w->chunk * 0.5f;
   s->cz = w->min + cz * w->chunk + w->chunk * 0.5f;
-  T3DMat4 m;
-  mat_place(&m, (V3){s->cx, 0, s->cz}, 0, 0, 0, 0, MODEL_SCALE);
-  t3d_mat4_to_fixed(s->mat, &m);
   for (int g = 0; g < NGROUPS; g++) s->group[g] = NULL;
   // detailed: q0..q3 (quadrants), f0..f3 (small things), n0..n3 (lit windows); far: cl (the model), nl (its windows)
   static const char *DETAIL[NGROUPS] = {"q0", "q1", "q2", "q3", "f0", "f1", "f2", "f3", "n0", "n1", "n2", "n3"};

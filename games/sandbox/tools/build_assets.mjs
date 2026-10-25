@@ -56,8 +56,9 @@ const prepare = (c, builder, shade) => {
   // see-through materials last, so they blend over what is behind them
   const late = (mt) => mt.name === 'shadow' || mt.name === 'lightpool';
   builder.groups = new Map([...builder.groups.entries()].sort(([a], [b]) => late(a) - late(b)));
-  // vertices relative to the chunk's centre (the model is placed there): keeps the integers small
-  for (const g of builder.groups.values()) for (let i = 0; i < g.pos.length; i += 3) { g.pos[i] -= c.ox; g.pos[i + 2] -= c.oz; }
+  // (vertices stay in world space: every chunk is drawn with one shared matrix, so the edges two chunks
+  // share land on exactly the same pixels; the Makefile converts the city at 32 units a metre to fit)
+  void c;
 };
 for (const c of city.chunks.values()) {
   const parts = c.detail.parts.map((b, i) => [GROUP_NAMES[i], b]).filter(([, b]) => !b.empty);

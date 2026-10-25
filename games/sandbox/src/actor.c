@@ -868,8 +868,11 @@ static void draw_shadow(V3 pos, float size) {
   if (pos.y - fl > 14) return;
   float k = clampf(1 - (pos.y - fl) / 14, 0.3f, 1);
   T3DMat4 m;
-  mat_place(&m, (V3){pos.x, fl + 0.04f, pos.z}, 0, 0, 0, 0, size * k * MODEL_SCALE);
+  mat_place(&m, (V3){pos.x, fl, pos.z}, 0, 0, 0, 0, size * k * MODEL_SCALE);
+  // on the floor's plane with the decal depth test: no flicker (over an edge the part off the floor hides)
+  rdpq_mode_zmode(ZMODE_DECAL);
   render_colored(g_models.shadow, &m, RGBA32(0, 0, 0, 255));
+  rdpq_mode_zmode(ZMODE_STANDARD);
 }
 
 static void pal_cb(void *user, const T3DMaterial *mat, rdpq_texparms_t *tp, rdpq_tile_t tile) {
