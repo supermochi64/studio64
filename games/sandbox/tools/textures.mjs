@@ -336,6 +336,57 @@ paint('vent', 32, 32, (p) => {
   p.bevel(0, 0, 32, 32, 0.8, 1, { a: 0.35 });
   p.patches(H('#a07a5a'), 3, 0.74, 0.06, 0.25);
 });
+// a flower bed's planting (cut out): leafy tufts with blossoms, drawn on crossed quads
+paint('flowers', 32, 32, (p) => {
+  p.clear();
+  for (let k = 0; k < 40; k++) { const x = 2 + p.r() * 28, y = 12 + p.r() * 19; p.line(x, 32, x + (p.r() - 0.5) * 3, y, 0.8, H(p.r() < 0.5 ? '#3c7a2a' : '#559838'), 0.3); }
+  for (let k = 0; k < 18; k++) { const x = 3 + p.r() * 26, y = 6 + p.r() * 18; p.circle(x, y + 2, 2.2, H('#4a8a34'), 0.4); }
+  const pet = ['#f04a5a', '#ffd23c', '#ffffff', '#e070d0', '#ff8a3c', '#6aa0ff'];
+  for (let k = 0; k < 16; k++) {
+    const x = 3 + p.r() * 26, y = 4 + p.r() * 18, c = H(pet[Math.floor(p.r() * pet.length)]);
+    for (let a = 0; a < 5; a++) p.circle(x + Math.cos(a * 1.26) * 1.1, y + Math.sin(a * 1.26) * 1.1, 0.9, c, 0.3);
+    p.circle(x, y, 0.6, H('#ffe27a'), 0.3);
+  }
+}, true);
+// a wooden shipping crate
+paint('crate', 32, 32, (p) => {
+  p.fill(H('#b4895a'));
+  for (let y = 0; y < 32; y += 6.4) { p.rect(0, y, 32, y + 6.4, (x, yy) => shadec(H('#b88c5c'), 0.9 + 0.12 * Math.sin(yy * 2 + x * 0.2 + p.fbm(x, yy, 4, 2) * 8)), { soft: 0.2 }); p.rect(0, y, 32, y + 0.5, H('#6a4c30')); }
+  p.rect(0, 0, 32, 4, H('#8a6640')); p.rect(0, 28, 32, 32, H('#8a6640')); p.rect(0, 0, 4, 32, H('#8a6640')); p.rect(28, 0, 32, 32, H('#8a6640'));
+  p.line(4, 28, 28, 4, 3.2, H('#8a6640'), 0.4);
+  p.bevel(0, 0, 32, 32, 0.8, 1, { a: 0.3 }); p.bevel(4, 4, 28, 28, 0.6, -1, { a: 0.3 });
+  for (const [x, y] of [[2, 2], [30, 2], [2, 30], [30, 30]]) p.circle(x, y, 0.6, H('#3a3a3a'), 0.2);
+  p.mottle(0.05, 6, 2);
+});
+// lit windows for the night (cut out, unshaded): 4 x 4 bays of a facade, a random few lit
+const LIT = ['#ffe8a8', '#fff2cc', '#ffd890', '#e8f0ff', '#ffe0b0'];
+function litCells(p, nx, ny, win, chance, warm = false) {
+  p.clear();
+  for (let j = 0; j < ny; j++) for (let i = 0; i < nx; i++) {
+    const cw = 32 / nx, ch = 32 / ny;
+    for (const [x0, y0, x1, y1] of win) {
+      if (p.r() > chance) continue;
+      const c = H(warm ? ['#ffd890', '#ffc878', '#ffe0a0'][Math.floor(p.r() * 3)] : LIT[Math.floor(p.r() * LIT.length)]);
+      p.vgrad(i * cw + x0 * cw, j * ch + y0 * ch, i * cw + x1 * cw, j * ch + y1 * ch, c, shadec(c, 0.8), { soft: 0.2 });
+    }
+  }
+}
+paint('night_office', 32, 32, (p) => litCells(p, 4, 4, [[0.06, 0.12, 0.48, 0.82], [0.52, 0.12, 0.94, 0.82]], 0.45), true);
+paint('night_office2', 32, 32, (p) => litCells(p, 4, 4, [[0.06, 0.22, 0.27, 0.78], [0.39, 0.22, 0.6, 0.78], [0.72, 0.22, 0.93, 0.78]], 0.4), true);
+paint('night_house', 32, 32, (p) => litCells(p, 2, 2, [[0.29, 0.27, 0.71, 0.61]], 0.55, true), true);
+paint('night_brick', 32, 32, (p) => litCells(p, 2, 2, [[0.28, 0.24, 0.72, 0.65]], 0.5, true), true);
+// a lamp's light (unshaded): warm white, a little brighter in the middle
+paint('glow', 8, 8, (p) => { p.fill(H('#ffe6b0')); p.circle(4, 4, 3, H('#fff6dc'), 2); });
+paint('glow_pool', 8, 8, (p) => p.fill(H('#ffc47a')));
+paint('glow_red', 8, 8, (p) => { p.fill(H('#ff4632')); p.circle(4, 4, 3, H('#ff9a80'), 2); });
+paint('glow_green', 8, 8, (p) => { p.fill(H('#3cf078')); p.circle(4, 4, 3, H('#a8ffc8'), 2); });
+paint('night_lobby', 32, 32, (p) => {
+  p.clear();
+  p.vgrad(3.5, 3.5, 28.5, 31, H('#fff0c8'), H('#f0c080'));
+  for (const x of [10.5, 16, 21.5]) p.rect(x - 0.6, 3, x + 0.6, 31, [0, 0, 0, 0]);
+  p.rect(3, 10.3, 29, 11.5, [0, 0, 0, 0]);
+}, true);
+paint('night_shop', 32, 32, (p) => { p.clear(); p.vgrad(1.2, 8, 30.8, 29.4, H('#fff0c0'), H('#e8b070')); p.rect(12, 11, 20, 32, [0, 0, 0, 0]); p.rect(12, 11, 20, 32, H('#d8a860')); }, true);
 paint('court', 32, 32, (p) => { p.fill(H('#3c7098')).mottle(0.05, 4, 3).mottle(0.03, 12, 2); });
 
 // shop signs: 64x16, white letters on colour bands are tinted by the board's vertex colour

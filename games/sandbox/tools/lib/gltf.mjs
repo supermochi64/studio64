@@ -27,14 +27,20 @@ const tileAxis = (size) => ({ mask: Math.round(Math.log2(size)), shift: 0, low: 
  * opts.cull      false: two-sided
  * opts.filter    'bilinear' (the default) | 'point'
  * opts.prim      true: multiply by the primitive colour (set at draw time: tints, flashes)
+ * opts.emit      true: the texture unshaded (glows at night)
+ * opts.glow      [r, g, b]: a flat unshaded colour (lamps)
  */
 function f3dExtras(opts) {
   const tex = !!opts.tex || !!opts.texRef; // texRef: a texture the game sets at draw time (palettes)
   const [w, h] = opts.texSize || [32, 32];
-  const color = tex
+  // emit: the texture as it is, not shaded (lit windows at night glow whatever the light)
+  // glow: one flat colour (the material's primitive colour), unshaded: lamps, signals
+  const color = opts.glow ? { A: CC.ZERO, B: CC.ZERO, C: CC.ZERO, D: CCD.PRIM }
+    : opts.emit ? { A: CC.ZERO, B: CC.ZERO, C: CC.ZERO, D: CCD.TEX0 }
+    : tex
     ? { A: CC.TEX0, B: CC.ZERO, C: CC.SHADE, D: CCD.ZERO }
     : { A: CC.ZERO, B: CC.ZERO, C: CC.SHADE, D: CCD.SHADE }; // (C is multiplied by 0: SHADE keeps it from reading as a texture)
-  const alpha = tex ? { A_alpha: CCD.TEX0, B_alpha: CCD.ZERO, C_alpha: CCD.SHADE, D_alpha: CCD.ZERO } : { A_alpha: CCD.ZERO, B_alpha: CCD.ZERO, C_alpha: CCD.ZERO, D_alpha: CCD.SHADE };
+  const alpha = opts.emit && opts.layer === 'blend' ? { A_alpha: CCD.ZERO, B_alpha: CCD.ZERO, C_alpha: CCD.ZERO, D_alpha: CCD.SHADE } : opts.glow ? { A_alpha: CCD.ZERO, B_alpha: CCD.ZERO, C_alpha: CCD.ZERO, D_alpha: opts.layer === 'blend' ? CCD.SHADE : CCD.ONE } : opts.emit ? { A_alpha: CCD.ZERO, B_alpha: CCD.ZERO, C_alpha: CCD.ZERO, D_alpha: CCD.TEX0 } : tex ? { A_alpha: CCD.TEX0, B_alpha: CCD.ZERO, C_alpha: CCD.SHADE, D_alpha: CCD.ZERO } : { A_alpha: CCD.ZERO, B_alpha: CCD.ZERO, C_alpha: CCD.ZERO, D_alpha: CCD.SHADE };
   const layer = { opaque: 1, cutout: 4, blend: 5 }[opts.layer || 'opaque'];
   // prim: a second cycle multiplies by the primitive colour (tints and flashes at draw time)
   const combiner2 = opts.prim
@@ -49,8 +55,8 @@ function f3dExtras(opts) {
         : tex ? { tex_set: 1, name: '', tex: { name: opts.tex, type: 'Image' }, menu: 1, S: tileAxis(w), T: tileAxis(h), tex_format: 5, autoprop: 0 }
         : { tex_set: 0, name: '', tex: null, menu: 1, S: {}, T: {}, autoprop: 0, tex_format: 5 },
       tex1: { tex_set: 0, name: '', tex: null, menu: 1, S: {}, T: {}, autoprop: 0, tex_format: 7 },
-      set_prim: 0, set_env: 0, set_blend: 0,
-      prim_color: [1, 1, 1, 1], env_color: [0, 0, 0, 1], blend_color: [0, 0, 0, 1],
+      set_prim: opts.glow ? 1 : 0, set_env: 0, set_blend: 0,
+      prim_color: opts.glow ? [...opts.glow.map((v) => Math.pow(v / 255, 2.2)), 1] : [1, 1, 1, 1], env_color: [0, 0, 0, 1], blend_color: [0, 0, 0, 1],
       rdp_settings: {
         g_zbuffer: 1, g_shade: 1, g_cull_front: 0, g_cull_back: opts.cull === false ? 0 : 1,
         g_fog: opts.fog === false ? 0 : 1, g_lighting: opts.lit ? 1 : 0, g_tex_gen: 0,
@@ -292,7 +298,7 @@ export function ellipsoid(b, mat, c, r, opts = {}) {
   const col = (n) => (opts.colorFn ? opts.colorFn(n) : opts.color || [255, 255, 255, 255]);
   const uv = opts.uv || [0.5, 0.5];
   const idx = [];
-  for (let j = 0; j <= rings; j++) { idx.push([]); for (let i = 0; i <= segs; i++) { const q = pt(i, j); idx[j].push(b.vert(mat, q.p, q.n, col(q.n), uv, opts.joint || 0)); } }
+  for (let j = 0; j <= rings; j++) { idx.push([]); for (let i = 0; i <= segs; i++) { const q = pt(i, j); idx[j].push(b.vert(mat, q.p, q.n, col(q.n), opts.uvScale ? [(i / segs) * opts.uvScale, (j / rings) * opts.uvScale * 0.5] : uv, opts.joint || 0)); } }
   for (let j = 0; j < rings; j++) for (let i = 0; i < segs; i++) {
     const a = idx[j][i], bb = idx[j][i + 1], cc = idx[j + 1][i + 1], d = idx[j + 1][i];
     if (j > 0 || lat0 > 0) b.tri(mat, a, bb, cc); // (the poles: one triangle per segment)

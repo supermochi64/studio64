@@ -1,3 +1,4 @@
+#include <string.h>
 #include "testplay.h"
 #include "sound.h"
 #ifdef TESTPLAY
@@ -14,12 +15,12 @@
 extern float g_hour;
 extern float g_perf[3], g_perfDraw[5];
 extern bool g_profile;
-extern float g_perfCity[3];
+extern float g_perfCity[2];
 static void perf_parts(void) {
   int np = 0, nv = 0;
   for (int i = 0; i < MAX_ACTORS; i++) np += g.actors[i].used;
   for (int i = 0; i < MAX_VEHICLES; i++) nv += g.vehicles[i].used;
-  debugf("PERF parts (GPU): city %.1f, vehicles %.1f, people %.1f, fx %.1f, hud %.1f ms; %d people, %d vehicles; city %d tris, %d objects in %d blocks (far %.1f, near %.1f, small %.1f ms)\n", g_perfDraw[0] / 1000, g_perfDraw[1] / 1000, g_perfDraw[2] / 1000, g_perfDraw[3] / 1000, g_perfDraw[4] / 1000, np, nv, stream_drawn_tris(), stream_drawn_objects(), stream_drawn_blocks(), g_perfCity[0] / 1000, g_perfCity[1] / 1000, g_perfCity[2] / 1000);
+  debugf("PERF parts (GPU): city %.1f, vehicles %.1f, people %.1f, fx %.1f, hud %.1f ms; %d people, %d vehicles; city %d tris, %d objects in %d blocks (solid %.1f, small+night %.1f ms)\n", g_perfDraw[0] / 1000, g_perfDraw[1] / 1000, g_perfDraw[2] / 1000, g_perfDraw[3] / 1000, g_perfDraw[4] / 1000, np, nv, stream_drawn_tris(), stream_drawn_objects(), stream_drawn_blocks(), g_perfCity[0] / 1000, g_perfCity[1] / 1000);
 }
 
 // one test after the other; each runs its frames with `t` (frames since its start) and returns true
@@ -215,16 +216,19 @@ static bool run_test(int n, int t) {
 // the tour: every district, a screenshot each
 typedef struct { const char *name; float x, z, yaw, hour; } Stop;
 static const Stop TOUR[] = {
-  {"home", -384, 14, PI, 16}, {"court", -384, 150, PI, 16}, {"commerce", -128, 40, PI * 0.8f, 15}, {"downtown", -64, -100, PI * 0.9f, 14},
+  {"home", -384, 14, PI, 16}, {"court", -384, 150, PI, 16}, {"commerce", -150, 62, PI * 0.6f, 15}, {"downtown", -64, -100, PI * 0.9f, 14},
   {"park", 20, 280, PI, 16}, {"violet", 300, 40, PI * 0.75f, 16}, {"gold", 192, 420, PI, 17}, {"docks", 560, 250, PI / 2, 16},
-  {"hills", -420, -420, PI * 1.2f, 15}, {"beach", -12, 590, 0, 17.5f}, {"oak", -512, -230, PI, 16}, {"night", -64, -100, PI * 0.9f, 22.5f},
-  {"sunset", -64, 576, PI / 2, 18.6f},
+  {"hills", -420, -420, PI * 1.2f, 15}, {"beach", -96, 598, 0.3f, 15.5f}, {"oak", -512, -230, PI, 16}, {"night", -64, -100, PI * 0.9f, 22.5f},
+  {"sunset", -64, 576, PI / 2, 18.6f}, {"night_hood", -384, 14, PI, 21.5f}, {"night_shops", -150, 62, PI * 0.6f, 21.0f}, {"night_lamp", -61, -99, PI, 22.0f},
 };
 static bool tour(int t) {
   int i = t / 90, f = t % 90;
   if (i >= (int)(sizeof(TOUR) / sizeof(TOUR[0]))) { debugf("TEST done: tour\n"); return true; }
-  if (f == 0) { place_player(TOUR[i].x, TOUR[i].z, TOUR[i].yaw); extern float g_hour; g_hour = TOUR[i].hour; }
-  if (f == 80) shot(TOUR[i].name);
+  extern bool g_camLock; extern V3 g_camEye, g_camAt;
+  if (f == 0) { place_player(TOUR[i].x, TOUR[i].z, TOUR[i].yaw); extern float g_hour; g_hour = TOUR[i].hour; g_camLock = false; }
+  // the lamp stop: look down at the lamp and the light under it
+  if (strcmp(TOUR[i].name, "night_lamp") == 0 && f > 10) { g_camLock = true; g_camEye = (V3){-56, 9, -104}; g_camAt = (V3){-59.8f, 0, -109.3f}; }
+  if (f == 80) { extern int g_nightBlocks, g_nightTris; debugf("TOUR %s: %d night blocks, %d tris\n", TOUR[i].name, g_nightBlocks, g_nightTris); shot(TOUR[i].name); }
   return false;
 }
 

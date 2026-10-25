@@ -26,7 +26,7 @@ const city = new City(64).build();
 // ---- the chunk models ----
 let tris = 0, maxTris = 0, files = 0;
 const chunkFlags = new Uint8Array(WORLD.chunks * WORLD.chunks);
-const GROUP_NAMES = ['q0', 'q1', 'q2', 'q3', 'f0', 'f1', 'f2', 'f3']; // src/stream.c draws them by these names
+const GROUP_NAMES = ['q0', 'q1', 'q2', 'q3', 'f0', 'f1', 'f2', 'f3', 'n0', 'n1', 'n2', 'n3']; // src/stream.c draws them by these names
 const prepare = (c, builder, shade) => {
   // shading baked into the vertex colours: walls darken toward the ground (the light the street and
   // the neighbours block), the way the console's games paint their levels
@@ -54,7 +54,8 @@ const prepare = (c, builder, shade) => {
     g.idx = keep;
   }
   // see-through materials last, so they blend over what is behind them
-  builder.groups = new Map([...builder.groups.entries()].sort(([a], [b]) => (a.name === 'shadow') - (b.name === 'shadow')));
+  const late = (mt) => mt.name === 'shadow' || mt.name === 'lightpool';
+  builder.groups = new Map([...builder.groups.entries()].sort(([a], [b]) => late(a) - late(b)));
   // vertices relative to the chunk's centre (the model is placed there): keeps the integers small
   for (const g of builder.groups.values()) for (let i = 0; i < g.pos.length; i += 3) { g.pos[i] -= c.ox; g.pos[i + 2] -= c.oz; }
 };
@@ -70,6 +71,7 @@ for (const c of city.chunks.values()) {
   if (!c.lod.b.empty) {
     prepare(c, c.lod.b, false);
     c.lod.g.mesh('cl', c.lod.b);
+    if (!c.lod.night.empty) { prepare(c, c.lod.night, false); c.lod.g.mesh('nl', c.lod.night); }
     c.lod.g.save(path.join(OUT, 'city', `l${c.cx}_${c.cz}.glb`));
     files++;
     chunkFlags[c.cz * WORLD.chunks + c.cx] |= 2;
