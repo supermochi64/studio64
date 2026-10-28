@@ -134,7 +134,7 @@ export class AssetsUI {
       if (!hasFiles(e)) return;
       // models can be dropped anywhere; images on the asset drawer
       if (this.drawer.contains(e.target) || e.target.closest?.('#lib-models')) { e.preventDefault(); this.drawer.classList.add('drop'); }
-      else if (!hint && !e.target.closest?.('.side, .composer, .chat, .launcher, .px-back, .as-modal')) {
+      else if (!hint && !e.target.closest?.('.side, .composer, .chat, .launcher, .px-back, .as-modal, .sound-studio')) {
         hint = el('div', 'as-drop-hint', `${ic(ICON.cube, 'i')}Drop a 3D model (.glb .gltf .obj .fbx or a .zip, with its textures) to import it`);
         document.body.appendChild(hint);
       }

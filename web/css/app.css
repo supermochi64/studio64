@@ -656,11 +656,30 @@ kbd {
 .cmp-track-mix label { flex: 1; min-width: 0; display: flex; align-items: center; gap: 5px; font-size: 11px; color: var(--muted); }
 .cmp-track-mix input { flex: 1; min-width: 0; width: 100%; accent-color: var(--tc); }
 .cmp-add { display: flex; gap: 6px; padding: 2px; }
+/* importing a MIDI file */
+.mi-bar .cmp-name { flex-basis: 220px; width: 220px; }
+.mi-parts { display: flex; flex-direction: column; gap: 6px; margin-bottom: 14px; }
+.mi-part { display: flex; align-items: center; gap: 10px; padding: 8px 10px; border: 1px solid var(--border); border-left: 4px solid var(--tc); border-radius: 11px; background: var(--panel-2); }
+.mi-part.off { opacity: .5; }
+.mi-part input[type=checkbox] { width: 16px; height: 16px; accent-color: var(--tc); flex: none; }
+.mi-info { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.mi-info b { font-size: 13px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.mi-info span { font-size: 11.5px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.mi-inst { width: 230px; flex: none; background: var(--bg-2); border: 1px solid var(--border-2); color: var(--text); border-radius: 8px; height: 32px; padding: 0 8px; font: 13px var(--font); }
+.mi-foot { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-top: auto; padding-top: 12px; border-top: 1px solid var(--border); }
+.mi-notes { flex: 1; min-width: 240px; font-size: 12.5px; color: var(--text-2); }
+.mi-notes p { display: flex; align-items: flex-start; gap: 6px; margin: 2px 0; }
+.mi-notes p .i { color: var(--accent); flex: none; margin-top: 1px; }
+.mi-notes p.ok .i { color: var(--green, #7ed957); }
+.mi-listen { min-width: 90px; }
+.sound-studio.dropping .ss-window { outline: 2px dashed var(--accent); outline-offset: -6px; }
+@media (max-width: 760px) { .mi-part { flex-wrap: wrap; } .mi-inst { width: 100%; flex: 1 1 100%; } }
 .cmp-roll { flex: 1; min-width: 0; display: flex; flex-direction: column; border: 1px solid var(--border); border-radius: 12px; overflow: hidden; background: #121216; }
 .roll-tools { display: flex; align-items: center; gap: 8px; padding: 6px 10px; border-bottom: 1px solid var(--border); background: var(--panel-2); font-size: 12px; }
 .roll-tools select { background: var(--bg-2); border: 1px solid var(--border); color: var(--text); border-radius: 7px; height: 26px; font: 12px var(--font); }
 .roll-label { color: var(--muted); }
-.roll-hint { color: var(--faint); font-size: 11.5px; }
+.roll-hint { color: var(--faint); font-size: 11.5px; min-width: 0; flex: 0 1 auto; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.roll-label { white-space: nowrap; }
 .roll-scroll { flex: 1; overflow: auto; position: relative; }
 .roll-inner { display: flex; width: max-content; }
 .roll-keys { position: sticky; left: 0; z-index: 1; box-shadow: 2px 0 6px rgba(0, 0, 0, .4); }

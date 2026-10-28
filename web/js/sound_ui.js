@@ -4,8 +4,9 @@
 import { icon } from './icons.js';
 import {
   GAME_SONGS, SIZE_LIMIT, MAX_TRACKS, STARTERS, loadInstruments, bankOf, newTrack, encodeSong, auditionSong,
-  starterSong, songSteps, noteName,
+  starterSong, songSteps, noteName, songChannels, MAX_CHANNELS,
 } from './music.js';
+import { parseMidi, importPlan, midiToSong, GM_NAMES } from './midi.js';
 import { PRESETS, PRESET_NAMES, WAVES, SfxPlayer, randomSynth, mutateSynth } from './sfx.js';
 
 const $ = (s) => document.querySelector(s);
@@ -13,11 +14,22 @@ const el = (tag, cls, html) => { const e = document.createElement(tag); if (cls)
 const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const uid = () => Math.random().toString(36).slice(2, 10);
 const COLORS = ['#ffb627', '#4fc3f7', '#ff6b6b', '#7ed957', '#c084fc', '#f97316', '#2dd4bf', '#f472b6', '#a3e635', '#60a5fa', '#facc15', '#fb7185'];
-const LENGTHS = [[1, '1/16'], [2, '1/8'], [4, '1/4'], [8, '1/2'], [16, '1 bar']];
+// note lengths in beats (the steps they take depend on the song's grid)
+const LENGTHS = [[1 / 12, '1/48'], [1 / 8, '1/32'], [1 / 6, '1/16 triplet'], [1 / 4, '1/16'], [1 / 3, '1/8 triplet'], [1 / 2, '1/8'], [1, '1/4'], [2, '1/2'], [4, '1 bar']];
+const lengthsFor = (spb) => LENGTHS.filter(([b]) => Number.isInteger(Math.round(b * spb * 1000) / 1000) && b * spb >= 1);
 const PITCH_TOP = 96, PITCH_BOTTOM = 36;   // C7 .. C2
 const ROW_H = 14, KEYS_W = 64;
 // a game sound is its bank and id (what the engine matches; play flags vary)
 const sameSound = (a, b) => ((a ^ b) & 0xf0ff0000) === 0;
+// The most notes sounding at once ({ t, d } on the grid, or a MIDI file's { tick, dur }).
+function peakNotes(notes) {
+  const ev = [];
+  for (const n of notes) { const t = n.t ?? n.tick, d = n.d ?? n.dur; ev.push([t, 1], [t + Math.max(1, d), -1]); }
+  ev.sort((a, b) => a[0] - b[0] || a[1] - b[1]);
+  let c = 0, m = 0;
+  for (const [, k] of ev) { c += k; m = Math.max(m, c); }
+  return m;
+}
 
 export class SoundUI {
   constructor({ engine, world, editor, send, toast, getAudio }) {
@@ -32,7 +44,7 @@ export class SoundUI {
     this.songId = null;
     this.soundId = null;
     this.trackId = null;
-    this.snap = 2;
+    this.snapBeats = 0.5;    // the note length new notes get, in beats
     this.cellW = 18;
     this.playing = null;     // { t0, song } while a song preview runs
     this.saveTimers = new Map(); // id -> { t, go }: saves waiting for typing/dragging to pause
@@ -47,6 +59,8 @@ export class SoundUI {
   }
 
   get audio() { return this.getAudio(); }
+  // the note length new notes get, in steps of the song's grid
+  get snap() { return Math.max(1, Math.round(this.snapBeats * (this.roll?.song.stepsPerBeat ?? 4))); }
   song() { return this.audio.songs.find((s) => s.id === this.songId) || null; }
   sound() { return this.audio.sounds.find((s) => s.id === this.soundId) || null; }
   bank(song = this.song()) { return bankOf(this.banks, song?.bank ?? 0x22) || { bank: 0x22, programs: [], drums: [] }; }
@@ -81,10 +95,23 @@ export class SoundUI {
     $('#ss-close').onclick = () => this.close();
     $('#sound-studio').addEventListener('mousedown', (e) => { if (e.target.id === 'sound-studio') this.close(); });
     for (const b of document.querySelectorAll('.ss-tab')) b.onclick = () => { this.stop(); this.tab = b.dataset.tab; this.render(); };
+    // a MIDI file dropped on the studio: the import
+    const isMidi = (f) => /\.(midi?|rmi|kar)$/i.test(f.name) || /midi/.test(f.type);
+    const studio = $('#sound-studio');
+    studio.addEventListener('dragover', (e) => { if ([...(e.dataTransfer?.types || [])].includes('Files')) { e.preventDefault(); studio.classList.add('dropping'); } });
+    studio.addEventListener('dragleave', (e) => { if (!e.relatedTarget || !studio.contains(e.relatedTarget)) studio.classList.remove('dropping'); });
+    studio.addEventListener('drop', (e) => {
+      studio.classList.remove('dropping');
+      const f = [...(e.dataTransfer?.files || [])].find(isMidi);
+      e.preventDefault();
+      if (f) this.importMidiFile(f);
+      else if (e.dataTransfer?.files?.length) this.toast('Drop a MIDI file (.mid) here to import it', 'music');
+    });
     window.addEventListener('keydown', (e) => {
       if (!this.isOpen()) return;
       const typing = /INPUT|TEXTAREA|SELECT/.test(document.activeElement?.tagName || '');
       if (e.key === 'Escape') { e.preventDefault(); this.close(); }
+      else if (e.code === 'Space' && !typing && this.tab === 'music' && this.midiImport) { e.preventDefault(); document.querySelector('.mi-listen')?.click(); }
       else if (e.code === 'Space' && !typing && this.tab === 'music' && this.song()) { e.preventDefault(); this.togglePlay(); }
       // undo / redo song and sound edits like any edit (the project's change history)
       else if ((e.ctrlKey || e.metaKey) && (e.code === 'KeyZ' || e.code === 'KeyY') && !typing && window.studio64Undo) {
@@ -146,14 +173,17 @@ export class SoundUI {
       row.innerHTML = `<span class="ss-ico">${icon('music', 'sm')}</span><div class="ss-text"><b>${esc(s.name)}</b><span>${s.bars} bars · ${s.tempo} bpm${s.id === levelSong ? ' · <em>this level</em>' : ''}</span></div>`;
       const play = el('button', 'btn icon ghost sm', icon('play', 'sm'));
       play.title = 'Play';
-      play.onclick = (e) => { e.stopPropagation(); this.songId = s.id; this.render(); this.play(); };
+      play.onclick = (e) => { e.stopPropagation(); this.songId = s.id; this.midiImport = null; this.render(); this.play(); };
       row.appendChild(play);
-      row.onclick = () => { this.stop(); this.songId = s.id; this.trackId = null; this.render(); };
+      row.onclick = () => { this.stop(); this.songId = s.id; this.trackId = null; this.midiImport = null; this.render(); };
       mine.appendChild(row);
     }
     const add = el('button', 'ss-row ss-new', `<span class="ss-ico">${icon('plus', 'sm')}</span><div class="ss-text"><b>New song</b><span>From a starter or empty</span></div>`);
-    add.onclick = () => { this.stop(); this.songId = null; this.render(); };
+    add.onclick = () => { this.stop(); this.songId = null; this.midiImport = null; this.render(); };
     mine.appendChild(add);
+    const imp = el('button', `ss-row ss-new${this.midiImport ? ' active' : ''}`, `<span class="ss-ico">${icon('upload', 'sm')}</span><div class="ss-text"><b>Import MIDI</b><span>A .mid file from any music editor</span></div>`);
+    imp.onclick = () => this.pickMidi();
+    mine.appendChild(imp);
     side.appendChild(mine);
 
     side.appendChild(el('div', 'ss-section', 'Game music'));
@@ -199,6 +229,7 @@ export class SoundUI {
   renderComposer() {
     const main = $('#ss-main');
     main.innerHTML = '';
+    if (this.midiImport) return this.renderMidiImport(main);
     const song = this.song();
     if (!song) return this.renderStarters(main);
     const bank = this.bank(song);
@@ -221,7 +252,7 @@ export class SoundUI {
       song.tempo = Math.round(Math.max(40, Math.min(240, Number(tempo.value)))); tempo.value = song.tempo; this.saveSong(song);
     };
     const bars = el('select');
-    bars.innerHTML = [1, 2, 4, 8, 12, 16, 24, 32].map((n) => `<option ${n === song.bars ? 'selected' : ''}>${n}</option>`).join('');
+    bars.innerHTML = [...new Set([1, 2, 4, 8, 12, 16, 24, 32, 48, 64, song.bars])].sort((a, b) => a - b).map((n) => `<option ${n === song.bars ? 'selected' : ''}>${n}</option>`).join('');
     bars.onchange = () => { song.bars = Number(bars.value); this.saveSong(song); this.renderComposer(); };
     const set = el('select', 'cmp-set');
     set.innerHTML = this.banks.map((b) => `<option value="${b.bank}" ${b.bank === song.bank ? 'selected' : ''}>${esc(b.name)}</option>`).join('');
@@ -280,7 +311,181 @@ export class SoundUI {
       };
       grid.appendChild(c);
     }
+    const imp = el('button', 'starter', `<span class="starter-ico">${icon('upload')}</span><b>Import MIDI</b><span>Bring a song from any music editor and give each part one of the game's instruments</span><small>.mid · or drop the file here</small>`);
+    imp.onclick = () => this.pickMidi();
+    grid.appendChild(imp);
     main.appendChild(grid);
+  }
+
+  // ---- music: importing MIDI files -----------------------------------------------------------
+
+  pickMidi() {
+    const input = el('input');
+    Object.assign(input, { type: 'file', accept: '.mid,.midi,.rmi,.kar,audio/midi,audio/x-midi' });
+    input.onchange = () => { const f = input.files?.[0]; if (f) this.importMidiFile(f); };
+    input.click();
+  }
+
+  async importMidiFile(file) {
+    if (!this.banks.length) return;
+    let midi;
+    try { midi = parseMidi(await file.arrayBuffer()); } catch (e) { this.toast(`Could not read ${file.name}: ${e.message}`, 'x'); return; }
+    if (!midi.parts.length) { this.toast(`${file.name} has no notes`, 'x'); return; }
+    this.stop();
+    const plan = importPlan(midi, this.banks);
+    // (the game plays 12 tracks: the parts with the most notes)
+    const keep = new Set([...plan.parts].map((pp) => [pp, midi.parts.find((x) => x.key === pp.key).notes.length]).sort((a, b) => b[1] - a[1]).slice(0, MAX_TRACKS).map(([pp]) => pp));
+    for (const pp of plan.parts) pp.on = keep.has(pp);
+    this.midiImport = { midi, plan, name: file.name.replace(/\.(midi?|rmi|kar)$/i, '').slice(0, 60) || 'Imported song' };
+    this.songId = null;
+    this.tab = 'music';
+    this.render();
+  }
+
+  // The song the import makes with its settings now.
+  midiSong() {
+    const m = this.midiImport;
+    return midiToSong(m.midi, m.plan, this.banks, m.name);
+  }
+
+  renderMidiImport(main) {
+    const { midi, plan } = this.midiImport;
+    const bank = bankOf(this.banks, plan.bank);
+    const redraw = () => this.renderComposer();
+    main.appendChild(el('div', 'ss-empty-title', 'Import a MIDI file'));
+    const tempoNote = (midi.tempoChanges ? ' It changes tempo along the way: the song keeps the first one.' : '')
+      + (plan.beatScale > 1 ? ` The game plays at most 240 bpm: it counts in half time (${Math.round(plan.tempo)} bpm), and sounds the same.` : plan.beatScale < 1 ? ` The game plays at least 40 bpm: it counts in double time (${Math.round(plan.tempo)} bpm), and sounds the same.` : '');
+    main.appendChild(el('div', 'ss-empty-sub', `${midi.parts.length} part${midi.parts.length === 1 ? '' : 's'}, ${Math.round(midi.tempo)} bpm. Give each part one of the game's instruments (the sound set is the band: every part plays one of its instruments, drums its kit). You can change all of it in the composer afterwards.${tempoNote}`));
+
+    // settings
+    const bar = el('div', 'cmp-bar mi-bar');
+    const field = (label, input) => { const f = el('label', 'cmp-field'); f.append(el('span', '', label), input); return f; };
+    const name = el('input', 'cmp-name');
+    name.value = this.midiImport.name;
+    name.maxLength = 60;
+    name.oninput = () => { this.midiImport.name = name.value; };
+    const set = el('select', 'cmp-set');
+    set.innerHTML = this.banks.map((b) => `<option value="${b.bank}" ${b.bank === plan.bank ? 'selected' : ''}>${esc(b.name)}${b.drums.length ? ' · drums' : ''}</option>`).join('');
+    set.title = 'The instruments the song uses: each set is the band of one of the game\'s songs';
+    set.onchange = () => {
+      // new instruments for the new set; the parts stay on or off
+      const on = new Map(plan.parts.map((pp) => [pp.key, pp.on]));
+      this.midiImport.plan = { ...importPlan(midi, this.banks, Number(set.value)), stepsPerBeat: plan.stepsPerBeat, from: plan.from, bars: plan.bars, tempo: plan.tempo };
+      for (const pp of this.midiImport.plan.parts) pp.on = on.get(pp.key);
+      this.stopMidiPreview(); redraw();
+    };
+    const timing = el('select');
+    timing.innerHTML = [[4, '1/16 notes'], [8, '1/32 notes'], [12, '1/16 + triplets']].map(([v, l]) => `<option value="${v}" ${v === plan.stepsPerBeat ? 'selected' : ''}>${l}</option>`).join('');
+    timing.title = 'The finest note the grid keeps: notes snap to it';
+    timing.onchange = () => { plan.stepsPerBeat = Number(timing.value); this.stopMidiPreview(); redraw(); };
+    const total = Math.max(1, Math.ceil(midi.length / (midi.division * (plan.beatScale || 1) * plan.beatsPerBar)));
+    const num = (value, min, max, set) => {
+      const i = el('input');
+      Object.assign(i, { type: 'number', min, max, value });
+      i.onchange = () => { const v = Math.round(Number(i.value)); if (!Number.isFinite(v) || i.value.trim() === '') { i.value = value; return; } set(Math.max(min, Math.min(max, v))); this.stopMidiPreview(); redraw(); };
+      return i;
+    };
+    const from = num(plan.from + 1, 1, total, (v) => { plan.from = v - 1; plan.bars = Math.min(plan.bars, Math.max(1, total - plan.from)); });
+    from.title = 'The bar the song starts at';
+    const bars = num(plan.bars, 1, 170, (v) => { plan.bars = v; });
+    bars.title = 'How many bars the song plays before it loops';
+    const tempo = num(plan.tempo, 40, 240, (v) => { plan.tempo = v; });
+    bar.append(field('Name', name), field('Sound set', set), field('Timing', timing), field('From bar', from), field('Bars', bars), field('Tempo', tempo));
+    main.appendChild(bar);
+
+    // the parts
+    const list = el('div', 'mi-parts');
+    plan.parts.forEach((pp, i) => {
+      const part = midi.parts.find((x) => x.key === pp.key);
+      const row = el('div', `mi-part${pp.on ? '' : ' off'}`);
+      row.style.setProperty('--tc', COLORS[i % COLORS.length]);
+      const on = el('input');
+      Object.assign(on, { type: 'checkbox', checked: pp.on, title: 'Import this part' });
+      on.onchange = () => {
+        if (on.checked && plan.parts.filter((x) => x.on).length >= MAX_TRACKS) { on.checked = false; this.toast(`A song has ${MAX_TRACKS} tracks at most: turn another part off first`, 'x'); return; }
+        pp.on = on.checked; this.stopMidiPreview(); redraw();
+      };
+      const peak = peakNotes(part.notes);
+      const from = part.drums ? 'Drums (channel 10)' : `${GM_NAMES[part.program ?? 0]}${part.program === null ? ' (no instrument set)' : ''}`;
+      const info = el('div', 'mi-info', `<b>${esc(part.name)}</b><span>${esc(from)} · ${part.notes.length} notes${peak > 1 ? ` · ${peak} at once` : ''}</span>`);
+      const sel = el('select', 'mi-inst');
+      const drumOpt = bank.drums.length ? `<option value="drums" ${pp.kind === 'drums' ? 'selected' : ''}>Drum kit</option>` : '';
+      sel.innerHTML = drumOpt + bank.programs.map((p) => `<option value="${p.program}" ${pp.kind !== 'drums' && p.program === pp.program ? 'selected' : ''}>${p.program} · ${esc(p.label)}</option>`).join('');
+      sel.title = 'The game instrument that plays this part';
+      sel.onchange = () => {
+        if (sel.value === 'drums') pp.kind = 'drums'; else { pp.kind = 'inst'; pp.program = Number(sel.value); }
+        this.stopMidiPreview();
+        this.auditionPart(pp);
+      };
+      const hear = el('button', 'btn icon ghost sm', icon('play', 'sm'));
+      hear.title = 'Hear the instrument';
+      hear.onclick = () => this.auditionPart(pp);
+      row.append(on, el('span', 'cmp-dot'), info, sel, hear);
+      list.appendChild(row);
+    });
+    main.appendChild(list);
+
+    // what it makes: its size, the notes the game cannot play at once
+    const song = this.midiSong();
+    const size = encodeSong(song).length;
+    const { channels, dropped } = songChannels(song);
+    const most = peakNotes(song.tracks.flatMap((t) => t.notes));
+    const notes = [];
+    if (size > SIZE_LIMIT) notes.push(`It is long for the game (${(size / 1024).toFixed(1)} KB of ${SIZE_LIMIT / 1024}): fewer bars or parts make it fit.`);
+    if (dropped) notes.push(`${dropped} notes do not fit: the game plays ${MAX_CHANNELS} channels of 4 notes. Turn off a part or thin out big chords.`);
+    else if (most > 16) notes.push(`Up to ${most} notes sound at once; the game plays 16 (its sound effects included), so the quietest drop out in the busiest moments.`);
+    if (!song.tracks.length) notes.push('Turn on at least one part (or move "From bar" to where its notes are).');
+    const foot = el('div', 'mi-foot');
+    foot.append(el('div', 'mi-notes', notes.map((n) => `<p>${icon('alert', 'sm')}${esc(n)}</p>`).join('') || `<p class="ok">${icon('check', 'sm')}${song.tracks.length} tracks on ${channels.length} channels, every note fits</p>`));
+    const meter = el('span', `cmp-size${size > SIZE_LIMIT ? ' over' : ''}`, `${(size / 1024).toFixed(1)} of ${SIZE_LIMIT / 1024} KB`);
+    const listen = el('button', 'btn mi-listen', this.midiPreview ? `${icon('stop', 'sm')}Stop` : `${icon('play', 'sm')}Listen`);
+    listen.disabled = !song.tracks.length;
+    listen.onclick = () => { if (this.midiPreview) this.stopMidiPreview(); else this.previewMidi(); redraw(); };
+    const cancel = el('button', 'btn ghost', 'Cancel');
+    cancel.onclick = () => { this.stopMidiPreview(); this.midiImport = null; this.render(); };
+    const go = el('button', 'btn primary mi-import', `${icon('check', 'sm')}Import`);
+    go.disabled = !song.tracks.length;
+    go.onclick = () => this.finishMidiImport();
+    foot.append(meter, listen, cancel, go);
+    main.appendChild(foot);
+  }
+
+  auditionPart(pp) {
+    const plan = this.midiImport?.plan;
+    if (!plan) return;
+    this.stopMidiPreview();
+    const s = { bank: plan.bank };
+    this.audition(s, { kind: pp.kind, program: pp.program });
+  }
+
+  previewMidi() {
+    const song = this.midiSong();
+    this.stop();
+    const seq = this.engine.installSong(encodeSong(song), song.bank, true);
+    if (seq < 0) { this.toast('This song is too long for the game', 'x'); return; }
+    this.engine.previewMusic(seq);
+    this.midiPreview = true;
+  }
+
+  stopMidiPreview() {
+    if (!this.midiPreview) return;
+    this.midiPreview = false;
+    this.engine.stopPreview();
+    const b = document.querySelector('.mi-listen');
+    if (b) b.innerHTML = `${icon('play', 'sm')}Listen`;
+  }
+
+  finishMidiImport() {
+    const song = this.midiSong();
+    if (!song.tracks.length) return;
+    this.stopMidiPreview();
+    this.midiImport = null;
+    this.audio.songs.push(song);
+    this.songId = song.id;
+    this.trackId = song.tracks[0].id;
+    this.saveSong(song, true);
+    this.render();
+    this.toast(`Imported ${song.name}: ${song.tracks.length} tracks`, 'music');
   }
 
   songMenu(song, anchor) {
@@ -382,7 +587,10 @@ export class SoundUI {
   rows(song, t) {
     if (t?.kind === 'drums') return this.bank(song).drums.map((d) => ({ p: d.note, label: d.label }));
     const out = [];
-    for (let p = PITCH_TOP; p >= PITCH_BOTTOM; p--) out.push({ p, label: noteName(p), black: [1, 3, 6, 8, 10].includes(p % 12) });
+    // (C2..C7, wider when the track has notes beyond: imported songs)
+    const ps = t?.notes.map((n) => n.p) || [];
+    const top = Math.min(108, Math.max(PITCH_TOP, ...ps)), bottom = Math.max(21, Math.min(PITCH_BOTTOM, ...ps));
+    for (let p = top; p >= bottom; p--) out.push({ p, label: noteName(p), black: [1, 3, 6, 8, 10].includes(p % 12) });
     return out;
   }
 
@@ -391,8 +599,10 @@ export class SoundUI {
     box.innerHTML = '';
     const tools = el('div', 'roll-tools');
     const len = el('select');
-    len.innerHTML = LENGTHS.map(([v, l]) => `<option value="${v}" ${v === this.snap ? 'selected' : ''}>${l}</option>`).join('');
-    len.onchange = () => { this.snap = Number(len.value); };
+    const lengths = lengthsFor(song.stepsPerBeat);
+    if (!lengths.some(([b]) => b === this.snapBeats)) this.snapBeats = lengths.find(([b]) => b >= 0.5)?.[0] ?? lengths[0][0];
+    len.innerHTML = lengths.map(([b, l]) => `<option value="${b}" ${b === this.snapBeats ? 'selected' : ''}>${l}</option>`).join('');
+    len.onchange = () => { this.snapBeats = Number(len.value); };
     const zoomOut = el('button', 'btn icon ghost sm', '−');
     zoomOut.onclick = () => { this.cellW = Math.max(8, this.cellW - 4); this.renderRoll(box, song); };
     const zoomIn = el('button', 'btn icon ghost sm', '+');
@@ -410,19 +620,22 @@ export class SoundUI {
     const keys = el('canvas', 'roll-keys');
     const grid = el('canvas', 'roll-grid');
     const dpr = Math.min(2, window.devicePixelRatio || 1);
-    const H = rows.length * ROW_H, W = steps * this.cellW;
+    // (a step's width: cellW at 1/16 notes, the beat as wide on finer grids; long songs narrower,
+    // within what a canvas can be)
+    const cw = Math.max(1, Math.min(this.cellW * 4 / song.stepsPerBeat, 32000 / (steps * dpr)));
+    const H = rows.length * ROW_H, W = steps * cw;
     keys.width = KEYS_W * dpr; keys.height = H * dpr; keys.style.width = `${KEYS_W}px`; keys.style.height = `${H}px`;
     grid.width = W * dpr; grid.height = H * dpr; grid.style.width = `${W}px`; grid.style.height = `${H}px`;
     inner.append(keys, grid);
     scroll.appendChild(inner);
     box.appendChild(scroll);
-    this.roll = { song, t, rows, steps, keys, grid, dpr, scroll };
+    this.roll = { song, t, rows, steps, keys, grid, dpr, scroll, cw };
     this.drawKeys();
     this.drawRoll();
     // start around middle C (or the top of the drum kit)
     if (t.kind !== 'drums') {
       const notes = t.notes.length ? t.notes.reduce((a, n) => a + n.p, 0) / t.notes.length : 64;
-      scroll.scrollTop = Math.max(0, (PITCH_TOP - notes) * ROW_H - 160);
+      scroll.scrollTop = Math.max(0, (rows[0].p - notes) * ROW_H - 160);
     }
     this.wireRoll();
   }
@@ -455,13 +668,14 @@ export class SoundUI {
     if (!this.roll) return;
     const { grid, rows, steps, dpr, song, t } = this.roll;
     const g = grid.getContext('2d');
-    const W = steps * this.cellW, H = rows.length * ROW_H, cw = this.cellW;
+    const cw = this.roll.cw, W = steps * cw, H = rows.length * ROW_H;
     const spb = song.stepsPerBeat, bar = spb * song.beatsPerBar;
     g.setTransform(dpr, 0, 0, dpr, 0, 0);
     g.fillStyle = '#121216';
     g.fillRect(0, 0, W, H);
     rows.forEach((r, i) => { if (r.black || (t.kind === 'drums' && i % 2)) { g.fillStyle = '#17171c'; g.fillRect(0, i * ROW_H, W, ROW_H); } });
     for (let s = 0; s <= steps; s++) {
+      if (cw < 4 && s % spb) continue; // (narrow: the beats only)
       g.fillStyle = s % bar === 0 ? '#3a3a46' : s % spb === 0 ? '#26262f' : '#1b1b21';
       g.fillRect(s * cw, 0, 1, H);
     }
@@ -506,7 +720,7 @@ export class SoundUI {
     const at = (e) => {
       const r = grid.getBoundingClientRect();
       const x = e.clientX - r.left, y = e.clientY - r.top;
-      return { x, step: Math.floor(x / this.cellW), row: this.roll.rows[Math.floor(y / ROW_H)] };
+      return { x, step: Math.floor(x / this.roll.cw), row: this.roll.rows[Math.floor(y / ROW_H)] };
     };
     const noteAt = (p) => this.roll.t.notes.find((n) => n.p === p.row?.p && p.step >= n.t && p.step < n.t + n.d);
     grid.oncontextmenu = (e) => e.preventDefault();
@@ -520,7 +734,7 @@ export class SoundUI {
         return;
       }
       if (hit) {
-        const edge = (hit.t + hit.d) * this.cellW - p.x < 7;
+        const edge = (hit.t + hit.d) * this.roll.cw - p.x < 7;
         drag = { note: hit, mode: edge ? 'resize' : 'move', from: p, t0: hit.t, p0: hit.p, moved: false };
       } else {
         const start = Math.floor(p.step / this.snap) * this.snap;
@@ -602,8 +816,9 @@ export class SoundUI {
   }
 
   stop() {
-    const was = this.playing || this.gamePreview || this.auditioning;
+    const was = this.playing || this.gamePreview || this.auditioning || this.midiPreview;
     this.playing = null;
+    this.midiPreview = false;
     this.gamePreview = null;
     this.auditioning = false;
     clearTimeout(this.auditionTimer);

@@ -140,6 +140,7 @@ await suite('my feature', async (t) => {
 | terrain | every brush in a custom level (collision follows, one edit per stroke, undo), brush size keys, reload; sculpting BoB, replay after reload, undo |
 | stars | a star from the Stars tab, rename, collect (course complete, counter), red coin star with 8 coins, 100 coin star, progress after reload |
 | sound | sound studio: open/close (button, M, Esc), starter song, piano roll, play/stop, tempo, use as level music, replacing the coin sound (it really plays), persistence, deleting the song, game music |
+| midi_import | importing a MIDI file (tests/fixtures/make_midi.mjs): a broken file refused, parts with their instruments and the drum kit, another instrument picked, listen, import with every note (six-note chords on a spare channel), use as level music |
 | multitab | two tabs on one project: viewers, edits, moves, deletes, undo, rename, new levels reach the other tab |
 | chat_ui | the chat panel without Claude: send button state, suggestions, attachments, model menu, Esc/`/` focus, edits/stars tabs, menus |
 | mobile | phone-size layout: no horizontal scroll, game visible, panels reachable |

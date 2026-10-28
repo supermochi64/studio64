@@ -404,7 +404,7 @@ export class Agent {
         }) };
       }), opts),
 
-      tool('compose_song', 'Write a song (or rewrite one by id) that the game plays with its own instruments, and optionally make it this level\'s music. Pick a sound set (music_library lists them with instruments: Bass/Melody/Chords labels tell what each is good for) and write tracks of notes. Notes are [beat, length in beats, pitch, velocity?]: beats count from 0 in quarter notes (0.25 steps), pitch is a note name like "C4"/"F#3" or a MIDI number for instruments, and the drum note number (see the set\'s drums) for a drum track. Keep a song to 4-16 bars that loop well: a melody, chords or an arpeggio, a bass line, and drums when the set has them. At most 12 tracks; a track plays up to 4 notes at once.', {
+      tool('compose_song', 'Write a song (or rewrite one by id) that the game plays with its own instruments, and optionally make it this level\'s music. Pick a sound set (music_library lists them with instruments: Bass/Melody/Chords labels tell what each is good for) and write tracks of notes. Notes are [beat, length in beats, pitch, velocity?]: beats count from 0 in quarter notes (0.25 steps), pitch is a note name like "C4"/"F#3" or a MIDI number for instruments, and the drum note number (see the set\'s drums) for a drum track. Keep a song to 4-16 bars that loop well: a melody, chords or an arpeggio, a bass line, and drums when the set has them. At most 12 tracks; a track plays 4 notes at once, more take spare channels (16 channels of 4 notes in all).', {
         name: z.string(),
         id: z.string().optional().describe('rewrite this existing song'),
         sound_set: z.number().describe('the set id (bank) from music_library'),

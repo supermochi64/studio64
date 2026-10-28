@@ -1,5 +1,19 @@
 # Changelog
 
+## Unreleased
+
+- **Import MIDI files** in the sound studio ([#9](https://github.com/supermochi64/studio64/issues/9)):
+  *Import MIDI* (or drop a .mid file on the studio) lists the file's parts, each with one of the
+  game's instruments picked from its General MIDI instrument (a bass gets a bass, drums on channel
+  10 the drum kit) that you can change and hear. Choose the sound set, the grid (1/16, 1/32 or
+  with triplets), the bars to keep and the tempo, listen to the result, then import it: it opens in
+  the composer like any song. Tempos above 240 or below 40 bpm count in half or double time.
+- **No more lost notes in chords.** A track with more than four notes at once dropped the rest;
+  now those notes play on the sequence's spare channels (16 channels of four notes). The import
+  says when a song has more notes at once than the game can sound (16, its sound effects included).
+- The composer's note lengths follow the song's grid (1/32 notes and triplets on imported songs),
+  its piano roll shows notes above C7 and below C2, and long songs get a narrower roll.
+
 ## 0.2.1-beta (2026-10-25)
 
 - **Smooth play in the browser.** The game no longer spins the browser's main thread for the rest

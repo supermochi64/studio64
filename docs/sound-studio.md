@@ -28,6 +28,26 @@ events, ...), with a play button. The level's music is chosen in build mode's
 | Deep Water | Floating arpeggios |
 | Empty song | Start from nothing |
 
+**Import a MIDI file.** Made a song in another music editor (a DAW, MuseScore, a tracker)? Save it
+as a MIDI file (.mid) and click **Import MIDI**, or drop the file on the sound studio. Every part
+of the file (a track, or a channel of one) is listed with what it played and how many notes it
+has, and gets one of the game's instruments:
+
+- The **sound set** is the band the song plays with; one with drums is picked when the file has
+  drums. Change it and the parts get that set's instruments.
+- Each part's instrument is picked from its General MIDI instrument (a bass part gets a bass, a
+  piano chords, a flute a melody, drums on channel 10 the drum kit). Pick another from the list
+  and press ▶ to hear it. Untick a part to leave it out (12 at most).
+- **Timing** is the finest note kept: 1/16 notes, 1/32 notes, or 1/16 notes with triplets.
+- **From bar** and **Bars** keep a part of a long song (it loops after the last bar); **Tempo** is
+  the file's. The game plays 40 to 240 bpm: a faster file counts in half time, a slower one in
+  double time, and sounds the same.
+- **Listen** plays the result with the game's sequence player. Below the parts it says when
+  something does not fit: too long for the game's song memory, or more notes at once than the
+  game can play.
+- **Import** makes it a song: it opens in the editor below, where everything (instruments,
+  notes, volumes) can still be changed.
+
 The editor:
 
 - **Sound set**: the band. Each of the game's songs uses a set of instruments; pick the set of
@@ -59,7 +79,9 @@ jump. The list on the left shows which game sounds you replaced.
 
 ## Limits
 
-- A song can have up to 12 tracks.
+- A song can have up to 12 tracks. A track plays four notes at once on its own channel; with
+  more (big chords) the notes go to spare channels, 16 channels in all. The game sounds 16 notes
+  at once in total, its sound effects included: in the busiest moments the quietest drop out.
 - A song must fit the game's sequence cache: about 8 KB of sequence data. The editor shows how much
   is used ("1.5 of 8 KB").
 

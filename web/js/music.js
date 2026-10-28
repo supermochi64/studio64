@@ -5,7 +5,8 @@
 export const TICKS_PER_BEAT = 48;   // the sequence player's resolution
 export const SIZE_LIMIT = 8192;     // what the game's sequence cache holds comfortably
 export const MAX_TRACKS = 12;
-export const MAX_VOICES = 4;        // notes a track plays at once (layers per channel)
+export const MAX_VOICES = 4;        // notes a channel plays at once (its layers)
+export const MAX_CHANNELS = 16;     // the sequence player's channels: a track with more notes at once takes spare ones
 
 // The game's songs by sequence id (sound/sequences.json order).
 export const GAME_SONGS = [
@@ -79,9 +80,23 @@ function voicesOf(notes) {
   const voices = [];
   for (const n of [...notes].sort((a, b) => a.t - b.t || b.p - a.p)) {
     const v = voices.find((vv) => vv.end <= n.t);
-    if (v) { v.notes.push(n); v.end = n.t + n.d; } else if (voices.length < MAX_VOICES) voices.push({ notes: [n], end: n.t + n.d });
+    if (v) { v.notes.push(n); v.end = n.t + n.d; } else voices.push({ notes: [n], end: n.t + n.d });
   }
   return voices.map((v) => v.notes);
+}
+
+// The sequence's channels: one per track with up to four of its voices; a track with more
+// notes at once (big chords) gets more channels while there are spare ones.
+// -> { channels: [{ track, voices }], dropped: notes that found no channel }
+export function songChannels(song) {
+  const tracks = song.tracks.filter((t) => !t.mute && t.notes.length).slice(0, MAX_TRACKS);
+  const parts = tracks.map((t) => ({ t, voices: voicesOf(t.notes) }));
+  const channels = parts.map((p) => ({ track: p.t, voices: p.voices.slice(0, MAX_VOICES) }));
+  for (const p of parts) {
+    for (let k = MAX_VOICES; k < p.voices.length && channels.length < MAX_CHANNELS; k += MAX_VOICES) channels.push({ track: p.t, voices: p.voices.slice(k, k + MAX_VOICES) });
+  }
+  const placed = channels.reduce((a, c) => a + c.voices.reduce((b, v) => b + v.length, 0), 0);
+  return { channels, dropped: parts.reduce((a, p) => a + p.t.notes.length, 0) - placed };
 }
 
 // The song as .m64 bytes: a header that starts one channel per track and waits forever,
@@ -89,7 +104,8 @@ function voicesOf(notes) {
 export function encodeSong(song) {
   const stepTicks = TICKS_PER_BEAT / song.stepsPerBeat;
   const loop = Math.min(0x7fff, song.bars * song.beatsPerBar * TICKS_PER_BEAT);
-  const tracks = song.tracks.filter((t) => !t.mute && t.notes.length).slice(0, MAX_TRACKS);
+  const { channels } = songChannels(song);
+  const tracks = channels.map((c) => c.track);
   const out = [], fix = [], at = {};
   const emit = (...b) => { for (const x of b) out.push(x & 0xff); };
   const ref = (label) => { fix.push({ pos: out.length, label }); out.push(0, 0); };
@@ -103,7 +119,7 @@ export function encodeSong(song) {
   at.wait = out.length;
   emit(0xfd, ...varLen(loop)); emit(0xfb); ref('wait');
 
-  const voiceLists = tracks.map((t) => voicesOf(t.notes));
+  const voiceLists = channels.map((c) => c.voices);
   tracks.forEach((t, i) => {
     at[`ch${i}`] = out.length;
     emit(0xc4);                                            // chan_largenoteson
