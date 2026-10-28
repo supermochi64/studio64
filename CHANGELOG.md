@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.2.2-beta (2026-10-28)
 
 - **Import MIDI files** in the sound studio ([#9](https://github.com/supermochi64/studio64/issues/9)):
   *Import MIDI* (or drop a .mid file on the studio) lists the file's parts, each with one of the
