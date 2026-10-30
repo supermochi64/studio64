@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.2.3-beta (2026-10-30)
 
 - **Replace the game's songs everywhere** ([#11](https://github.com/supermochi64/studio64/issues/11)):
   in the sound studio's *Game music* list, *Replace* a song with one of yours (or ⋯ → *Play
