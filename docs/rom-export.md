@@ -50,6 +50,7 @@ The ROM is still Super Mario 64, so your levels need a place in it.
 | Changes to the original levels (objects, blocks, roads and plants, sculpted ground, removed objects, pipes, music) | Go into those levels. Everything else stays as it was. |
 | Stars and deaths in a course | Bring Mario back to your hub, or to the castle if you have none. |
 | "Exit course" in the pause menu | Goes to your hub. |
+| Game songs and jingles you replaced (sound studio → Game music → Replace) | Your songs take their place everywhere, as in the browser. |
 
 Areas, doors (with their star counts), pipes, paintings, warp zones, exit zones and arrival points
 all work across your levels. A painting is drawn as part of the wall; walk or jump into it.

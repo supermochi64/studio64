@@ -129,6 +129,9 @@ export default function projectsHub(ctx) {
           projects.createLevel(proj, { id, name: l.name, template: l.template, area: l.area, quiet: true });
           if (body.startInLevel && !proj.boot.custom) proj.boot.custom = id;
         }
+        // from scratch: no castle. The first level is where the hack starts and the hub stars,
+        // deaths and Exit Course lead back to; the original levels stay out of the pickers.
+        if (body.template === 'scratch' && proj.boot.custom) proj.world = { start: { custom: proj.boot.custom, area: 1 }, hub: { custom: proj.boot.custom, area: 1 }, hideOriginals: true };
       }
       proj.meta = { ...(proj.meta || {}), author: String(body.author || proj.meta?.author || '').slice(0, 60), template: body.template || body.sample || 'empty' };
       if (body.description) proj.meta.description = String(body.description).slice(0, 600);

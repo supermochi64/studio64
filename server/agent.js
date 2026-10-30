@@ -10,6 +10,7 @@ import { z } from 'zod';
 import { SYSTEM_PROMPT } from './prompt.js';
 import { search, levelByKey, levelName, getEntry, friendlyName } from './catalog.js';
 import * as projects from './projects.js';
+import { GAME_SONGS, encodeSong, SIZE_LIMIT } from '../web/js/music.js';
 import { CLAUDE_MODELS, defaultModel, isKnownModel, isLoopModel, canRun } from './ai/config.js';
 import { LoopSession, handoffNote } from './ai/loop.js';
 
@@ -401,6 +402,11 @@ export class Agent {
           songs: p.audio.songs.map((x) => ({ id: x.id, name: x.name, bars: x.bars, tempo: x.tempo, sound_set: x.bank, tracks: x.tracks.map((t) => `${t.name} (${t.kind === 'drums' ? 'drums' : `instrument ${t.program}`}, ${t.notes.length} notes)`) })),
           sound_sets: soundSets(),
           sound_effects: p.audio.sounds.map((x) => ({ id: x.id, name: x.name, replaces: p.audio.overrides.filter((o) => o.sound === x.id).map((o) => o.name) })),
+          game_songs: GAME_SONGS.map((g) => {
+            const r = (p.audio.replace || []).find((x) => x.seq === g.seq);
+            const by = r && p.audio.songs.find((x) => x.id === r.song);
+            return { name: g.name, group: g.group, plays_once: !!g.once || undefined, replaced_by: by ? by.name : undefined };
+          }),
         }) };
       }), opts),
 
@@ -446,6 +452,23 @@ export class Agent {
         const count = song.tracks.reduce((n, t) => n + t.notes.length, 0);
         return { summary: `${old ? 'Rewrote' : 'Composed'} “${song.name}”${a.use_in_level ? ' for this level' : ''}`,
           result: text({ ok: true, id: song.id, notes: count, dropped_notes: dropped || undefined, note: 'The player can open it in the sound studio (Sound button) to listen and edit.' }) };
+      }), opts),
+
+      tool('replace_game_song', 'Play one of the project\'s songs everywhere the game plays one of its own songs or jingles (e.g. "Slider" in every level that has it, the star collect fanfare, the key jingle), in the browser and in the exported ROM. Levels that picked their own song keep it. Jingles play the song once (keep a jingle to 1-2 bars). song: null brings the game\'s own back. music_library lists the game songs (game_songs) and what replaces them.', {
+        game_song: z.string().describe('the game song by name, from music_library game_songs'),
+        song: z.string().nullable().describe('the project\'s song (name or id), or null for the game\'s own'),
+      }, card('replace_game_song', (a) => (a.song ? `Playing “${a.song}” instead of ${a.game_song}` : `Bringing back ${a.game_song}`), async (a) => {
+        const g = GAME_SONGS.find((x) => x.name.toLowerCase() === a.game_song.toLowerCase()) || GAME_SONGS.find((x) => x.name.toLowerCase().includes(a.game_song.toLowerCase()));
+        if (!g) throw new Error(`no game song "${a.game_song}" (music_library lists game_songs)`);
+        const song = a.song ? p.audio.songs.find((x) => x.id === a.song || x.name.toLowerCase() === a.song.toLowerCase()) : null;
+        if (a.song && !song) throw new Error(`no song "${a.song}" (music_library lists them)`);
+        if (song && encodeSong(song, { once: !!g.once }).length > SIZE_LIMIT) throw new Error(`“${song.name}” is too long for the game: make it shorter first`);
+        const before = JSON.parse(JSON.stringify(p.audio));
+        projects.setReplacements(p, [...(p.audio.replace || []).filter((r) => r.seq !== g.seq), ...(song ? [{ seq: g.seq, song: song.id }] : [])]);
+        projects.recordProjectChange(p, ['audio'], before, song ? `“${song.name}” plays instead of ${g.name}` : `${g.name} is the game's own again`, { by: null });
+        self.hub.broadcast(p.id, { type: 'audio', audio: p.audio });
+        self.hub.changesChanged?.(p);
+        return { summary: song ? `“${song.name}” now plays instead of ${g.name}` : `${g.name} is the game's own again`, result: text({ ok: true, plays_once: !!g.once || undefined }) };
       }), opts),
 
       tool('sound_effect', 'Make a sound effect with the synthesizer and optionally use it instead of game sounds (found by name, e.g. "coin", "jump", "door open", "explosion"). Presets: coin, jump, powerup, laser, explosion, hit, blip, bounce, magic, oneup, hurt, wind; tweak with the optional values.', {

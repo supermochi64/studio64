@@ -12,8 +12,10 @@ Open it with the **Studio 64** logo (top left), *All projects* in the ⋯ menu, 
 It also opens by itself when there is no project to continue.
 
 - **Start a new hack**: *Castle* (the original game to remix, starting in the castle grounds),
-  *From scratch* (a hack without the castle: pick a landscape for its first level; the hack
-  starts there), and the **sample hacks** (finished examples to play and take apart). **Showcase**
+  *From scratch* (a hack without the castle: pick a landscape for its first level; it is where the
+  hack starts and its hub, which stars, deaths and *Exit course* lead back to, and the original
+  levels are hidden from the level launcher and the warp pickers: *World → Show the original
+  levels* brings them back), and the **sample hacks** (finished examples to play and take apart). **Showcase**
   uses every feature at once (story with a talking Toad and cutscenes, a one-star door into a sub-area
   with its own song, a painting with its own picture to a second level with its own rules, a custom
   enemy on a patrol path guarding a hidden star, an elevator, imported crates, a texture, a sky and

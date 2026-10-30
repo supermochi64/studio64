@@ -87,6 +87,66 @@ s32 studio_song_install(s32 preview, const u8 *data, s32 len, s32 bank) {
     return seqId;
 }
 
+// The project's songs in place of the game's own (a sound studio song for "Slider" everywhere,
+// a jingle for the star fanfare): the song takes the game song's sequence slot, so everything
+// that plays it plays the song. len 0 puts the game's own back.
+#define SEQ_SLOTS 0x23
+static u8 *sReplaced[SEQ_SLOTS];
+static struct { u8 *offset; u32 len; u8 count, bank; } sOriginal[SEQ_SLOTS];
+
+static void replace_slot(s32 seqId, const u8 *data, s32 len, s32 bank);
+
+// (a player that was playing the song goes on with the new one)
+EMSCRIPTEN_KEEPALIVE
+s32 studio_song_replace(s32 seqId, const u8 *data, s32 len, s32 bank) {
+    s32 i, playing[SEQUENCE_PLAYERS];
+    if (gSeqFileHeader == NULL || gAlBankSets == NULL || seqId <= 0 || seqId >= SEQ_SLOTS
+        || seqId == SLOT_LEVEL || seqId == SLOT_PREVIEW || len < 0 || len > 0x3000 || (len > 0 && data == NULL)) {
+        return -1;
+    }
+    for (i = 0; i < SEQUENCE_PLAYERS; i++) {
+        playing[i] = gSequencePlayers[i].enabled && gSequencePlayers[i].seqId == seqId;
+    }
+    replace_slot(seqId, data, len, bank);
+    for (i = 0; i < SEQUENCE_PLAYERS; i++) {
+        if (playing[i]) {
+            play_sequence(i, seqId, 0);
+        }
+    }
+    return seqId;
+}
+
+static void replace_slot(s32 seqId, const u8 *data, s32 len, s32 bank) {
+    u16 off;
+    off = ((u16 *) gAlBankSets)[seqId];
+    if (sReplaced[seqId] == NULL && len == 0) {
+        return;
+    }
+    stop_players_using(seqId);
+    forget_cached_seq(seqId);
+    if (sReplaced[seqId] == NULL) {
+        sOriginal[seqId].offset = gSeqFileHeader->seqArray[seqId].offset;
+        sOriginal[seqId].len = gSeqFileHeader->seqArray[seqId].len;
+        sOriginal[seqId].count = gAlBankSets[off];
+        sOriginal[seqId].bank = gAlBankSets[off + 1];
+    }
+    free(sReplaced[seqId]);
+    sReplaced[seqId] = NULL;
+    if (len == 0) {
+        gSeqFileHeader->seqArray[seqId].offset = sOriginal[seqId].offset;
+        gSeqFileHeader->seqArray[seqId].len = sOriginal[seqId].len;
+        gAlBankSets[off] = sOriginal[seqId].count;
+        gAlBankSets[off + 1] = sOriginal[seqId].bank;
+        return;
+    }
+    sReplaced[seqId] = calloc(1, len + 32);
+    memcpy(sReplaced[seqId], data, len);
+    gSeqFileHeader->seqArray[seqId].offset = sReplaced[seqId];
+    gSeqFileHeader->seqArray[seqId].len = len;
+    gAlBankSets[off] = 1;
+    gAlBankSets[off + 1] = (u8) bank;
+}
+
 // Plays any sequence on the music player right away (the library and the composer).
 EMSCRIPTEN_KEEPALIVE
 void studio_music_preview(s32 seqId) {
@@ -185,6 +245,25 @@ void studio_audio_level(const s16 *samples, s32 count) {
         f32 v = samples[i] < 0 ? -samples[i] : samples[i];
         if (v > sAudioPeak) sAudioPeak = v;
     }
+}
+
+// For tests: a sequence slot's length, and what the music player plays
+// (enabled << 16 | sequence << 8 | channels running).
+EMSCRIPTEN_KEEPALIVE
+s32 studio_seq_len(s32 seqId) {
+    return gSeqFileHeader != NULL && seqId >= 0 && seqId < SEQ_SLOTS ? (s32) gSeqFileHeader->seqArray[seqId].len : -1;
+}
+
+EMSCRIPTEN_KEEPALIVE
+s32 studio_music_now(s32 player) {
+    struct SequencePlayer *p;
+    s32 i, channels = 0;
+    if (player < 0 || player >= SEQUENCE_PLAYERS) return -1;
+    p = &gSequencePlayers[player];
+    for (i = 0; i < CHANNELS_MAX; i++) {
+        if (IS_SEQUENCE_CHANNEL_VALID(p->channels[i]) && p->channels[i]->enabled) channels++;
+    }
+    return (p->enabled ? 1 << 16 : 0) | (p->seqId << 8) | channels;
 }
 
 EMSCRIPTEN_KEEPALIVE

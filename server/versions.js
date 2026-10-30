@@ -96,7 +96,7 @@ export function restore(p, vid) {
   Object.assign(p, c);
   p.redo = [];
   p.areas ||= {}; p.changes ||= []; p.levels ||= []; p.thumbs ||= {};
-  p.audio ||= {}; p.audio.songs ||= []; p.audio.sounds ||= []; p.audio.overrides ||= [];
+  p.audio ||= {}; p.audio.songs ||= []; p.audio.sounds ||= []; p.audio.overrides ||= []; p.audio.replace ||= [];
   restoreAssetFiles(p); // asset files deleted since that version come back from the trash
   projects.save(p);
   projects.saveImmediately(p);
@@ -179,6 +179,7 @@ export function diff(a, b) {
     if (ch.length) project.push({ kind: 'change', text: `Edited ${what}${ch.length > 1 ? 's' : ''}: ${ch.map((s) => s.name).join(', ')}` });
   }
   if (JSON.stringify(a.audio?.overrides || []) !== JSON.stringify(b.audio?.overrides || [])) project.push({ kind: 'change', text: 'Replaced game sounds changed' });
+  if (JSON.stringify(a.audio?.replace || []) !== JSON.stringify(b.audio?.replace || [])) project.push({ kind: 'change', text: 'Replaced game songs changed' });
   if (JSON.stringify(a.boot || null) !== JSON.stringify(b.boot || null)) project.push({ kind: 'change', text: 'Start level changed' });
   if (JSON.stringify(a.meta || null) !== JSON.stringify(b.meta || null)) project.push({ kind: 'change', text: 'Project settings changed' });
   // anything else the project keeps (story, world, rules, assets ...)

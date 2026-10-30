@@ -344,6 +344,17 @@ export class Engine {
     M._free(p);
     return id;
   }
+  // A song in place of one of the game's songs, everywhere it plays (null bytes: the game's own again).
+  replaceGameSong(seq, bytes, bank) {
+    const M = this.M;
+    if (!M?._studio_song_replace) return -1;
+    if (!bytes) return M._studio_song_replace(seq | 0, 0, 0, 0);
+    const p = M._malloc(bytes.length);
+    M.HEAPU8.set(bytes, p);
+    const id = M._studio_song_replace(seq | 0, p, bytes.length, bank | 0);
+    M._free(p);
+    return id;
+  }
   // The level's music becomes this song, from the start.
   // A sound bank the engine has (Tokyo's instruments are in the build only after its import).
   hasSoundBank(bank) { return this.M?._studio_sound_bank_count ? bank >= 0 && bank < this.M._studio_sound_bank_count() : false; }
@@ -351,6 +362,11 @@ export class Engine {
     const id = this.installSong(bytes, bank, false);
     if (id >= 0) { this.M._studio_set_music(id); this.M._studio_music_restore(); }
     return id;
+  }
+  // what the music player plays: { on, seq, channels }
+  musicNow() {
+    const v = this.M?._studio_music_now?.(0) ?? -1;
+    return v < 0 ? null : { on: !!(v >> 16), seq: (v >> 8) & 255, channels: v & 255 };
   }
   previewMusic(seq) { this.M._studio_music_preview(seq | 0); }
   stopPreview() { this.M._studio_music_preview(-1); }

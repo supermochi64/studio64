@@ -402,7 +402,8 @@ export class WorldUI {
       <div class="wd-row"><span>Star goal</span><input type="number" class="wd-num" data-a="goal" min="0" max="999" value="${f.goal?.stars || ''}" placeholder="none"></div>
       <input type="text" class="wd-text" data-a="goalmsg" maxlength="160" placeholder="Message when it's reached (optional)" value="${esc(f.goal?.message || '')}">
       <div class="btn-row"><button class="btn sm primary" data-a="playstart">${icon('play', 'sm')}Play from the start</button>
-        <label class="wd-check"><input type="checkbox" data-a="zones" ${f.hideZones ? '' : 'checked'}> Show zones</label></div>`;
+        <label class="wd-check"><input type="checkbox" data-a="zones" ${f.hideZones ? '' : 'checked'}> Show zones</label></div>
+      <label class="wd-check wd-originals" title="Hacks from scratch hide them: the launcher and the warp pickers list only your levels"><input type="checkbox" data-a="originals" ${f.hideOriginals ? '' : 'checked'}> Show the original levels</label>`;
     box.querySelector('[data-a=start]').onclick = () => {
       const at = this.engine.level === STUDIO_LEVEL ? { custom: this.engine.customLevel, area: this.engine.area } : { level: this.engine.level, area: this.engine.area };
       this.flow.setFlow({ start: at });
@@ -423,6 +424,7 @@ export class WorldUI {
     [goal, msg].forEach((x) => x.addEventListener('keydown', (e) => e.stopPropagation()));
     box.querySelector('[data-a=playstart]').onclick = () => this.playFromStart();
     box.querySelector('[data-a=zones]').onchange = (e) => { this.flow.setFlow({ hideZones: !e.target.checked }); this.flow.respawnZones(); };
+    box.querySelector('[data-a=originals]').onchange = (e) => this.flow.setFlow({ hideOriginals: e.target.checked ? null : true });
     void here;
     return box;
   }
@@ -560,9 +562,11 @@ export class WorldUI {
       const key = areaKeyOf({ custom: l.id, area: a.index });
       html += card({ custom: l.id, area: a.index }, l.name, this.flow.areasOf(l.id).length > 1 ? a.name : 'Custom level', thumbs[key]);
     }
-    html += '</div><div class="wd-dest-sec">Original levels</div><div class="wd-dest-grid">';
-    for (const l of Object.values(this.catalog.levels).filter((x) => x.num).sort((a, b) => (b.acts - a.acts) || a.name.localeCompare(b.name))) {
-      html += card({ level: l.num, area: 1 }, l.name, l.acts ? 'Course' : 'Extra', thumbs[`${l.num}:1`] || levelPicture(l.num));
+    if (!this.flow.originalsHidden()) {
+      html += '</div><div class="wd-dest-sec">Original levels</div><div class="wd-dest-grid">';
+      for (const l of Object.values(this.catalog.levels).filter((x) => x.num).sort((a, b) => (b.acts - a.acts) || a.name.localeCompare(b.name))) {
+        html += card({ level: l.num, area: 1 }, l.name, l.acts ? 'Course' : 'Extra', thumbs[`${l.num}:1`] || levelPicture(l.num));
+      }
     }
     html += `</div></div><div class="actions"><button class="btn" id="wd-dest-no">Cancel</button></div>`;
     m.innerHTML = html;

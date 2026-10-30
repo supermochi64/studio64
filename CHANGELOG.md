@@ -1,5 +1,21 @@
 # Changelog
 
+## Unreleased
+
+- **Replace the game's songs everywhere** ([#11](https://github.com/supermochi64/studio64/issues/11)):
+  in the sound studio's *Game music* list, *Replace* a song with one of yours (or ⋯ → *Play
+  instead of a game song…* in the composer) and it plays wherever the game plays that song: every
+  level with slide music for *Slider*, the castle, the menus. Levels keep their own music when they
+  picked one. **Jingles and fanfares** (star collect, star appears, puzzle solved, key, high score)
+  are replaced the same way and play your song once. In the exported ROM too. Claude can do it
+  with the new `replace_game_song` tool.
+- **From scratch means no castle**: a hack from scratch now has its first level as start *and*
+  hub (stars, deaths and *Exit course* lead back there instead of to the castle), and the original
+  levels are hidden from the level launcher, the warp pickers and *Starts in* (*World → Show the
+  original levels* brings them back).
+- Replaced sound effects work again right after a reload (they were applied only once the sound
+  studio had been opened or the sounds changed).
+
 ## 0.2.2-beta (2026-10-28)
 
 - **Import MIDI files** in the sound studio ([#9](https://github.com/supermochi64/studio64/issues/9)):

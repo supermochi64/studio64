@@ -92,7 +92,7 @@ save (and a fresh save starts with the doors as built).
 ## Hub and flow (`patch.world`)
 
 ```js
-{ start: { custom | level, area }, hub: { custom | level, area }, goal: { stars, message }, pictures: { id: { name, data } }, hideZones }
+{ start: { custom | level, area }, hub: { custom | level, area }, goal: { stars, message }, pictures: { id: { name, data } }, hideZones, hideOriginals }
 ```
 
 - **Start**: where a new game begins (also written to the project's boot level, which the
@@ -102,6 +102,9 @@ save (and a fresh save starts with the doors as built).
   0xE2 exit are placed when the hub loads). A custom hub pauses like the castle (with the
   custom levels' pages) and has no star select screen. With your own start and hub, the hack
   never visits the castle.
+- **Original levels** (`hideOriginals`): hacks made *from scratch* start with their first level as
+  start and hub and hide the original levels from the level launcher (Ctrl+K), the warp
+  destination picker and *Starts in*. *Show the original levels* in the World panel brings them back.
 - **Star goal**: when the star counter reaches it, the message shows in the game's dialog box
   once (and a toast).
 

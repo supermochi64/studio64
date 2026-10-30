@@ -31,7 +31,8 @@ struct S64Info {
     /*0xDEC*/ u32 songCount;
     /*0xDF0*/ u32 sfxRom;        // the project's sound effects (s64_sfx.c), and how many
     /*0xDF4*/ u32 sfxCount;
-    /*0xDF8*/ u32 reserved3[2];
+    /*0xDF8*/ u32 replaceRom;    // the game songs the project's songs replace (s64_songs.c): per entry sequence slot, song
+    /*0xDFC*/ u32 replaceCount;
 }; // 0xE00
 
 extern struct S64Info gS64Info;

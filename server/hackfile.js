@@ -112,7 +112,7 @@ export function importHack(buf, { name } = {}) {
   for (const k of [...LOCAL_KEYS, 'id', 'createdAt']) delete data[k];
   Object.assign(fresh, data, { id: fresh.id, name: fresh.name, createdAt: Date.now(), updatedAt: Date.now(), sessionId: null, redo: [] });
   fresh.areas ||= {}; fresh.changes ||= []; fresh.chat ||= []; fresh.levels ||= []; fresh.thumbs ||= {};
-  fresh.audio ||= {}; fresh.audio.songs ||= []; fresh.audio.sounds ||= []; fresh.audio.overrides ||= [];
+  fresh.audio ||= {}; fresh.audio.songs ||= []; fresh.audio.sounds ||= []; fresh.audio.overrides ||= []; fresh.audio.replace ||= [];
   for (const [rel, bytes] of files) {
     const target = rel.split('/').map((seg) => seg.replace(/^\{id\}/, fresh.id)).join('/');
     if (target.split('/').some((s) => !s || s === '..' || s === '.') || path.isAbsolute(target)) continue;

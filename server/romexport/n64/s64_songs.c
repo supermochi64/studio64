@@ -26,17 +26,32 @@ struct S64Song {
     u32 pad;
 };
 static struct S64Song *sSongs;
+static u32 sReplace[2 * 32] __attribute__((aligned(16))); // (PI DMA wants aligned RAM)
 static s32 sInstalled = -1;
 
+s32 s64_seq_install(s32 slot, u32 rom, u32 len, s32 bank);
+
+// (the audio thread set the sequences up before the game thread runs: its priority is higher)
 void s64_songs_init(void) {
-    u32 size;
+    u32 size, i;
     if (!s64_info_valid() || gS64Info.songsRom == 0 || gS64Info.songCount == 0) {
         return;
     }
     size = gS64Info.songCount * sizeof(struct S64Song);
     sSongs = malloc((size + 15) & ~15);
-    if (sSongs != NULL) {
-        dma_read((u8 *) sSongs, (u8 *) gS64Info.songsRom, (u8 *) gS64Info.songsRom + size);
+    if (sSongs == NULL) {
+        return;
+    }
+    dma_read((u8 *) sSongs, (u8 *) gS64Info.songsRom, (u8 *) gS64Info.songsRom + size);
+    // the game songs the project's songs replace: the songs take their slots for good
+    if (gS64Info.replaceRom != 0 && gS64Info.replaceCount > 0 && gS64Info.replaceCount <= 32) {
+        dma_read((u8 *) sReplace, (u8 *) gS64Info.replaceRom, (u8 *) gS64Info.replaceRom + ((gS64Info.replaceCount * 8 + 15) & ~15));
+        for (i = 0; i < gS64Info.replaceCount; i++) {
+            u32 slot = sReplace[i * 2], index = sReplace[i * 2 + 1];
+            if (slot > 0 && slot < 0x23 && slot != SLOT_LEVEL && index < gS64Info.songCount) {
+                s64_seq_install(slot, sSongs[index].rom, sSongs[index].len, sSongs[index].bank);
+            }
+        }
     }
 }
 

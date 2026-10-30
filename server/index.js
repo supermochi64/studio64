@@ -301,7 +301,7 @@ ROUTES = ROUTE_PLUGINS.map((make) => {
 });
 
 // Messages a closing page may still send by HTTP (POST /api/projects/:id/send): project changes only.
-const LEAVE_TYPES = new Set(['edit', 'level_create', 'level_rename', 'level_delete', 'level_duplicate', 'thumb', 'song_save', 'sound_save', 'audio_delete', 'overrides_save', 'rename', 'boot_level', 'story_op', 'world_set', 'area_create', 'area_rename', 'area_delete']);
+const LEAVE_TYPES = new Set(['edit', 'level_create', 'level_rename', 'level_delete', 'level_duplicate', 'thumb', 'song_save', 'sound_save', 'audio_delete', 'overrides_save', 'replace_save', 'rename', 'boot_level', 'story_op', 'world_set', 'area_create', 'area_rename', 'area_delete']);
 
 // One message of a client (the websocket, or a keepalive request from a page that is closing).
 async function onClientMessage(client, msg) {
@@ -467,6 +467,14 @@ async function onClientMessage(client, msg) {
         const before = JSON.parse(JSON.stringify(project.audio || {}));
         projects.setOverrides(project, msg.overrides);
         projects.recordProjectChange(project, ['audio'], before, 'Changed replaced game sounds', { by: client.id || null });
+        hub.broadcast(project.id, { type: 'audio', audio: project.audio }, client);
+        hub.changesChanged(project);
+        break;
+      }
+      case 'replace_save': {
+        const before = JSON.parse(JSON.stringify(project.audio || {}));
+        projects.setReplacements(project, msg.replace);
+        projects.recordProjectChange(project, ['audio'], before, 'Changed which game songs are replaced', { by: client.id || null });
         hub.broadcast(project.id, { type: 'audio', audio: project.audio }, client);
         hub.changesChanged(project);
         break;

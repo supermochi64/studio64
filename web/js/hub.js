@@ -58,7 +58,7 @@ const hue = (s) => [...String(s)].reduce((h, c) => (h * 31 + c.charCodeAt(0)) % 
 
 // Messages that change the project: kept and sent again when the server is back.
 // (story_op, world_set and area_* too: offline story and world edits were dropped silently)
-const PERSIST = new Set(['edit', 'level_create', 'level_rename', 'level_delete', 'level_duplicate', 'thumb', 'song_save', 'sound_save', 'audio_delete', 'overrides_save', 'rename', 'boot_level', 'story_op', 'world_set', 'area_create', 'area_rename', 'area_delete', 'reset_edits']);
+const PERSIST = new Set(['edit', 'level_create', 'level_rename', 'level_delete', 'level_duplicate', 'thumb', 'song_save', 'sound_save', 'audio_delete', 'overrides_save', 'replace_save', 'rename', 'boot_level', 'story_op', 'world_set', 'area_create', 'area_rename', 'area_delete', 'reset_edits']);
 const NINTENDO = 'The playable game is built from your Super Mario 64 ROM: it contains Nintendo\'s copyrighted code, graphics and sounds. Play it yourself or share it privately with friends; do not upload it publicly or sell it.';
 
 export class Hub {
@@ -466,7 +466,7 @@ export class Hub {
     const tplPick = kind === 'scratch'
       ? `<div class="hub-label">Landscape of your first level</div><div class="hub-tpls" id="hk-tpls">${Object.entries(TEMPLATES).map(([id, t]) => `<button class="hub-tpl${id === tpl ? ' active' : ''}" data-id="${id}"><span${templatePicture(id) ? ` style="background-image:url('${templatePicture(id)}')"` : ''}></span>${esc(t.label)}</button>`).join('')}</div>`
       : '';
-    const intro = kind === 'scratch' ? 'Your hack starts in a level of its own. Add more levels any time.'
+    const intro = kind === 'scratch' ? 'No castle and no original levels: your first level is where the hack starts and the hub that stars and deaths lead back to. Add more levels and connect them with your own doors, pipes and paintings.'
       : kind === 'sample' ? (sample.description || 'A finished example to play and take apart.') : 'The whole original game, ready to change. Your edits are saved as you go.';
     this.modal(`<h2>${esc(kind === 'sample' ? `Start from “${sample.name}”` : kind === 'scratch' ? 'Start from scratch' : 'Remix the castle')}</h2><p>${esc(intro)}</p>
       <div class="hub-form">
@@ -693,7 +693,8 @@ export class Hub {
     const inApp = id === this.state.projectId && this.state.engine?.ready;
     let cover = info.hasCover ? `/api/projects/${id}/thumb?v=${Date.now()}` : null;
     let coverData; // undefined: unchanged, null: removed, string: new
-    const levels = this.state.catalog?.levels ? Object.values(this.state.catalog.levels).filter((l) => l.num).sort((a, b) => a.name.localeCompare(b.name)) : [];
+    const hideOriginals = id === this.state.projectId && this.state.worldFlow?.originalsHidden() && !!info.boot?.custom;
+    const levels = this.state.catalog?.levels && !hideOriginals ? Object.values(this.state.catalog.levels).filter((l) => l.num).sort((a, b) => a.name.localeCompare(b.name)) : [];
     const custom = id === this.state.projectId ? (this.state.levels || []) : [];
     const startOpts = [
       ...custom.map((l) => `<option value="c:${esc(l.id)}"${info.boot?.custom === l.id ? ' selected' : ''}>${esc(l.name)} (your level)</option>`),

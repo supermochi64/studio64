@@ -76,7 +76,7 @@ export function terrainPreview(t, settings = {}, size = 160) {
 }
 
 export class LevelsUI {
-  constructor({ engine, world, editor, catalog, send, toast, getLevels, getThumbs, submitChat, setAttachments }) {
+  constructor({ engine, world, editor, catalog, send, toast, getLevels, getThumbs, getFlow, submitChat, setAttachments }) {
     this.engine = engine;
     this.world = world;
     this.editor = editor;
@@ -88,6 +88,7 @@ export class LevelsUI {
     this.toast = toast;
     this.getLevels = getLevels;
     this.getThumbs = getThumbs;
+    this.getFlow = getFlow || (() => null);
     this.submitChat = submitChat;
     this.setAttachments = setAttachments;
     this.cams = {};              // editor camera per level, for instant back-and-forth
@@ -277,8 +278,18 @@ export class LevelsUI {
       const key = `${l.num}:1`;
       orig.appendChild(this.card({ title: l.name, sub: l.acts ? 'Course' : 'Extra', key, thumb: thumbs[key] || levelPicture(l.num), current: e.level === l.num, onClick: () => this.go(l) }));
     }
-    box.appendChild(el('div', 'lvl-section', 'Original levels'));
-    box.appendChild(orig);
+    // a hack from scratch has no castle: the original levels stay out of the way until asked for
+    const flow = this.getFlow();
+    if (flow?.originalsHidden()) {
+      const note = el('div', 'lvl-hidden-note', `<span>The original levels are hidden in this hack.</span>`);
+      const show = el('button', 'btn sm ghost', 'Show them');
+      show.onclick = () => { flow.setFlow({ hideOriginals: null }); this.render(); };
+      note.appendChild(show);
+      box.appendChild(note);
+    } else {
+      box.appendChild(el('div', 'lvl-section', 'Original levels'));
+      box.appendChild(orig);
+    }
     this.filter();
   }
 

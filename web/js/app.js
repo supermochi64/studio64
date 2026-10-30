@@ -205,7 +205,7 @@ function send(msg) {
 // The page is closing or reloading: the panels flush their waiting edits (story text, songs,
 // sounds) on pagehide, but a websocket message sent then may never leave. A keepalive request
 // does (POST /api/projects/:id/send, handled like the websocket message on the server).
-const LEAVE_TYPES = new Set(['edit', 'level_create', 'level_rename', 'level_delete', 'level_duplicate', 'thumb', 'song_save', 'sound_save', 'audio_delete', 'overrides_save', 'rename', 'boot_level', 'story_op', 'world_set', 'area_create', 'area_rename', 'area_delete']);
+const LEAVE_TYPES = new Set(['edit', 'level_create', 'level_rename', 'level_delete', 'level_duplicate', 'thumb', 'song_save', 'sound_save', 'audio_delete', 'overrides_save', 'replace_save', 'rename', 'boot_level', 'story_op', 'world_set', 'area_create', 'area_rename', 'area_delete']);
 function sendOnLeave(msg) {
   if (!state.projectId) return false;
   try {
@@ -238,7 +238,8 @@ async function onMessage(msg) {
       state.patch = msg.patch;
       state.levels = msg.levels || [];
       state.thumbs = msg.thumbs || {};
-      state.audio = msg.audio || { songs: [], sounds: [], overrides: [] };
+      state.audio = msg.audio || { songs: [], sounds: [], overrides: [], replace: [] };
+      state.soundUI?.syncOverrides(); // (the engine can be up before the project arrives)
       storyMessage(state, msg.story); // dialogs, characters, events, cutscenes (story/)
       state.model = msg.project.model || state.model;
       renderModel();
@@ -1126,7 +1127,7 @@ function setupEditor() {
   });
   state.levelsUI = new LevelsUI({
     engine: state.engine, world: state.world, editor, catalog: state.catalog, send, toast,
-    getLevels: () => state.levels, getThumbs: () => state.thumbs,
+    getLevels: () => state.levels, getThumbs: () => state.thumbs, getFlow: () => state.worldFlow,
     submitChat: (text) => submit(text),
     setAttachments: async (files) => { state.attachments = []; await addAttachments(files); },
   });

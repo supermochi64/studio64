@@ -34,7 +34,7 @@ export function createProject({ name = 'Untitled hack', level = 9 } = {}) {
     model: null,
     levels: [],   // custom levels: { id, name, created, template }
     thumbs: {},   // area key -> small jpeg data URL
-    audio: { songs: [], sounds: [], overrides: [] }, // the sound studio's songs, sound effects, replaced game sounds
+    audio: { songs: [], sounds: [], overrides: [], replace: [] }, // the sound studio's songs, sound effects, replaced game sounds and songs
   };
   cache.set(p.id, p);
   saveNow(p);
@@ -52,6 +52,7 @@ export function getProject(id) {
     p.audio.songs ||= [];
     p.audio.sounds ||= [];
     p.audio.overrides ||= [];
+    p.audio.replace ||= [];
     cache.set(id, p);
     return p;
   } catch {
@@ -421,7 +422,10 @@ export function saveSound(p, sound) {
 }
 
 export function deleteAudio(p, kind, id) {
-  if (kind === 'song') p.audio.songs = p.audio.songs.filter((x) => x.id !== id);
+  if (kind === 'song') {
+    p.audio.songs = p.audio.songs.filter((x) => x.id !== id);
+    p.audio.replace = (p.audio.replace || []).filter((r) => r.song !== id);
+  }
   if (kind === 'sound') {
     p.audio.sounds = p.audio.sounds.filter((x) => x.id !== id);
     p.audio.overrides = p.audio.overrides.filter((o) => o.sound !== id);
@@ -433,6 +437,15 @@ export function setOverrides(p, overrides) {
   p.audio.overrides = (Array.isArray(overrides) ? overrides : [])
     .filter((o) => Number.isFinite(o.bits) && typeof o.sound === 'string').slice(0, 96)
     .map((o) => ({ bits: o.bits >>> 0, sound: o.sound, name: String(o.name || '').slice(0, 80) }));
+  save(p);
+}
+
+// The game's songs the project's songs replace everywhere: [{ seq, song }], one per game song.
+export function setReplacements(p, list) {
+  const seen = new Set();
+  p.audio.replace = (Array.isArray(list) ? list : [])
+    .filter((r) => Number.isInteger(r?.seq) && r.seq > 0 && r.seq < 0x23 && r.seq !== 0x1A && r.seq !== 0x20 && typeof r.song === 'string' && !seen.has(r.seq) && seen.add(r.seq))
+    .map((r) => ({ seq: r.seq, song: r.song }));
   save(p);
 }
 

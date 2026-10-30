@@ -22,10 +22,19 @@ export const GAME_SONGS = [
   { seq: 0x02, name: 'Title screen', group: 'Menus' }, { seq: 0x21, name: 'File select', group: 'Menus' },
   { seq: 0x0D, name: 'Star select', group: 'Menus' }, { seq: 0x1E, name: 'Intro', group: 'Cutscenes' },
   { seq: 0x1D, name: 'Peach message', group: 'Cutscenes' }, { seq: 0x1C, name: 'Toad message', group: 'Cutscenes' },
-  { seq: 0x1F, name: 'Victory', group: 'Cutscenes' }, { seq: 0x01, name: 'Star collect', group: 'Jingles' },
-  { seq: 0x15, name: 'Star appears', group: 'Jingles' }, { seq: 0x1B, name: 'Puzzle solved', group: 'Jingles' },
-  { seq: 0x17, name: 'Key collect', group: 'Jingles' }, { seq: 0x12, name: 'High score', group: 'Jingles' },
+  { seq: 0x1F, name: 'Victory', group: 'Cutscenes' }, { seq: 0x10, name: 'Bowser message', group: 'Cutscenes' },
+  { seq: 0x01, name: 'Star collect', group: 'Jingles', once: true },
+  { seq: 0x15, name: 'Star appears', group: 'Jingles', once: true }, { seq: 0x1B, name: 'Puzzle solved', group: 'Jingles', once: true },
+  { seq: 0x17, name: 'Key collect', group: 'Jingles', once: true }, { seq: 0x12, name: 'High score', group: 'Jingles', once: true },
 ];
+// The game's songs a song of the project can replace everywhere they play (the game's own sequence
+// slots: the credits' and the ending's carry the studio's songs). Jingles play once, songs loop.
+export const gameSong = (seq) => GAME_SONGS.find((g) => g.seq === seq) || null;
+// A project's replacements ({ seq, song }) that point at a song it has.
+export function replacements(audio) {
+  const songs = new Map((audio?.songs || []).map((s) => [s.id, s]));
+  return (audio?.replace || []).filter((r) => gameSong(r.seq) && songs.has(r.song)).map((r) => ({ ...r, game: gameSong(r.seq), songData: songs.get(r.song) }));
+}
 
 const NOTE_NAMES = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
 export const noteName = (midi) => `${NOTE_NAMES[midi % 12]}${Math.floor(midi / 12) - 1}`;
@@ -100,8 +109,9 @@ export function songChannels(song) {
 }
 
 // The song as .m64 bytes: a header that starts one channel per track and waits forever,
-// channels that restart their layers every loop, layers with the notes.
-export function encodeSong(song) {
+// channels that restart their layers every loop, layers with the notes. `once` (jingles): the
+// song plays one time and ends, after a beat for the last notes to ring out.
+export function encodeSong(song, { once = false } = {}) {
   const stepTicks = TICKS_PER_BEAT / song.stepsPerBeat;
   const loop = Math.min(0x7fff, song.bars * song.beatsPerBar * TICKS_PER_BEAT);
   const { channels } = songChannels(song);
@@ -117,7 +127,8 @@ export function encodeSong(song) {
   emit(0xdd, clamp(Math.round(song.tempo), 20, 255)); // seq_settempo
   emit(0xdb, clamp(song.volume ?? 100, 0, 127));      // seq_setvol
   at.wait = out.length;
-  emit(0xfd, ...varLen(loop)); emit(0xfb); ref('wait');
+  if (once) emit(0xfd, ...varLen(loop + TICKS_PER_BEAT), 0xff); // seq_delay, seq_end
+  else { emit(0xfd, ...varLen(loop)); emit(0xfb); ref('wait'); }
 
   const voiceLists = channels.map((c) => c.voices);
   tracks.forEach((t, i) => {
@@ -129,7 +140,8 @@ export function encodeSong(song) {
     emit(0xd4, clamp(t.reverb ?? 20, 0, 127));             // chan_setreverb
     at[`loop${i}`] = out.length;
     voiceLists[i].forEach((_, k) => { emit(0x90 + k); ref(`ly${i}_${k}`); }); // chan_setlayer
-    emit(0xfd, ...varLen(loop)); emit(0xfb); ref(`loop${i}`);
+    if (once) emit(0xfd, ...varLen(loop + TICKS_PER_BEAT), 0xff); // chan_delay, chan_end
+    else { emit(0xfd, ...varLen(loop)); emit(0xfb); ref(`loop${i}`); }
   });
 
   tracks.forEach((t, i) => voiceLists[i].forEach((voice, k) => {
@@ -156,6 +168,22 @@ export function encodeSong(song) {
     out[f.pos] = a >> 8; out[f.pos + 1] = a & 0xff;
   }
   return new Uint8Array(out);
+}
+
+// Puts the project's replacements in the engine's song slots and the game's own songs back where
+// none is left. `applied` (seq -> encoded bytes as text) skips unchanged slots: installing a slot
+// stops what plays it. -> the new `applied`
+export function applyReplacements(engine, audio, applied = new Map()) {
+  const next = new Map();
+  for (const r of replacements(audio)) {
+    const bytes = encodeSong(r.songData, { once: !!r.game.once });
+    if (bytes.length > 0x3000 || !engine.hasSoundBank(r.songData.bank)) continue;
+    const key = `${r.songData.bank}:${bytes.join(',')}`;
+    // (the engine refuses while its sequences are not set up yet: the next call tries again)
+    if (applied.get(r.seq) === key || engine.replaceGameSong(r.seq, bytes, r.songData.bank) >= 0) next.set(r.seq, key);
+  }
+  for (const seq of applied.keys()) if (!next.has(seq)) engine.replaceGameSong(seq, null);
+  return next;
 }
 
 // A one-bar phrase to hear an instrument (or the drum kit) on its own.

@@ -9,6 +9,7 @@ import { Engine } from './engine.js';
 import { Studio } from './studio.js';
 import { World } from './world.js';
 import { SfxPlayer } from './sfx.js';
+import { applyReplacements } from './music.js';
 import { installObjectsEngine } from './objects/index.js';
 import { Assets } from './assets.js';
 import { WorldFlow } from './worldflow.js';
@@ -164,8 +165,9 @@ function boot() {
   const syncStars = () => engine.setBonusStars(world.collectedTotal());
   engine.on('star', (ev) => { world.onStarCollected(ev); syncStars(); });
 
-  // sounds the hack replaced
+  // sounds and songs the hack replaced
   const sfx = new SfxPlayer();
+  let replaced = new Map();
   engine.onGameSound = (id, dist) => {
     const o = h.audio?.overrides?.[id];
     const s = o && h.audio.sounds.find((x) => x.id === o.sound);
@@ -174,7 +176,9 @@ function boot() {
   engine.on('ready', () => {
     syncStars();
     engine.setSoundOverrides((h.audio?.overrides || []).map((o, i) => ({ bits: o.bits, id: i })));
+    replaced = applyReplacements(engine, h.audio); // the game songs the hack's songs replace
   });
+  engine.on('area', () => { replaced = applyReplacements(engine, h.audio, replaced); });
   engine.on('crash', () => { $('#crash').hidden = false; });
 
   const keysBlocked = () => !state.playing || state.menu;

@@ -4,7 +4,7 @@
 import { icon } from './icons.js';
 import {
   GAME_SONGS, SIZE_LIMIT, MAX_TRACKS, STARTERS, loadInstruments, bankOf, newTrack, encodeSong, auditionSong,
-  starterSong, songSteps, noteName, songChannels, MAX_CHANNELS,
+  starterSong, songSteps, noteName, songChannels, MAX_CHANNELS, gameSong, applyReplacements,
 } from './music.js';
 import { parseMidi, importPlan, midiToSong, GM_NAMES } from './midi.js';
 import { PRESETS, PRESET_NAMES, WAVES, SfxPlayer, randomSynth, mutateSynth } from './sfx.js';
@@ -54,8 +54,11 @@ export class SoundUI {
     loadInstruments().then((b) => { this.banks = b; if (this.isOpen()) this.render(); });
     fetch('data/sounds.json').then((r) => r.json()).then((s) => { this.gameSounds = s; });
     engine.onGameSound = (id, dist) => this.onGameSound(id, dist);
-    engine.on('ready', () => this.syncOverrides());
+    this.replaced = new Map(); // game song slots the engine has a song of the project in
+    engine.on('ready', () => { this.replaced = new Map(); this.syncOverrides(); });
+    engine.on('area', () => this.syncReplacements());
     this.wire();
+    this.syncOverrides(); // (the engine and the project can both be there already)
   }
 
   get audio() { return this.getAudio(); }
@@ -131,8 +134,65 @@ export class SoundUI {
   levelMusicName() {
     const s = this.world.settings?.() || {};
     if (s.song) return this.audio.songs.find((x) => x.id === s.song)?.name || 'a deleted song';
-    if (s.music != null && (this.world.isCustom() || s.musicOverride)) return GAME_SONGS.find((g) => g.seq === s.music)?.name || 'game music';
-    return this.world.isCustom() ? 'Bob-omb Battlefield' : 'its original music';
+    if (s.music != null && (this.world.isCustom() || s.musicOverride)) return this.gameSongName(s.music);
+    if (this.world.isCustom()) return this.gameSongName(0x03);
+    // an original level's own music: the song that replaces it, when one does
+    const now = this.engine.musicNow?.();
+    return now?.on && this.replacedBy(now.seq) ? this.gameSongName(now.seq) : 'its original music';
+  }
+
+  // ---- the game's songs replaced everywhere ------------------------------------------------
+
+  // the project's song that plays instead of a game song, or null
+  replacedBy(seq) {
+    const r = (this.audio.replace || []).find((x) => x.seq === seq);
+    return (r && this.audio.songs.find((x) => x.id === r.song)) || null;
+  }
+  gameSongName(seq) {
+    const name = gameSong(seq)?.name || 'game music', by = this.replacedBy(seq);
+    return by ? `${by.name} (instead of ${name})` : name;
+  }
+  // the game songs a song replaces
+  replacing(song) { return (this.audio.replace || []).filter((r) => r.song === song.id).map((r) => gameSong(r.seq)).filter(Boolean); }
+
+  // seq -> song id (null: the game's own again)
+  setReplacement(seq, songId) {
+    const list = (this.audio.replace || []).filter((r) => r.seq !== seq);
+    if (songId) list.push({ seq, song: songId });
+    this.audio.replace = list;
+    this.send({ type: 'replace_save', replace: list });
+    this.syncReplacements();
+    const g = gameSong(seq), song = songId && this.audio.songs.find((x) => x.id === songId);
+    this.toast(song ? `${song.name} now plays everywhere the game plays ${g.name}` : `${g.name} is the game's own again`, 'music');
+    this.render();
+  }
+
+  syncReplacements() {
+    if (!this.engine.ready) return;
+    this.replaced = applyReplacements(this.engine, this.audio, this.replaced);
+  }
+
+  // A menu of the songs that can play instead of a game song.
+  replaceMenu(seq, anchor) {
+    const menu = $('#ss-menu');
+    menu.innerHTML = '';
+    const g = gameSong(seq), current = this.replacedBy(seq);
+    menu.appendChild(el('div', 'ss-menu-head', `Instead of ${esc(g.name)}, everywhere:`));
+    const item = (label, fn, active, sub = '') => {
+      const b = el('button', `menu-item${active ? ' active' : ''}`, `<span>${esc(label)}</span>${sub ? `<span class="sub">${esc(sub)}</span>` : ''}`);
+      b.onclick = () => { menu.hidden = true; fn(); };
+      menu.appendChild(b);
+    };
+    item(`The game's ${g.name}`, () => this.setReplacement(seq, null), !current);
+    for (const song of this.audio.songs) {
+      const big = encodeSong(song, { once: !!g.once }).length > SIZE_LIMIT;
+      item(song.name, () => (big ? this.toast(`${song.name} is too long for the game: make it shorter first`, 'x') : this.setReplacement(seq, song.id)), current?.id === song.id, big ? 'too long' : g.once ? 'plays once' : '');
+    }
+    if (!this.audio.songs.length) menu.appendChild(el('div', 'ss-menu-note', 'Make or import a song first (Your songs, above).'));
+    const r = anchor.getBoundingClientRect();
+    Object.assign(menu.style, { left: `${Math.max(8, r.right - 240)}px`, top: `${Math.min(r.bottom + 4, innerHeight - 320)}px` });
+    menu.hidden = false;
+    setTimeout(() => document.addEventListener('mousedown', function off(e) { if (!menu.contains(e.target)) { menu.hidden = true; document.removeEventListener('mousedown', off); } }), 0);
   }
 
   // ---- saving ------------------------------------------------------------------------
@@ -144,6 +204,7 @@ export class SoundUI {
       this.send({ type: 'song_save', song });
       // the level's own song follows edits (when no preview is playing)
       if (!this.playing && this.world.settings?.().song === song.id) this.world.applyLevelSong?.();
+      if ((this.audio.replace || []).some((r) => r.song === song.id)) this.syncReplacements();
     };
     if (now) go(); else this.saveTimers.set(song.id, { t: setTimeout(go, 500), go });
     if (this.playing) this.restartPreview();
@@ -170,7 +231,7 @@ export class SoundUI {
     const mine = el('div', 'ss-list');
     for (const s of this.audio.songs) {
       const row = el('div', `ss-row${s.id === this.songId ? ' active' : ''}`);
-      row.innerHTML = `<span class="ss-ico">${icon('music', 'sm')}</span><div class="ss-text"><b>${esc(s.name)}</b><span>${s.bars} bars · ${s.tempo} bpm${s.id === levelSong ? ' · <em>this level</em>' : ''}</span></div>`;
+      row.innerHTML = `<span class="ss-ico">${icon('music', 'sm')}</span><div class="ss-text"><b>${esc(s.name)}</b><span>${s.bars} bars · ${s.tempo} bpm${s.id === levelSong ? ' · <em>this level</em>' : ''}${this.replacing(s).length ? ` · <em>for ${esc(this.replacing(s).map((g) => g.name).join(', '))}</em>` : ''}</span></div>`;
       const play = el('button', 'btn icon ghost sm', icon('play', 'sm'));
       play.title = 'Play';
       play.onclick = (e) => { e.stopPropagation(); this.songId = s.id; this.midiImport = null; this.render(); this.play(); };
@@ -192,9 +253,12 @@ export class SoundUI {
       if (g.group !== group) { group = g.group; side.appendChild(el('div', 'ss-group', esc(group))); }
       const row = el('div', 'ss-row game');
       const isLevel = !levelSong && this.world.settings?.().music === g.seq && (this.world.isCustom() || this.world.settings().musicOverride);
-      row.innerHTML = `<div class="ss-text"><b>${esc(g.name)}</b>${isLevel ? '<span><em>this level</em></span>' : ''}</div>`;
+      const by = this.replacedBy(g.seq);
+      const notes = [by ? `→ ${esc(by.name)}` : '', isLevel ? '<em>this level</em>' : ''].filter(Boolean).join(' · ');
+      row.classList.toggle('replaced', !!by);
+      row.innerHTML = `<div class="ss-text"><b>${esc(g.name)}</b>${notes ? `<span>${notes}</span>` : ''}</div>`;
       const play = el('button', 'btn icon ghost sm', icon(this.gamePreview === g.seq ? 'stop' : 'play', 'sm'));
-      play.title = 'Listen';
+      play.title = by ? `Listen (plays ${by.name} now)` : 'Listen';
       play.onclick = (e) => {
         e.stopPropagation();
         if (this.gamePreview === g.seq) { this.stop(); } else { this.stop(); this.gamePreview = g.seq; this.engine.previewMusic(g.seq); }
@@ -203,7 +267,12 @@ export class SoundUI {
       const use = el('button', 'btn sm ghost ss-use', 'Use');
       use.title = 'Play this in the level';
       use.onclick = (e) => { e.stopPropagation(); this.useGameMusic(g); };
-      row.append(play, use);
+      const swap = el('button', `btn sm ghost ss-replace${by ? ' on' : ''}`, by ? 'Replaced' : 'Replace');
+      swap.title = by ? `${by.name} plays everywhere instead: change it or bring the game's back` : 'Play one of your songs everywhere the game plays this';
+      swap.onclick = (e) => { e.stopPropagation(); this.replaceMenu(g.seq, e.currentTarget); };
+      const acts = el('div', 'ss-acts');
+      acts.append(use, swap, play);
+      row.append(acts);
       side.appendChild(row);
     }
   }
@@ -211,7 +280,7 @@ export class SoundUI {
   useGameMusic(g) {
     this.stop();
     this.world.setSettings({ music: g.seq, musicOverride: true, song: null }, `Music: ${g.name}`);
-    this.toast(`This level plays ${g.name}`, 'music');
+    this.toast(`This level plays ${this.gameSongName(g.seq)}`, 'music');
     this.render();
   }
 
@@ -266,10 +335,23 @@ export class SoundUI {
     use.disabled = isLevel || size > SIZE_LIMIT;
     use.onclick = () => this.useSong(song);
     const more = el('button', 'btn icon ghost', icon('list', 'sm'));
-    more.title = 'Duplicate or delete';
+    more.title = 'Duplicate, play instead of a game song, delete';
     more.onclick = (e) => { e.stopPropagation(); this.songMenu(song, e.currentTarget); }; // the document click closes .menu
     bar.append(name, play, field('Tempo', tempo), field('Bars', bars), field('Sound set', set), el('div', 'spacer'), meter, use, more);
     main.appendChild(bar);
+    const reps = this.replacing(song);
+    if (reps.length) {
+      const line = el('div', 'cmp-replaces', `${icon('music', 'sm')}<span>Plays everywhere instead of</span>`);
+      for (const g of reps) {
+        const chip = el('span', 'cmp-chip', `${esc(g.name)}${g.once ? ' <small>once</small>' : ''}`);
+        const x = el('button', 'cmp-chip-x', icon('x', 'sm'));
+        x.title = `Bring the game's ${g.name} back`;
+        x.onclick = () => this.setReplacement(g.seq, null);
+        chip.appendChild(x);
+        line.appendChild(chip);
+      }
+      main.appendChild(line);
+    }
 
     // tracks and the piano roll
     const body = el('div', 'cmp-body');
@@ -501,9 +583,13 @@ export class SoundUI {
       this.saveSong(copy, true);
       this.render();
     });
+    // (after this click: the document's click closes open menus)
+    item('Play instead of a game song…', () => setTimeout(() => this.replacePicker(song, anchor), 0));
     item('Delete', () => {
       this.stop();
       this.audio.songs = this.audio.songs.filter((s) => s.id !== song.id);
+      this.audio.replace = (this.audio.replace || []).filter((r) => r.song !== song.id);
+      this.syncReplacements();
       this.dropSave(song.id);
       this.send({ type: 'audio_delete', kind: 'song', id: song.id });
       if (this.world.settings?.().song === song.id) this.world.setSettings({ song: null }, 'Removed the level song');
@@ -512,6 +598,32 @@ export class SoundUI {
     }, true);
     const r = anchor.getBoundingClientRect();
     Object.assign(menu.style, { left: `${r.right - 160}px`, top: `${r.bottom + 4}px` });
+    menu.hidden = false;
+    setTimeout(() => document.addEventListener('mousedown', function off(e) { if (!menu.contains(e.target)) { menu.hidden = true; document.removeEventListener('mousedown', off); } }), 0);
+  }
+
+  // The game songs this song plays instead of (from the composer's menu).
+  replacePicker(song, anchor) {
+    const menu = $('#ss-menu');
+    menu.innerHTML = '';
+    menu.appendChild(el('div', 'ss-menu-head', `Play ${esc(song.name)} everywhere instead of:`));
+    const list = el('div', 'ss-menu-list');
+    let group = '';
+    for (const g of GAME_SONGS) {
+      if (g.group !== group) { group = g.group; list.appendChild(el('div', 'ss-menu-group', esc(group))); }
+      const other = this.replacedBy(g.seq);
+      const on = other?.id === song.id;
+      const b = el('button', `menu-item${on ? ' active' : ''}`, `<span>${esc(g.name)}</span>${other && !on ? `<span class="sub">${esc(other.name)}</span>` : g.once ? '<span class="sub">plays once</span>' : ''}`);
+      b.onclick = () => {
+        menu.hidden = true;
+        if (!on && encodeSong(song, { once: !!g.once }).length > SIZE_LIMIT) { this.toast(`${song.name} is too long for the game: make it shorter first`, 'x'); return; }
+        this.setReplacement(g.seq, on ? null : song.id);
+      };
+      list.appendChild(b);
+    }
+    menu.appendChild(list);
+    const r = anchor.getBoundingClientRect();
+    Object.assign(menu.style, { left: `${Math.max(8, r.right - 260)}px`, top: `${Math.min(r.bottom + 4, innerHeight - 440)}px` });
     menu.hidden = false;
     setTimeout(() => document.addEventListener('mousedown', function off(e) { if (!menu.contains(e.target)) { menu.hidden = true; document.removeEventListener('mousedown', off); } }), 0);
   }
@@ -1115,6 +1227,7 @@ export class SoundUI {
   syncOverrides() {
     if (!this.engine.ready) return;
     this.engine.setSoundOverrides(this.audio.overrides.map((o, i) => ({ bits: o.bits, id: i })));
+    this.syncReplacements();
   }
 
   onGameSound(id, dist) {

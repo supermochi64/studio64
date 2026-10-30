@@ -16,7 +16,7 @@ import { bankSlot } from './decompindex.js';
 import { writeCalls } from './calls.js';
 import { buildStory } from './story.js';
 import { getEntry, catalog } from '../catalog.js';
-import { encodeSong } from '../../web/js/music.js';
+import { encodeSong, replacements } from '../../web/js/music.js';
 import { OVERLAYS } from './overlays.js';
 import { designBook, encode } from './vadpcm.js';
 
@@ -611,6 +611,23 @@ export function buildRom(kit, project, dumps, { title, calls = new Map(), object
     romAt = align(romAt + story.data.length, 16);
   }
 
+  // the game songs the project's songs replace everywhere (s64_songs.c puts them in the game's own
+  // sequence slots at boot): per replacement the slot and the song
+  const swaps = [];
+  for (const r of replacements(project.audio)) {
+    const index = addSong(`song:${r.song}${r.game.once ? ':once' : ''}`, () => ({ bytes: Buffer.from(encodeSong(r.songData, { once: !!r.game.once })), bank: r.songData.bank | 0 }),
+      (why) => issues.push({ level: 'Music', name: `${r.songData.name} for ${r.game.name}`, why: why.replace("the game's music plays instead", `the game's ${r.game.name} plays`) }));
+    if (index >= 0) swaps.push([r.seq, index]);
+  }
+  let replaceAt = 0;
+  if (swaps.length) {
+    replaceAt = romAt;
+    const table = Buffer.alloc(swaps.length * 8);
+    swaps.forEach(([seq, index], i) => { table.writeUInt32BE(seq, i * 8); table.writeUInt32BE(index, i * 8 + 4); });
+    blobs.push({ at: replaceAt, data: table });
+    romAt = align(romAt + table.length, 16);
+  }
+
   // the songs the areas and the story play (s64_songs.c): a table, then the sequences
   let songsAt = 0;
   if (songs.length) {
@@ -669,6 +686,8 @@ export function buildRom(kit, project, dumps, { title, calls = new Map(), object
   info.writeUInt32BE(sfxAt, 0xDF0);
   info.writeUInt32BE(sfx.length, 0xDF4);
   info.writeUInt32BE(songsAt, 0xDE8);
+  info.writeUInt32BE(replaceAt, 0xDF8);
+  info.writeUInt32BE(swaps.length, 0xDFC);
   // Studio 64's modules the hack's objects need (the base ROM has them: overlays.js)
   const mods = (ix.modules?.list || []).filter((m) => usedModules.has(m.name));
   if (mods.length) {

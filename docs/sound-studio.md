@@ -60,6 +60,19 @@ The editor:
 - **Play** plays the song through the game's own sequence player, so it sounds exactly like it
   will in the game.
 - **Use in this level** makes it the music of the level you are in.
+- **⋯ → Play instead of a game song…** makes it play everywhere the game plays one of its songs
+  (see below).
+
+**Replace the game's songs everywhere.** In the *Game music* list, hover a song and click
+**Replace**, then pick one of your songs: it plays wherever the game plays that song, in every
+level that has it, in the castle, in the menus, in the [exported ROM](rom-export.md) too. Replace
+*Slider* once and the slide and every level with slide music play your song. Levels that picked
+their own music keep it, and a level can still pick any song for itself. The game's
+**jingles and fanfares** (Star collect, Star appears, Puzzle solved, Key collect, High score) are
+replaced the same way: your song then plays **once** and ends, so keep a jingle to a bar or two.
+The list shows *→ your song* under a replaced song (its ▶ plays the replacement), the composer
+shows *Plays everywhere instead of …* with an ✕ to bring the game's own back, and deleting the
+song brings it back too.
 
 ## Sound effects
 
@@ -90,6 +103,12 @@ jump. The list on the left shows which game sounds you replaced.
 - Songs are encoded to the game's own sequence format (`.m64`) in the browser (`web/js/music.js`)
   and installed into two sequence slots that Studio 64 does not otherwise use: one for level
   music, one for previews (`engine/src/studio/audio.c`).
+- A replaced game song (`project.audio.replace`: `[{ seq, song }]`) puts the song in that game
+  song's own sequence slot (`studio_song_replace`; the original is kept and put back when the
+  replacement goes), so everything that plays the slot plays the song. Jingles are encoded with
+  `encodeSong(song, { once: true })`: the sequence ends after the last bar and a beat instead of
+  looping. In the ROM, `s64_songs.c` does the same at boot from a table in the info block
+  (`replaceRom`, `replaceCount`).
 - Instrument names come from `tools/analyze_instruments.py` (with `tools/seq_usage.py`), which
   names the instruments of every sound set from the samples and from how the game's songs use
   them (`web/data/instruments.json`). `tools/gen_sounds.py` lists the game's sound effects

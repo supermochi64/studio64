@@ -222,6 +222,9 @@ export class WorldFlow {
     if (this.recent.size > 200) this.recent.delete(this.recent.keys().next().value);
   }
 
+  // a hack from scratch: the original levels stay out of the launcher and the pickers
+  originalsHidden() { return this.flow().hideOriginals === true; }
+
   hubTarget() {
     const h = this.flow().hub;
     return h ? { ...h, area: h.area || 1 } : null;

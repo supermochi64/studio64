@@ -32,6 +32,18 @@ await suite('projects home', async (t) => {
   await page.waitForFunction(() => studio64.engine.level === studio64.engine.studioLevel && studio64.engine.state().mario, null, { timeout: 90000 }).catch(() => {});
   const started = await page.evaluate(() => ({ level: studio64.engine.level, studio: studio64.engine.studioLevel, levels: studio64.levels.map((l) => l.name) }));
   t.check('"from scratch" starts in its own level', started.level === started.studio && started.levels.length === 1, started);
+  // no castle: the level is the start and the hub, the original levels are out of the way
+  const flow = await page.evaluate(() => studio64.worldFlow.flow());
+  const lvl = await page.evaluate(() => studio64.levels[0].id);
+  t.eq('"from scratch": the level is the start and the hub', [flow.start?.custom, flow.hub?.custom, flow.hideOriginals], [lvl, lvl, true]);
+  await page.keyboard.press('Control+k');
+  await page.waitForSelector('#launcher:not([hidden])');
+  t.check('the launcher lists no original levels', !(await page.locator('#launcher-body .lvl-section', { hasText: 'Original levels' }).count()) && await page.isVisible('.lvl-hidden-note'));
+  await page.click('.lvl-hidden-note button');
+  await page.waitForTimeout(400);
+  t.check('"Show them" brings them back', await page.locator('#launcher-body .lvl-section', { hasText: 'Original levels' }).count() === 1 && !(await page.evaluate(() => studio64.worldFlow.originalsHidden())));
+  await page.evaluate(() => studio64.worldFlow.setFlow({ hideOriginals: true }));
+  await page.keyboard.press('Escape');
 
   // ---- settings ----
   await page.evaluate(() => studio64.hub.settingsModal());

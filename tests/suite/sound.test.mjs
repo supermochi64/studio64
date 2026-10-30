@@ -111,7 +111,9 @@ await suite('sound studio', async (t) => {
   t.eq('deleting the song removes it', await s.eval(() => studio64.audio.songs.length), 0);
   t.check('level no longer plays the deleted song', !(await s.eval(() => studio64.world.settings().song)));
   t.check('header does not name a deleted song', !/deleted/.test(await page.textContent('#ss-now')), await page.textContent('#ss-now'));
-  await page.locator('#ss-side .ss-row.game .ss-use').nth(2).click();
+  const gameRow = page.locator('#ss-side .ss-row.game').nth(1);
+  await gameRow.hover();
+  await gameRow.locator('.ss-use').click();
   await s.wait(500);
   t.check('game music picked for the level', (await s.eval(() => studio64.world.settings().music)) != null);
   await page.keyboard.press('Escape');
