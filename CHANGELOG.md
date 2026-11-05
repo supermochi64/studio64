@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.2.4-beta (2026-11-05)
 
 Ideas from [#8](https://github.com/supermochi64/studio64/issues/8):
 
