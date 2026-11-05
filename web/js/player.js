@@ -176,6 +176,7 @@ function boot() {
   engine.on('ready', () => {
     syncStars();
     engine.setSoundOverrides((h.audio?.overrides || []).map((o, i) => ({ bits: o.bits, id: i })));
+    engine.setBetaSounds(!!h.audio?.beta); // Mario's beta voice
     replaced = applyReplacements(engine, h.audio); // the game songs the hack's songs replace
   });
   engine.on('area', () => { replaced = applyReplacements(engine, h.audio, replaced); });

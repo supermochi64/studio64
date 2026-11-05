@@ -1,5 +1,35 @@
 # Changelog
 
+## Unreleased
+
+Ideas from [#8](https://github.com/supermochi64/studio64/issues/8):
+
+- **New moves from other hacks** (Game rules → Moves → *New moves*, off by default, per game or
+  per level; the *Modern moveset* preset turns them all on): wall slide, spin jump (stick spin + A,
+  or L + A), spinning triple jump, instant ground pound, ground pound jump, ground pound dive,
+  ground pound out of any jump, underwater ground pound, dive hop and ledge vault. Walking can be
+  switched off (Mario always runs). In the exported ROM too. Research and sources:
+  [moveset-research.md](docs/moveset-research.md).
+- **Mario's lighting** (Assets → Mario → *Lighting*): how harsh the shading is on his face, his
+  clothes and his hands and feet, and where the light comes from, with *Game*, *Beta* (the harsh
+  look of the 1995/96 pre-release footage) and *Soft* presets. Mario's colours and lighting now go
+  into the exported ROM.
+- **Every Mario sound can be replaced**: the sound studio lists all of them in groups (voice,
+  footsteps on every ground, jumps and landings, slides, water, Metal Mario…); before, the game's
+  random variants (the jump's "Wah"/"Hoo", the triple jump's "Waha"/"Yippee") and footsteps on
+  other grounds kept the original. **Beta sounds** plays the unused "Yah!" take found in the game's
+  voice bank and the triple jump's yah/wah/hoo of the original Japanese release.
+- **New shapes**: inner and outer corners for ramps and stairs (they connect seamlessly), a sphere,
+  and a **terrain patch** you can place anywhere (any level, any height) and sculpt and paint with
+  the ground brushes. The pillar's texture no longer stretches (it wraps around evenly), and the
+  library shows pictures of the block shapes.
+- **Rotate on every axis**: the rotate tool (2) has X, Y and Z rings and a view ring; groups turn
+  together; every object has Tilt and Roll in the inspector.
+- **Notes play their full length**: every note of a composed or imported song was cut off after
+  about a sixth of its length (the sequence gate was set the wrong way round); legato tracks now
+  glide. This fixes replaced sound effects in exported ROMs too.
+- **Drag the playhead** in the composer (or click the new time ruler) to listen from any spot.
+
 ## 0.2.3-beta (2026-10-30)
 
 - **Replace the game's songs everywhere** ([#11](https://github.com/supermochi64/studio64/issues/11)):

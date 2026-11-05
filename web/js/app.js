@@ -43,7 +43,7 @@ const TOOL_ICONS = {
   // every other tool gets a fitting icon too (icons.js)
   add_star: 'star', list_stars: 'star', build: 'blocks', modify: 'settings', create_level: 'globe', level_settings: 'settings',
   terrain: 'terrain', compose_song: 'music', music_library: 'music', sound_effect: 'wave',
-  clear_skybox: 'image', set_skybox: 'image', edit_textures: 'image', search_textures: 'search', list_assets: 'cube', place_model: 'cube', set_mario_colors: 'sparkles',
+  clear_skybox: 'image', set_skybox: 'image', edit_textures: 'image', search_textures: 'search', list_assets: 'cube', place_model: 'cube', set_mario_colors: 'sparkles', set_mario_lighting: 'sparkles', beta_sounds: 'volume',
   arrange_objects: 'layers', attach_motion: 'route', trigger_motion: 'route', set_object_path: 'route', get_object_path: 'route',
   create_custom_object: 'objects', edit_custom_object: 'objects', list_custom_objects: 'objects', place_custom_object: 'objects', make_prefab: 'layers', list_scene: 'layers',
   get_game_rules: 'gamepad', set_game_rules: 'gamepad', debug_view: 'bug', play_from_here: 'play', validate_level: 'check',

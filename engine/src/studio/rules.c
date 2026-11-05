@@ -35,7 +35,7 @@ enum {
     R_RUN, R_JUMP, R_DOUBLE, R_TRIPLE, R_BACKFLIP, R_SIDEFLIP, R_LONG, R_WALLKICK, R_LONG_SPEED,
     R_GRAVITY, R_AIR, R_SWIM, R_FALL, R_DAMAGE, R_ONE_HIT, R_INF_LIVES, R_COIN_LIFE, R_COIN_HEAL,
     R_WING, R_METAL, R_VANISH, R_DISABLED, R_NO_BLJ, R_HUD_HIDE, R_TIMER, R_TIME_LIMIT, R_COIN_STAR,
-    R_COUNT
+    R_NEW_MOVES, R_COUNT
 };
 
 static s32 sLastCoins = -1, sLastHurt, sLevelFrames, sLastLevel = -1, sTimerShown;
@@ -45,7 +45,7 @@ void studio_rules_set(const f32 *v, s32 count) {
     struct StudioRules *r = &gStudioRules;
     f32 c[R_COUNT];
     s32 i;
-    static const f32 def[R_COUNT] = { 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1150, 1, 0, 0, 0, 1, 1800, 600, 600, 0, 0, 0, 0, 0, 1 };
+    static const f32 def[R_COUNT] = { 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1150, 1, 0, 0, 0, 1, 1800, 600, 600, 0, 0, 0, 0, 0, 1, 0 };
     for (i = 0; i < R_COUNT; i++) c[i] = (v != NULL && i < count) ? v[i] : def[i];
 #define POS(x, d) ((x) > 0 ? (x) : (d))
     r->runSpeed = POS(c[R_RUN], 1);
@@ -75,6 +75,7 @@ void studio_rules_set(const f32 *v, s32 count) {
     r->showTimer = c[R_TIMER] != 0;
     r->timeLimit = (s32) c[R_TIME_LIMIT];
     r->coinStar = c[R_COIN_STAR] != 0;
+    r->newMoves = (s32) c[R_NEW_MOVES];
 #undef POS
 }
 
@@ -91,10 +92,10 @@ EMSCRIPTEN_KEEPALIVE
 const char *studio_rules_json(void) {
     struct MarioState *m = gMarioState;
     snprintf(sRulesJson, sizeof(sRulesJson),
-             "{\"run\":%.2f,\"jump\":%.2f,\"gravity\":%.2f,\"fall\":%.0f,\"disabled\":%d,\"timer\":%d,"
+             "{\"run\":%.2f,\"jump\":%.2f,\"gravity\":%.2f,\"fall\":%.0f,\"disabled\":%d,\"newMoves\":%d,\"timer\":%d,"
              "\"velY\":%.2f,\"peak\":%.1f,\"y\":%.1f,\"action\":%u,\"lives\":%d,\"health\":%d,\"frames\":%d}",
              gStudioRules.runSpeed, gStudioRules.jump, gStudioRules.gravity, gStudioRules.fallDamage,
-             gStudioRules.disabled, gStudioRules.showTimer, m ? m->vel[1] : 0, m ? m->peakHeight : 0,
+             gStudioRules.disabled, gStudioRules.newMoves, gStudioRules.showTimer, m ? m->vel[1] : 0, m ? m->peakHeight : 0,
              m ? m->pos[1] : 0, m ? m->action : 0, m ? m->numLives : 0, m ? m->health : 0, sLevelFrames);
     return sRulesJson;
 }
@@ -103,6 +104,9 @@ const char *studio_rules_json(void) {
 
 u32 studio_rules_filter_action(struct MarioState *m, u32 action) {
     s32 d = gStudioRules.disabled;
+    if (gStudioRules.newMoves != 0) {
+        action = studio_moves_filter(m, action); // the new moves (moves.c)
+    }
     if (d == 0) {
         return action;
     }

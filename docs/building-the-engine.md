@@ -141,6 +141,7 @@ run these when you change what they read:
 | `python3 tools/analyze_instruments.py` (with `tools/seq_usage.py`) | `web/data/instruments.json` | the sound banks changed |
 | `node tools/gen_debug_names.mjs` | `web/data/debug_names.json` | Mario's actions or surface types changed |
 | `node tools/make_thumbs.mjs [ids...]` | `web/thumbs/<id>.webp` (object library pictures) | you added catalog objects |
+| `node tools/make_thumbs.mjs --blocks [presets...]` | `web/thumbs/blocks/<preset>.webp` (block library pictures) | you added or changed a block shape |
 | `node tools/make_level_thumbs.mjs` | `web/thumbs/levels/` | launcher pictures of the original levels |
 | `node tools/make_template_thumbs.mjs` | `web/thumbs/templates/` | you changed `web/js/templates.js` |
 | `node tools/make_hub_thumbs.mjs` | `web/thumbs/hub/` | home screen start cards |

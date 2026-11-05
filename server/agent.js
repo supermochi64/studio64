@@ -56,7 +56,7 @@ function soundSets() {
   return sSets;
 }
 function gameSoundsFind(term) {
-  sGameSounds ||= JSON.parse(fs.readFileSync(path.join(WEB, 'data', 'sounds.json'), 'utf8'));
+  sGameSounds ||= JSON.parse(fs.readFileSync(path.join(WEB, 'data', 'sounds.json'), 'utf8')).sort((a, b) => !!a.hidden - !!b.hidden);
   const t = term.toLowerCase().trim();
   return sGameSounds.find((x) => x.name.toLowerCase() === t) || sGameSounds.find((x) => x.name.toLowerCase().startsWith(t))
     || sGameSounds.find((x) => `${x.group} ${x.name}`.toLowerCase().includes(t));
@@ -257,14 +257,14 @@ export class Agent {
         return { summary, result: text({ pipes: r.records.map((x) => ({ uid: x.uid, x: x.x, y: x.y, z: x.z })), change_id: change.id }) };
       }), opts),
 
-      tool('build', 'Build with blocks that have real collision: a single block (box, ramp, stairs, pillar) or a whole structure. Structures: stairs (straight staircase), spiral (spiral staircase), wall_climb (zig-zag ledges up the nearest wall), bridge (from where to `to`), path (floating platforms going away), tower (hollow tower with floors and stairs). They start at `where` and go away from Mario unless yaw_deg is given.', {
+      tool('build', 'Build with blocks that have real collision: a single block (box, ramp, stairs, pillar, sphere; ramp_inner/ramp_outer and stairs_inner/stairs_outer are corner pieces that continue ramps and stairs around a concave/convex corner without a step; terrain is a patch of ground with its own heightmap that the terrain tool can shape, placed anywhere at any height) or a whole structure. Structures: stairs (straight staircase), spiral (spiral staircase), wall_climb (zig-zag ledges up the nearest wall), bridge (from where to `to`), path (floating platforms going away), tower (hollow tower with floors and stairs). They start at `where` and go away from Mario unless yaw_deg is given.', {
         kind: z.enum(['block', 'stairs', 'spiral', 'wall_climb', 'bridge', 'path', 'tower']),
         where: where.optional().describe('start point / block position (bottom center). Default 400 in front of Mario'),
         yaw_deg: z.number().optional().describe('direction the structure goes / the block faces (0 = +Z, 90 = +X)'),
         face: z.enum(['mario', 'away']).optional(),
         block: z.object({
-          shape: z.enum(['box', 'ramp', 'stairs', 'pillar']).optional(),
-          sx: z.number().optional().describe('width (x), units'), sy: z.number().optional().describe('height'), sz: z.number().optional().describe('depth (z); ramps and stairs rise toward +z'),
+          shape: z.enum(['box', 'ramp', 'stairs', 'pillar', 'ramp_inner', 'ramp_outer', 'stairs_inner', 'stairs_outer', 'sphere', 'terrain']).optional(),
+          sx: z.number().optional().describe('width (x), units'), sy: z.number().optional().describe('height'), sz: z.number().optional().describe('depth (z); ramps and stairs rise toward +z. Corners: the outer one is highest at its +x+z corner and continues a same-yaw ramp/stairs on its +x side and one turned 90° (rising toward +x) on its +z side; the inner one continues them on its -x and -z sides; make sx = sz = the ramp\'s depth'),
           steps: z.number().optional(), material: z.string().optional().describe('grass, dirt, cobblestone, stone path, blue stone, dark brick, grey brick, red brick, orange brick, castle stone, stone block, mossy block, wood planks, wood floor, checker, tiles, marble, sand, snow, ice, lava, metal, metal plate, yellow block, rainbow, rock, roof, dark grass'),
           top: z.string().optional(), side: z.string().optional(),
           surface: z.enum(['normal', 'not_slippery', 'slippery', 'ice', 'lava', 'hangable', 'hard', 'death', 'vanish_wall']).optional(),
@@ -288,7 +288,7 @@ export class Agent {
           yaw_deg: z.number().optional(), pitch_deg: z.number().optional(), roll_deg: z.number().optional(),
           scale: z.number().optional(), bparams: z.union([z.string(), z.number()]).optional(),
           block: z.object({
-            shape: z.enum(['box', 'ramp', 'stairs', 'pillar']).optional(), sx: z.number().optional(), sy: z.number().optional(), sz: z.number().optional(),
+            shape: z.enum(['box', 'ramp', 'stairs', 'pillar', 'ramp_inner', 'ramp_outer', 'stairs_inner', 'stairs_outer', 'sphere', 'terrain']).optional(), sx: z.number().optional(), sy: z.number().optional(), sz: z.number().optional(),
             steps: z.number().optional(), material: z.string().optional(), top: z.string().optional(), side: z.string().optional(),
             surface: z.enum(['normal', 'not_slippery', 'slippery', 'ice', 'lava', 'hangable', 'hard', 'death', 'vanish_wall']).optional(),
             color: z.string().optional(), invisible: z.boolean().optional(), no_collision: z.boolean().optional(),
@@ -346,7 +346,7 @@ export class Agent {
         return { summary: `Created level “${a.name}”`, result: text({ ok: true, id, name: a.name, note: 'Mario is in the new level. The terrain covers x and z from -4096 to 4096.' }) };
       }), opts),
 
-      tool('terrain', 'Shape the ground of the current level. In custom levels this edits the heightmap terrain (8192 x 8192 units centered on 0,0, heights in units, water usually at 0); in original levels hill/raise/lower/valley/flatten/plateau/smooth reshape the level\'s own geometry. Ops run in order. Use heightmap with a coarse grid (e.g. 12x12 values 0..1, rows from -z to +z, columns from -x to +x) to copy a layout from an image, then refine with the other ops and finish with paint_auto.', {
+      tool('terrain', 'Shape the ground of the current level (or, with patch, a terrain patch block). In custom levels this edits the heightmap terrain (8192 x 8192 units centered on 0,0, heights in units, water usually at 0); in original levels hill/raise/lower/valley/flatten/plateau/smooth reshape the level\'s own geometry. Ops run in order. Use heightmap with a coarse grid (e.g. 12x12 values 0..1, rows from -z to +z, columns from -x to +x) to copy a layout from an image, then refine with the other ops and finish with paint_auto.', {
         ops: z.array(z.object({
           op: z.enum(['hill', 'mountain', 'valley', 'crater', 'plateau', 'flatten', 'raise', 'lower', 'ridge', 'carve_path', 'river', 'noise', 'terraces', 'island', 'fill', 'scale', 'heightmap', 'paint', 'paint_auto', 'smooth']),
           x: z.number().optional(), z: z.number().optional(), radius: z.number().optional(),
@@ -359,8 +359,9 @@ export class Agent {
           low: z.string().optional(), lowLine: z.number().optional(), water: z.number().optional(), beach: z.string().optional(),
           seed: z.number().optional(),
         })),
+        patch: z.number().optional().describe('uid of a terrain patch block (build shape "terrain"): the ops shape that patch instead of the ground (x/z in world units; heights are above the patch\'s flat top; it has steps x steps cells)'),
       }, card('terrain', (a) => `Shaping the terrain (${a.ops.map((o) => o.op).join(', ')})`, async (a) => {
-        const r = await rpc('shape', { ops: a.ops, summary: `Shaped the terrain` });
+        const r = await rpc('shape', { ops: a.ops, patch: a.patch, summary: a.patch ? 'Shaped the terrain patch' : `Shaped the terrain` });
         return { summary: 'Shaped the terrain', result: text(r) };
       }), opts),
 
@@ -499,6 +500,17 @@ export class Agent {
         }
         self.hub.broadcast(p.id, { type: 'audio', audio: p.audio });
         return { summary: `Made the sound “${a.name}”${replaced.length ? ` for ${replaced.join(', ')}` : ''}`, result: text({ ok: true, id: sound.id, replaces: replaced }) };
+      }), opts),
+
+      tool('beta_sounds', 'Switch "beta sounds" on or off for this project (also in the exported ROM): Mario\'s voice then uses the clips of the game it never plays: the first jump\'s unused "Yah!" take (a voice sample of the game no sound uses), and the triple jump says yah/wah/hoo as in the 1996 Japanese original instead of Yahoo/Waha/Yippee. Every Mario sound (voice, footsteps per ground, landings, moves) can also be replaced with sound_effect (names like \'Jump "Wah!"\', \'Step: Grass\').', {
+        on: z.boolean(),
+      }, card('beta_sounds', (a) => (a.on ? 'Switching on beta sounds' : 'Switching off beta sounds'), async (a) => {
+        const before = JSON.parse(JSON.stringify(p.audio));
+        projects.setAudioOptions(p, { beta: a.on });
+        projects.recordProjectChange(p, ['audio'], before, a.on ? 'Beta sounds on' : 'Beta sounds off', { by: null });
+        self.hub.broadcast(p.id, { type: 'audio', audio: p.audio });
+        self.hub.changesChanged?.(p);
+        return { summary: a.on ? 'Beta sounds on' : 'Beta sounds off', result: text({ ok: true, beta: !!p.audio.beta }) };
       }), opts),
 
       tool('add_star', 'Define a new star in the current level. kind "star" places a collectable star (put it somewhere that takes skill to reach); kind "red_coins" places a red coin star marker plus 8 red coins (spread around it, or at the given coin positions): collecting all 8 makes the star appear there. Collecting one ends the level like the stars of the game; they are tracked per level.', {

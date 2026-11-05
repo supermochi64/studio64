@@ -34,7 +34,7 @@ The game's buttons on the keyboard. A gamepad works too.
 | `Shift` or `L` | Z | Crouch, ground pound |
 | `Enter` | Start | Pause |
 | Arrow keys | C buttons | Camera |
-| `Q` | L | |
+| `Q` | L | With `Space`: spin jump (when the game rules switch it on) |
 | `R` | R | Camera mode |
 | `Esc` | | Give the mouse back to the studio |
 
@@ -78,7 +78,7 @@ See [Play-testing tools](testing-tools.md).
 | `Shift`/`Ctrl` + click | Add to the selection |
 | Drag on empty space | Selection box |
 | `Ctrl+A` | Select everything you built |
-| `1` `2` `3` | Move / rotate / resize handles |
+| `1` `2` `3` | Move / rotate (X, Y, Z and view rings) / resize handles |
 | `R` | Rotate 45° (also while placing) |
 | `G` | Drop to the ground |
 | `Ctrl+D` | Duplicate |

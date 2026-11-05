@@ -18,7 +18,7 @@ const COLORS = ['#ffb627', '#4fc3f7', '#ff6b6b', '#7ed957', '#c084fc', '#f97316'
 const LENGTHS = [[1 / 12, '1/48'], [1 / 8, '1/32'], [1 / 6, '1/16 triplet'], [1 / 4, '1/16'], [1 / 3, '1/8 triplet'], [1 / 2, '1/8'], [1, '1/4'], [2, '1/2'], [4, '1 bar']];
 const lengthsFor = (spb) => LENGTHS.filter(([b]) => Number.isInteger(Math.round(b * spb * 1000) / 1000) && b * spb >= 1);
 const PITCH_TOP = 96, PITCH_BOTTOM = 36;   // C7 .. C2
-const ROW_H = 14, KEYS_W = 64;
+const ROW_H = 14, KEYS_W = 64, RULER_H = 18;
 // a game sound is its bank and id (what the engine matches; play flags vary)
 const sameSound = (a, b) => ((a ^ b) & 0xf0ff0000) === 0;
 // The most notes sounding at once ({ t, d } on the grid, or a MIDI file's { tick, dur }).
@@ -46,13 +46,14 @@ export class SoundUI {
     this.trackId = null;
     this.snapBeats = 0.5;    // the note length new notes get, in beats
     this.cellW = 18;
-    this.playing = null;     // { t0, song } while a song preview runs
+    this.playing = null;     // { t0, song, from } while a song preview runs
+    this.cursor = null;      // { song: id, step }: where Play starts (the playhead, set on the ruler)
     this.saveTimers = new Map(); // id -> { t, go }: saves waiting for typing/dragging to pause
     window.addEventListener('pagehide', () => this.flushSaves()); // a reload must not lose the last edit
     this.banks = [];
     this.gameSounds = [];
     loadInstruments().then((b) => { this.banks = b; if (this.isOpen()) this.render(); });
-    fetch('data/sounds.json').then((r) => r.json()).then((s) => { this.gameSounds = s; });
+    fetch('data/sounds.json').then((r) => r.json()).then((s) => { this.gameSounds = s.filter((x) => !x.hidden); });
     engine.onGameSound = (id, dist) => this.onGameSound(id, dist);
     this.replaced = new Map(); // game song slots the engine has a song of the project in
     engine.on('ready', () => { this.replaced = new Map(); this.syncOverrides(); });
@@ -731,6 +732,11 @@ export class SoundUI {
     const inner = el('div', 'roll-inner');
     const keys = el('canvas', 'roll-keys');
     const grid = el('canvas', 'roll-grid');
+    // the time ruler over the grid: click or drag it to put the playhead there
+    const head = el('div', 'roll-head');
+    const ruler = el('canvas', 'roll-ruler');
+    ruler.title = 'Click or drag to play from here';
+    head.append(el('div', 'roll-corner'), ruler);
     const dpr = Math.min(2, window.devicePixelRatio || 1);
     // (a step's width: cellW at 1/16 notes, the beat as wide on finer grids; long songs narrower,
     // within what a canvas can be)
@@ -738,10 +744,11 @@ export class SoundUI {
     const H = rows.length * ROW_H, W = steps * cw;
     keys.width = KEYS_W * dpr; keys.height = H * dpr; keys.style.width = `${KEYS_W}px`; keys.style.height = `${H}px`;
     grid.width = W * dpr; grid.height = H * dpr; grid.style.width = `${W}px`; grid.style.height = `${H}px`;
+    ruler.width = W * dpr; ruler.height = RULER_H * dpr; ruler.style.width = `${W}px`; ruler.style.height = `${RULER_H}px`;
     inner.append(keys, grid);
-    scroll.appendChild(inner);
+    scroll.append(head, inner);
     box.appendChild(scroll);
-    this.roll = { song, t, rows, steps, keys, grid, dpr, scroll, cw };
+    this.roll = { song, t, rows, steps, keys, grid, ruler, dpr, scroll, cw };
     this.drawKeys();
     this.drawRoll();
     // start around middle C (or the top of the drum kit)
@@ -819,11 +826,93 @@ export class SoundUI {
       g.fillStyle = 'rgba(0,0,0,.35)';
       g.fillRect(x + w - 3, y + 2, 2, h - 4);
     }
-    if (this.playing && this.playing.song === song) {
-      const pos = this.playPosition();
-      g.fillStyle = '#ffd34d';
-      g.fillRect(pos * cw, 0, 2, H);
+    const head = this.headStep(song);
+    if (head !== null) {
+      g.fillStyle = this.playing?.song === song || this.headDrag ? '#ffd34d' : 'rgba(255,211,77,.55)';
+      g.fillRect(head * cw, 0, 2, H);
     }
+    this.drawRuler();
+  }
+
+  // Where the playhead line is: the playing position, the one being dragged, or where Play starts.
+  headStep(song) {
+    if (this.headDrag) return this.headDrag.step;
+    if (this.playing?.song === song) return this.playPosition();
+    return this.cursorStep(song) || null;
+  }
+
+  cursorStep(song) { return this.cursor?.song === song.id ? Math.min(this.cursor.step, songSteps(song) - 1) : 0; }
+
+  drawRuler() {
+    const { ruler, steps, dpr, song } = this.roll;
+    const g = ruler.getContext('2d');
+    const cw = this.roll.cw, W = steps * cw;
+    const spb = song.stepsPerBeat, bar = spb * song.beatsPerBar;
+    g.setTransform(dpr, 0, 0, dpr, 0, 0);
+    g.fillStyle = '#1a1a20';
+    g.fillRect(0, 0, W, RULER_H);
+    g.fillStyle = '#2c2c36';
+    g.fillRect(0, RULER_H - 1, W, 1);
+    g.font = '10px Inter, system-ui, sans-serif';
+    g.textBaseline = 'middle';
+    for (let s = 0; s < steps; s += spb) {
+      const isBar = s % bar === 0;
+      g.fillStyle = isBar ? '#5a5a68' : '#34343e';
+      g.fillRect(s * cw, isBar ? 3 : RULER_H - 6, 1, isBar ? RULER_H - 3 : 5);
+      // bar numbers (every other one when narrow)
+      if (isBar && (bar * cw >= 26 || (s / bar) % 2 === 0)) { g.fillStyle = '#9a9aa8'; g.fillText(String(s / bar + 1), s * cw + 4, RULER_H / 2); }
+    }
+    const head = this.headStep(song) ?? 0;
+    const x = head * cw;
+    g.fillStyle = this.playing?.song === song || this.headDrag ? '#ffd34d' : 'rgba(255,211,77,.7)';
+    g.beginPath();
+    g.moveTo(x - 6, 0); g.lineTo(x + 6, 0); g.lineTo(x + 6, RULER_H - 8); g.lineTo(x, RULER_H - 1); g.lineTo(x - 6, RULER_H - 8);
+    g.closePath(); g.fill();
+  }
+
+  // Dragging the playhead (on the ruler, or its line on the grid): it follows the mouse in beats
+  // (Alt: in steps) and plays from there when let go.
+  dragHead(e) {
+    const { grid, steps } = this.roll;
+    e.preventDefault();
+    const stepAt = (ev) => {
+      const x = ev.clientX - grid.getBoundingClientRect().left;
+      const raw = Math.max(0, Math.min(steps - 1, x / this.roll.cw));
+      const spb = this.roll.song.stepsPerBeat;
+      return ev.altKey ? Math.floor(raw) : Math.max(0, Math.min(steps - 1, Math.round(raw / spb) * spb));
+    };
+    this.headDrag = { step: stepAt(e) };
+    this.drawRoll();
+    const move = (ev) => { const st = stepAt(ev); if (st !== this.headDrag.step) { this.headDrag.step = st; this.drawRoll(); } };
+    const up = (ev) => {
+      window.removeEventListener('mousemove', move);
+      window.removeEventListener('mouseup', up);
+      const step = stepAt(ev);
+      this.headDrag = null;
+      this.playFrom(step);
+    };
+    window.addEventListener('mousemove', move);
+    window.addEventListener('mouseup', up);
+  }
+
+  // While playing, the roll turns the page when the line runs off its right edge (or loops back to
+  // the start), unless the line was out of view already (scrolled away by hand).
+  followHead() {
+    const r = this.roll;
+    if (!r || this.headDrag || this.playing?.song !== r.song) return;
+    const x = this.playPosition() * r.cw, sc = r.scroll;
+    const left = sc.scrollLeft, right = left + sc.clientWidth - KEYS_W;
+    const inView = x >= left && x <= right;
+    if (!inView && r.headInView) sc.scrollLeft = Math.max(0, x - 24);
+    else r.headInView = inView;
+  }
+
+  // Puts the playhead at a step and plays from there.
+  playFrom(step) {
+    const song = this.song();
+    if (!song) return;
+    this.cursor = { song: song.id, step };
+    this.play(step);
   }
 
   wireRoll() {
@@ -836,7 +925,15 @@ export class SoundUI {
     };
     const noteAt = (p) => this.roll.t.notes.find((n) => n.p === p.row?.p && p.step >= n.t && p.step < n.t + n.d);
     grid.oncontextmenu = (e) => e.preventDefault();
+    this.roll.ruler.onmousedown = (e) => { if (e.button === 0) this.dragHead(e); };
+    // near the playhead line: the grid shows a grab cursor and dragging moves the line
+    const nearHead = (e) => {
+      const head = this.headStep(this.roll.song);
+      return head !== null && Math.abs(at(e).x - head * this.roll.cw) <= 4;
+    };
+    grid.onmousemove = (e) => { if (!drag) grid.style.cursor = nearHead(e) ? 'ew-resize' : ''; };
     grid.onmousedown = (e) => {
+      if (e.button === 0 && nearHead(e)) { this.dragHead(e); return; }
       const p = at(e);
       if (!p.row) return;
       const { t, song } = this.roll;
@@ -898,18 +995,22 @@ export class SoundUI {
 
   togglePlay() { if (this.playing) this.stop(); else this.play(); }
 
-  play() {
+  // Plays the song from a step (default: the playhead).
+  play(from) {
     const song = this.song();
     if (!song) return;
     this.stop();
-    const seq = this.engine.installSong(encodeSong(song), song.bank, true);
+    from = Math.max(0, Math.min(songSteps(song) - 1, from ?? this.cursorStep(song)));
+    const seq = this.engine.installSong(encodeSong(song, { from }), song.bank, true);
     if (seq < 0) { this.toast('This song is too long for the game', 'x'); return; }
     this.engine.previewMusic(seq);
     // the game starts the song a moment later (audio buffered ahead)
-    this.playing = { song, t0: performance.now() + 90 };
+    const stepMs = 60000 / song.tempo / song.stepsPerBeat;
+    this.playing = { song, from, t0: performance.now() + 90 - from * stepMs };
     const tick = () => {
       if (!this.playing) return;
       this.drawRoll();
+      this.followHead();
       this.raf = requestAnimationFrame(tick);
     };
     tick();
@@ -918,7 +1019,8 @@ export class SoundUI {
 
   restartPreview() {
     clearTimeout(this.restartTimer);
-    this.restartTimer = setTimeout(() => { if (this.playing) this.play(); }, 350);
+    // (on from where it is now)
+    this.restartTimer = setTimeout(() => { if (this.playing) this.play(this.playPosition()); }, 350);
   }
 
   playPosition() {
@@ -1180,6 +1282,10 @@ export class SoundUI {
     bar.append(q, gsel);
     if (pick) { const cancel = el('button', 'btn sm ghost', 'Cancel'); cancel.onclick = () => { this.pickFor = null; this.soundId = pick.id; this.render(); }; bar.appendChild(cancel); }
     main.appendChild(bar);
+    // Mario's beta voice: the clips of the game it never plays
+    const beta = el('label', 'gs-beta', `<input type="checkbox" ${this.audio.beta ? 'checked' : ''}><div class="ss-text"><b>Beta sounds</b><span>Mario's voice with the clips of your game it never plays: the jump's first "Yah!" take, and the triple jump's yah/wah/hoo of the 1996 original. In the exported ROM too.</span></div>`);
+    beta.querySelector('input').onchange = (e) => { this.setBeta(e.target.checked); this.toast(e.target.checked ? 'Beta sounds on: jump to hear them' : 'Mario\'s voice is the game\'s again', 'volume'); };
+    main.appendChild(beta);
     const list = el('div', 'gs-list');
     main.appendChild(list);
     const draw = () => {
@@ -1187,11 +1293,13 @@ export class SoundUI {
       this.soundQuery = q.value;
       this.soundGroup = gsel.value;
       list.innerHTML = '';
-      const hits = this.gameSounds.filter((s) => (gsel.value === 'All' || s.group === gsel.value) && (!term || `${s.name} ${s.group}`.toLowerCase().includes(term))).slice(0, 200);
+      const hits = this.gameSounds.filter((s) => (gsel.value === 'All' || s.group === gsel.value) && (!term || `${s.name} ${s.group} ${s.sub || ''} ${s.note || ''}`.toLowerCase().includes(term))).slice(0, gsel.value === 'All' ? 200 : 400);
+      let sub = '';
       for (const s of hits) {
+        if (s.sub && `${s.group}: ${s.sub}` !== sub) { sub = `${s.group}: ${s.sub}`; list.appendChild(el('div', 'gs-sub', esc(sub))); }
         const row = el('div', 'gs-row');
         const replaced = this.audio.overrides.find((o) => sameSound(o.bits, s.bits));
-        row.innerHTML = `<div class="ss-text"><b>${esc(s.name)}</b><span>${esc(s.group)}${replaced ? ` · replaced by ${esc(this.audio.sounds.find((x) => x.id === replaced.sound)?.name || '?')}` : ''}</span></div>`;
+        row.innerHTML = `<div class="ss-text"><b>${esc(s.name)}</b><span>${esc(s.group)}${s.note ? ` · ${esc(s.note)}` : ''}${replaced ? ` · replaced by ${esc(this.audio.sounds.find((x) => x.id === replaced.sound)?.name || '?')}` : ''}</span></div>`;
         const play = el('button', 'btn icon ghost sm', icon('play', 'sm'));
         play.title = 'Listen (the game\'s sound)';
         play.onclick = () => this.engine.playGameSound(s.bits);
@@ -1227,7 +1335,15 @@ export class SoundUI {
   syncOverrides() {
     if (!this.engine.ready) return;
     this.engine.setSoundOverrides(this.audio.overrides.map((o, i) => ({ bits: o.bits, id: i })));
+    this.engine.setBetaSounds(!!this.audio.beta);
     this.syncReplacements();
+  }
+
+  // Beta sounds: Mario's voice with the clips of the game it never plays (saved in the project, in the ROM too).
+  setBeta(on) {
+    this.audio.beta = !!on;
+    this.send({ type: 'audio_options', beta: !!on });
+    this.engine.setBetaSounds(!!on);
   }
 
   onGameSound(id, dist) {

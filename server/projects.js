@@ -440,6 +440,13 @@ export function setOverrides(p, overrides) {
   save(p);
 }
 
+// The sound studio's switches: beta (Mario's voice with the game's unused clips, audio.c studio_voice_beta).
+export function setAudioOptions(p, { beta } = {}) {
+  if (beta !== undefined) p.audio.beta = !!beta;
+  if (!p.audio.beta) delete p.audio.beta;
+  save(p);
+}
+
 // The game's songs the project's songs replace everywhere: [{ seq, song }], one per game song.
 export function setReplacements(p, list) {
   const seen = new Set();

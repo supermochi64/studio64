@@ -703,6 +703,10 @@ kbd {
 .roll-inner { display: flex; width: max-content; }
 .roll-keys { position: sticky; left: 0; z-index: 1; box-shadow: 2px 0 6px rgba(0, 0, 0, .4); }
 .roll-grid { cursor: crosshair; }
+/* the time ruler time ruler: sticks to the top of the piano roll, the corner over the keys */
+.roll-head { display: flex; width: max-content; position: sticky; top: 0; z-index: 2; }
+.roll-corner { position: sticky; left: 0; z-index: 1; width: 64px; height: 18px; flex: none; background: #16161b; border-bottom: 1px solid #2c2c36; box-shadow: 2px 0 6px rgba(0, 0, 0, .4); }
+.roll-ruler { cursor: ew-resize; display: block; }
 
 /* sound effects */
 .seg { display: inline-flex; gap: 2px; padding: 3px; background: var(--bg-2); border: 1px solid var(--border); border-radius: 10px; margin-bottom: 12px; align-self: flex-start; }
@@ -728,5 +732,18 @@ kbd {
 .gs-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(330px, 1fr)); gap: 4px 12px; overflow-y: auto; }
 .gs-row { display: flex; align-items: center; gap: 8px; padding: 5px 8px; border-radius: 9px; }
 .gs-row:hover { background: var(--hover); }
+.gs-sub { grid-column: 1 / -1; font-size: 11px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--faint); margin: 10px 8px 2px; }
+.gs-beta { display: flex; align-items: center; gap: 10px; padding: 9px 12px; margin-bottom: 10px; border-radius: 12px; border: 1px solid var(--border); background: var(--bg-2); cursor: pointer; }
+.gs-beta input { accent-color: var(--accent); width: 16px; height: 16px; flex: none; }
+.gs-beta:has(input:checked) { border-color: var(--accent); }
+.gs-beta .ss-text span { white-space: normal; }
 #ss-menu { z-index: 95; }
 .btn.icon.sm { width: 28px; height: 28px; padding: 0; flex: none; }
+/* block shapes: rendered pictures in the library, icon buttons in the inspector */
+.preset .preset-thumb { width: 44px; height: 44px; object-fit: contain; margin: -4px 0 -2px; image-rendering: auto; }
+.seg.wide.shape-seg { display: grid; grid-template-columns: repeat(5, 1fr); }
+.seg.wide.shape-seg .seg-btn { height: 32px; padding: 0; }
+.shape-seg .seg-btn svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linejoin: round; stroke-linecap: round; }
+.insp-sub { text-transform: none; letter-spacing: 0; font-weight: 500; color: var(--muted); margin-left: 4px; }
+.insp-row { display: flex; gap: 6px; margin-top: 8px; }
+.insp-row .btn { flex: 1; }

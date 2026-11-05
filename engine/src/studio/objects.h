@@ -49,6 +49,7 @@ struct StudioRules {
     s32 showTimer;      // level timer on the HUD
     s32 timeLimit;      // frames until Mario loses a life (0: none)
     s32 coinStar;       // 100 coins give a star
+    s32 newMoves;       // moves from other games and hacks that are switched on (STUDIO_NEW_*, moves.c)
 };
 extern struct StudioRules gStudioRules;
 
@@ -64,12 +65,35 @@ extern struct StudioRules gStudioRules;
 #define STUDIO_MOVE_PUNCH       (1 << 9)
 #define STUDIO_MOVE_LEDGE_GRAB  (1 << 10)
 #define STUDIO_MOVE_CROUCH      (1 << 11)
+#define STUDIO_MOVE_WALK        (1 << 12) // off: a tilted stick always runs at full speed
+
+// New moves (off unless switched on; moves.c)
+#define STUDIO_NEW_WALL_SLIDE    (1 << 0) // slides down a wall he jumps against, A kicks off
+#define STUDIO_NEW_SPIN_JUMP     (1 << 1) // spin the stick (or hold L) and jump: a twirling jump
+#define STUDIO_NEW_TRIPLE_SPIN   (1 << 2) // the triple jump becomes a spin jump
+#define STUDIO_NEW_INSTANT_POUND (1 << 3) // the ground pound drops at once (no flip first)
+#define STUDIO_NEW_POUND_JUMP    (1 << 4) // A on landing from a ground pound: a high jump
+#define STUDIO_NEW_POUND_DIVE    (1 << 5) // B during a ground pound: a dive forward
+#define STUDIO_NEW_POUND_CANCEL  (1 << 6) // Z ground pounds out of long jumps, rollouts and jump kicks
+#define STUDIO_NEW_WATER_POUND   (1 << 7) // Z under water: a ground pound to the bottom, A jumps up
+#define STUDIO_NEW_DIVE_HOP      (1 << 8) // B while belly sliding: another dive
+#define STUDIO_NEW_LEDGE_VAULT   (1 << 9) // B right after grabbing a ledge at speed: a flip over it
+
+// Studio 64's own actions for them (ids the game doesn't use)
+#define ACT_SM_WALL_SLIDE  (0x09D | ACT_FLAG_AIR)
+#define ACT_SM_SPIN_JUMP   (0x09E | ACT_FLAG_AIR | ACT_FLAG_ATTACKING | ACT_FLAG_ALLOW_VERTICAL_WIND_ACTION)
+#define ACT_SM_WATER_POUND (0x0C9 | ACT_FLAG_STATIONARY | ACT_FLAG_SWIMMING | ACT_FLAG_ATTACKING \
+                            | ACT_FLAG_SWIMMING_OR_FLYING | ACT_FLAG_WATER_OR_TEXT)
 
 // 0: the action is refused (Mario keeps what he does), else the action to take instead.
 u32 studio_rules_filter_action(struct MarioState *m, u32 action);
 void studio_rules_airborne(struct MarioState *m, u32 action);
 void studio_rules_gravity(struct MarioState *m, f32 before);
 u16 studio_rules_cap_time(u32 capFlag, u16 frames);
+// moves.c: called in Mario's action loop before each action runs; TRUE: it ran or changed the
+// action (*inLoop says whether the loop goes on), FALSE: the game's own action runs
+s32 studio_moves_step(struct MarioState *m, s32 *inLoop);
+u32 studio_moves_filter(struct MarioState *m, u32 action);
 void studio_objects_frame(void);
 
 #endif

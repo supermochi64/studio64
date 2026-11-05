@@ -12,7 +12,9 @@ export const RULE_DEFAULTS = {
   damage: 1, oneHit: false, infiniteLives: false, startLives: 4,
   coinLife: 0, coinHeal: true, coinStar: true,
   wingTime: 60, metalTime: 20, vanishTime: 20,
-  moves: { longJump: true, backflip: true, sideFlip: true, tripleJump: true, doubleJump: true, wallKick: true, groundPound: true, dive: true, slideKick: true, punch: true, ledgeGrab: true, crouch: true },
+  moves: { longJump: true, backflip: true, sideFlip: true, tripleJump: true, doubleJump: true, wallKick: true, groundPound: true, dive: true, slideKick: true, punch: true, ledgeGrab: true, crouch: true, walk: true,
+    // new moves (from later games and other hacks): off unless switched on
+    wallSlide: false, spinJump: false, tripleSpin: false, instantPound: false, poundJump: false, poundDive: false, poundCancel: false, waterPound: false, diveHop: false, ledgeVault: false },
   noBlj: false,
   hud: { lives: true, coins: true, stars: true, power: true, keys: true },
   timer: false, timeLimit: 0,
@@ -20,8 +22,24 @@ export const RULE_DEFAULTS = {
   katana: false,
 };
 
-const MOVE_BITS = { longJump: 1, backflip: 2, sideFlip: 4, tripleJump: 8, doubleJump: 16, wallKick: 32, groundPound: 64, dive: 128, slideKick: 256, punch: 512, ledgeGrab: 1024, crouch: 2048 };
-const MOVE_LABELS = { longJump: 'Long jump', backflip: 'Backflip', sideFlip: 'Side flip', tripleJump: 'Triple jump', doubleJump: 'Double jump', wallKick: 'Wall kick', groundPound: 'Ground pound', dive: 'Dive', slideKick: 'Slide kick', punch: 'Punch & kick', ledgeGrab: 'Ledge grab', crouch: 'Crouch' };
+const MOVE_BITS = { longJump: 1, backflip: 2, sideFlip: 4, tripleJump: 8, doubleJump: 16, wallKick: 32, groundPound: 64, dive: 128, slideKick: 256, punch: 512, ledgeGrab: 1024, crouch: 2048, walk: 4096 };
+const MOVE_LABELS = { longJump: 'Long jump', backflip: 'Backflip', sideFlip: 'Side flip', tripleJump: 'Triple jump', doubleJump: 'Double jump', wallKick: 'Wall kick', groundPound: 'Ground pound', dive: 'Dive', slideKick: 'Slide kick', punch: 'Punch & kick', ledgeGrab: 'Ledge grab', crouch: 'Crouch', walk: 'Walking' };
+const MOVE_HINTS = { walk: 'Off: a tilted stick always runs at full speed (no tiptoeing)' };
+// New moves from later Mario games and from SM64 mods and romhacks (engine: src/studio/moves.c,
+// docs/moveset-research.md): [key, bit, label, how to do it]. Off by default.
+export const NEW_MOVES = [
+  ['wallSlide', 1, 'Wall slide', 'Jump against a wall: Mario slides down it. A kicks off, Z lets go'],
+  ['spinJump', 2, 'Spin jump', 'Spin the stick and press A (or hold L and press A): a twirling jump that falls slowly. Spin the stick during a jump to twirl. Z: spin pound, B: dive'],
+  ['tripleSpin', 4, 'Spinning triple jump', 'The third jump in a row is a spin jump'],
+  ['instantPound', 8, 'Instant ground pound', 'Z in the air drops at once, without the flip first'],
+  ['poundJump', 16, 'Ground pound jump', 'A right as Mario lands a ground pound: a high jump straight up'],
+  ['poundDive', 32, 'Ground pound dive', 'B during a ground pound: a dive forward (aim with the stick)'],
+  ['poundCancel', 64, 'Ground pound anytime', 'Z ground pounds out of a long jump, a rollout or a jump kick too'],
+  ['waterPound', 128, 'Underwater ground pound', 'Z under water: a ground pound to the bottom, then A jumps up and out. A ground pound into water goes on'],
+  ['diveHop', 256, 'Dive hop', 'B while belly sliding after a dive: another dive'],
+  ['ledgeVault', 512, 'Ledge vault', 'B right after grabbing a ledge with a run-up: Mario flips over it'],
+];
+const NEW_MOVE_BITS = Object.fromEntries(NEW_MOVES.map(([k, bit]) => [k, bit]));
 const HUD_BITS = { lives: 0x1, coins: 0x2, stars: 0x4, power: 0x8, keys: 0x10 };
 const HUD_LABELS = { lives: 'Lives', coins: 'Coins', stars: 'Stars', power: 'Power meter & camera', keys: 'Keys' };
 
@@ -74,6 +92,7 @@ export const RULE_PRESETS = [
   { id: 'kids', label: 'Kids', hint: 'No damage, infinite lives', rules: { damage: 0, infiniteLives: true, fallDamage: 0 } },
   { id: 'shotgun', label: 'Shotgun Mario', hint: 'Starts with the shotgun', rules: { shotgun: true } },
   { id: 'katana', label: 'Katana Mario', hint: 'Starts with the katana', rules: { katana: true } },
+  { id: 'modern', label: 'Modern moveset', hint: 'Wall slides, spin jumps, pound jumps…', rules: { moves: Object.fromEntries(NEW_MOVES.map(([k]) => [k, true])) } },
   { id: 'platformer', label: 'Pure platformer', hint: 'Only jumps, no tricks', rules: { moves: { longJump: false, backflip: false, sideFlip: false, wallKick: true, groundPound: false, dive: false, slideKick: false, punch: false } } },
 ];
 
@@ -93,13 +112,15 @@ export function effectiveRules(rules, levelKey) {
 export function encodeRules(r) {
   let disabled = 0;
   for (const [k, bit] of Object.entries(MOVE_BITS)) if (r.moves?.[k] === false) disabled |= bit;
+  let newMoves = 0;
+  for (const [k, bit] of Object.entries(NEW_MOVE_BITS)) if (r.moves?.[k] === true) newMoves |= bit;
   let hudHide = 0;
   for (const [k, bit] of Object.entries(HUD_BITS)) if (r.hud?.[k] === false) hudHide |= bit;
   return [
     r.runSpeed, r.jump, r.doubleJump, r.tripleJump, r.backflip, r.sideFlip, r.longJump, r.wallKick, r.longJumpSpeed,
     r.gravity, r.airControl, r.swimSpeed, r.fallDamage, r.damage, r.oneHit ? 1 : 0, r.infiniteLives ? 1 : 0, r.coinLife | 0, r.coinHeal ? 1 : 0,
     Math.round(r.wingTime * 30), Math.round(r.metalTime * 30), Math.round(r.vanishTime * 30), disabled, r.noBlj ? 1 : 0, hudHide, r.timer ? 1 : 0,
-    Math.round((r.timeLimit || 0) * 30), r.coinStar ? 1 : 0,
+    Math.round((r.timeLimit || 0) * 30), r.coinStar ? 1 : 0, newMoves,
   ];
 }
 
@@ -241,16 +262,25 @@ export class GameRules {
       return;
     }
     const sec = SECTIONS.find((s) => s.id === this.section);
+    const tail = [];
     if (this.section === 'moves') {
+      main.appendChild(el('div', 'gr-group', 'The game\'s moves'));
       main.appendChild(el('div', 'gr-hint', 'Switched-off moves turn into a normal jump (or nothing).'));
-      const grid = el('div', 'gr-toggles');
-      for (const [k, label] of Object.entries(MOVE_LABELS)) {
-        const on = eff.moves[k] !== false;
-        const b = el('button', `gr-toggle${on ? ' on' : ''}${this.scope === 'level' && lvl.moves?.[k] !== undefined ? ' over' : ''}`, `<span class="dot"></span>${esc(label)}`);
+      const toggle = (grid, k, label, on, hint) => {
+        const b = el('button', `gr-toggle${on ? ' on' : ''}${this.scope === 'level' && lvl.moves?.[k] !== undefined ? ' over' : ''}`, `<span class="dot"></span><span>${esc(label)}${hint ? `<small>${esc(hint)}</small>` : ''}</span>`);
+        b.dataset.move = k;
+        if (hint) b.title = hint;
         b.onclick = () => { this.set({ moves: { [k]: !on } }, `${on ? 'Switched off' : 'Switched on'} the ${label.toLowerCase()}`); this.render(); };
         grid.appendChild(b);
-      }
+      };
+      const grid = el('div', 'gr-toggles');
+      for (const [k, label] of Object.entries(MOVE_LABELS)) toggle(grid, k, label, eff.moves[k] !== false, MOVE_HINTS[k]);
       main.appendChild(grid);
+      // (the second group goes below the game's moves' checkbox, the BLJ: after the rows below)
+      const grid2 = el('div', 'gr-toggles gr-new-moves');
+      for (const [k, , label, hint] of NEW_MOVES) toggle(grid2, k, label, eff.moves[k] === true, hint);
+      tail.push(el('div', 'gr-group', 'New moves <span>from later Mario games and other hacks</span>'),
+        el('div', 'gr-hint', 'Off in the classic game. Switch them on for the whole game or one level; the <b>Modern moveset</b> preset turns them all on.'), grid2);
     }
     if (this.section === 'items') {
       main.appendChild(el('div', 'gr-hint', 'Shotgun Mario (from Shoggoth World): J or Q fires, fire in the air for a shotgun jump, R aims. Without this rule, Mario gets the gun from a <b>Shotgun</b> pickup (Objects → Shoggoth) or a story action.'));
@@ -294,6 +324,7 @@ export class GameRules {
       };
       main.appendChild(row);
     }
+    for (const x of tail) main.appendChild(x);
   }
 
   // Dragging a slider: the engine gets it right away, saving waits for the release.

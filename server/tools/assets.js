@@ -83,5 +83,11 @@ export default ({ tool, z, card, rpc: rpc20, commit, text, where, opts, agent })
       skin: z.string().optional(), hair: z.string().optional(), cap: z.string().optional(),
     }).optional(),
   }, card('set_mario_colors', (a) => (a.preset ? `Dressing Mario as ${a.preset}` : 'Recolouring Mario'), async (a) => ({ summary: 'Mario recoloured', result: text(await rpc('mario_colors', a)) })), opts),
+
+  tool('set_mario_lighting', 'How Mario\'s model is lit, for this project (also in the exported ROM): preset game (the normal look), beta (the harsh, high-contrast shading of the 1995-96 pre-release footage: dark shadow sides, light from the side) or soft (flat); and/or harshness 0-100 per group (50 = the game\'s; higher = darker shadow side, 100 black; lower = flatter): skin (face & hair), clothes (cap, shirt, overalls), hands (gloves & shoes); direction: degrees the light turns around Mario (0 = the game\'s, from the upper right; 90 from the right, -90 from the left, 180 from behind).', {
+    preset: z.enum(['game', 'beta', 'soft']).optional(),
+    skin: z.number().optional(), clothes: z.number().optional(), hands: z.number().optional(),
+    direction: z.number().optional(),
+  }, card('set_mario_lighting', (a) => (a.preset ? `Giving Mario ${a.preset} lighting` : 'Relighting Mario'), async (a) => ({ summary: 'Mario relit', result: text(await rpc('mario_lighting', a)) })), opts),
 ];
 };

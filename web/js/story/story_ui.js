@@ -42,7 +42,7 @@ export class StoryUI {
     this.page = 0;
     this.sendTimers = new Map();
     this.sounds = [];
-    fetch('data/sounds.json').then((r) => r.json()).then((s) => { this.sounds = s; }).catch(() => {});
+    fetch('data/sounds.json').then((r) => r.json()).then((s) => { this.sounds = s.filter((x) => !x.hidden); }).catch(() => {});
     loadTexts().then(() => { if (this.isOpen()) this.render(); });
     loadFont().then(() => { if (this.isOpen()) this.render(); });
     this.build();

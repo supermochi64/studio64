@@ -23,6 +23,9 @@ extern void dma_read(u8 *dest, u8 *srcStart, u8 *srcEnd);
 s32 s64_seq_install(s32 slot, u32 rom, u32 len, s32 bank);
 void seq_player_play_sequence(u8 player, u8 seqId, u16 arg2);
 void *malloc(u32 size);
+void studio_voice_beta(s32 on);              // audio.c: Mario's beta voice clips
+s32 studio_voice_hook(s32 bits, f32 *pos);
+u32 studio_sfx_canon(u32 bits);              // audio.c: a sound under any of its ids
 
 // in the ROM (gS64Info.sfxRom): per sound
 struct S64Sfx {
@@ -53,6 +56,7 @@ static struct AdsrEnvelope sEnvelope[2] = { { 1, 32700 }, { ADSR_HANG, 0 } };
 void s64_sfx_init(void) {
     s32 i;
     u32 size;
+    studio_voice_beta(s64_info_valid() && (gS64Info.flags & S64_INFO_BETA_SOUNDS));
     if (!s64_info_valid() || gS64Info.sfxRom == 0 || gS64Info.sfxCount == 0) {
         return;
     }
@@ -91,11 +95,15 @@ void s64_sfx_init(void) {
 
 // external.c, play_sound: TRUE when the project plays its own sound instead
 s32 s64_sfx_hook(s32 soundBits, f32 *pos) {
-    u32 key = (u32) soundBits & (SOUNDARGS_MASK_BANK | SOUNDARGS_MASK_SOUNDID);
+    u32 key;
     s32 i;
-    (void) pos;
+    if (sCount == 0) {
+        return studio_voice_hook(soundBits, pos);
+    }
+    // (the same sound under another id is the same sound: Mario's random jump voices, ...)
+    key = studio_sfx_canon((u32) soundBits);
     for (i = 0; i < sCount; i++) {
-        if (sSfx[i].key != key) {
+        if (studio_sfx_canon(sSfx[i].key) != key) {
             continue;
         }
         if (gGlobalTimer - sLastPlayed[i] >= REPEAT_GAP) {
@@ -114,5 +122,5 @@ s32 s64_sfx_hook(s32 soundBits, f32 *pos) {
         }
         return TRUE;
     }
-    return FALSE;
+    return studio_voice_hook(soundBits, pos); // (Mario's beta voice, when the hack has it on)
 }

@@ -536,7 +536,8 @@ export class Setup {
     const have = (dir, f) => fs.existsSync(path.join(thumbs, dir, f));
     const levels = Object.values(catalog.levels).filter((l) => l.num).length;
     const jobs = [
-      { tool: 'make_thumbs.mjs', label: 'objects', need: want.some((e) => !have('', `${e.id.replace(/:/g, '__')}.webp`)), weight: 0.7 },
+      { tool: 'make_thumbs.mjs', label: 'objects', need: want.some((e) => !have('', `${e.id.replace(/:/g, '__')}.webp`)), weight: 0.68 },
+      { tool: 'make_thumbs.mjs', args: ['--blocks'], label: 'blocks', need: !have('blocks', 'terrain.webp'), weight: 0.02 },
       { tool: 'make_level_thumbs.mjs', label: 'levels', need: (fs.existsSync(path.join(thumbs, 'levels')) ? fs.readdirSync(path.join(thumbs, 'levels')).length : 0) < levels, weight: 0.17 },
       { tool: 'make_template_thumbs.mjs', label: 'level templates', need: !have('templates', 'island.jpg'), weight: 0.1 },
       { tool: 'make_hub_thumbs.mjs', label: 'home screen', need: !have('hub', 'castle.jpg'), weight: 0.03 },
@@ -550,9 +551,9 @@ export class Setup {
       for (const j of jobs) {
         if (!j.need) { base += j.weight; continue; }
         set({ detail: `Pictures of the ${j.label}`, progress: base });
-        let total = j.tool === 'make_thumbs.mjs' ? want.length : j.tool === 'make_level_thumbs.mjs' ? levels : 9;
+        let total = j.args ? 14 : j.tool === 'make_thumbs.mjs' ? want.length : j.tool === 'make_level_thumbs.mjs' ? levels : 9;
         let n = 0;
-        const code = await this.exec(process.execPath, [path.join(ROOT, 'tools', j.tool)], {
+        const code = await this.exec(process.execPath, [path.join(ROOT, 'tools', j.tool), ...(j.args || [])], {
           env: { STUDIO_URL: server.url, CHROME: chrome, THUMB_PROGRESS: '1', THUMB_TIMEOUT: '20000' }, // slow machines: wait instead of reloading the page
           onLine: (l) => {
             const m = l.match(/^(\d+)\/(\d+)$/);

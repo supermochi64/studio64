@@ -185,6 +185,7 @@ void s64_area_loaded(void) {
     struct S64AreaData *a = area_data();
     catalog_to_ram();
     s64_save_area_loaded();
+    s64_mario_look(TRUE);
     studio_flow_area_load();
     studio_story_area();
     if (a != NULL && a->tags) {
@@ -219,6 +220,7 @@ void s64_frame(void) {
     if (gCurrentArea == NULL || gMarioState == NULL || gMarioObject == NULL) {
         return;
     }
+    s64_mario_look(FALSE);
     s64_glue_frame();
     studio_flow_frame();
     studio_story_frame();

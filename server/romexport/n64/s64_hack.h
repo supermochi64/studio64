@@ -9,6 +9,16 @@
 #define S64_INFO_ROM 0x1000000
 #define S64_INFO_MAGIC 0x53363448 // "S64H"
 #define S64_INFO_NO_INTRO (1 << 0)
+#define S64_INFO_BETA_SOUNDS (1 << 1) // Mario's beta voice clips (audio.c studio_voice_beta)
+
+// Mario's look (s64_mario.c with the engine's mario_look.c): a part's colour and lighting
+struct S64MarioPart {
+    u8 rgb[3];
+    u8 hasColor; // 0: the game's colour
+    s16 amb;     // shadow side: colour * amb / 256 (game: 128)
+    s16 dif;     // lit side: colour * dif / 256 (game: 256)
+};
+#define S64_MARIO_DIR (1u << 31) // marioLook: marioDir is set
 
 struct S64Info {
     /*0x000*/ u32 magic;
@@ -33,7 +43,10 @@ struct S64Info {
     /*0xDF4*/ u32 sfxCount;
     /*0xDF8*/ u32 replaceRom;    // the game songs the project's songs replace (s64_songs.c): per entry sequence slot, song
     /*0xDFC*/ u32 replaceCount;
-}; // 0xE00
+    /*0xE00*/ u32 marioLook;     // bit p: Mario's part p (ASSET_MARIO_*) has its own look in mario[p]; S64_MARIO_DIR
+    /*0xE04*/ s8 marioDir[4];    // where the light on Mario comes from (x, y, z in the camera's view; the game's 40, 40, 40)
+    /*0xE08*/ struct S64MarioPart mario[7];
+}; // 0xE40
 
 extern struct S64Info gS64Info;
 
@@ -51,6 +64,7 @@ void s64_story_star(struct Object *o);
 void s64_story_render(void);
 void s64_warp_to(s16 level, s16 area, s16 node);
 void s64_ovl_reset(void);
+void s64_mario_look(s32 areaLoaded);
 s32 s64_level_modules(s16 mask, s32 reg);
 
 #endif

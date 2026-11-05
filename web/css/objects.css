@@ -176,6 +176,14 @@
 .gr-toggle.on { color: var(--text); border-color: var(--border-2); }
 .gr-toggle.on .dot { background: var(--green); box-shadow: 0 0 8px rgba(52, 211, 153, .6); }
 .gr-toggle.over { box-shadow: inset 2px 0 0 var(--accent); }
+.gr-toggle small { display: block; margin-top: 3px; font: 500 11.5px/1.35 var(--font); color: var(--faint); }
+.gr-toggle.on small { color: var(--muted); }
+.gr-new-moves { grid-template-columns: repeat(2, 1fr); }
+.gr-new-moves .gr-toggle { align-items: flex-start; }
+.gr-new-moves .gr-toggle .dot { margin-top: 3px; }
+.gr-group { font: 700 12px var(--font); text-transform: uppercase; letter-spacing: .06em; color: var(--text-2); margin: 4px 0 6px; }
+.gr-group span { text-transform: none; letter-spacing: 0; font-weight: 500; color: var(--faint); margin-left: 6px; }
+.gr-group:not(:first-child) { margin-top: 16px; }
 .gr-presets { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
 .gr-preset { display: flex; flex-direction: column; align-items: flex-start; gap: 3px; padding: 14px; border-radius: 14px; border: 1px solid var(--border); background: var(--panel-2); color: var(--text); cursor: pointer; text-align: left; }
 .gr-preset b { font-size: 14px; }

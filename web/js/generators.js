@@ -1,8 +1,13 @@
 // Block shapes, materials and the generators that build structures out of blocks.
 // Shared by the editor UI and Claude's build tool, so both make the same things.
 
-export const SHAPES = { box: 0, ramp: 1, stairs: 2, pillar: 3 };
-export const SHAPE_NAMES = ['Box', 'Ramp', 'Stairs', 'Pillar'];
+// The order of the shapes in src/studio/editor.c. Corners: "inner" is the concave piece (inside
+// an L of ramps or stairs), "outer" the convex one (around a corner of a plateau).
+export const SHAPES = { box: 0, ramp: 1, stairs: 2, pillar: 3, ramp_inner: 4, ramp_outer: 5, stairs_inner: 6, stairs_outer: 7, sphere: 8, terrain: 9 };
+export const SHAPE_NAMES = ['Box', 'Ramp', 'Stairs', 'Pillar', 'Ramp inner corner', 'Ramp outer corner', 'Stairs inner corner', 'Stairs outer corner', 'Sphere', 'Terrain patch'];
+export const SHAPE_SHORT = ['Box', 'Ramp', 'Stairs', 'Pillar', 'Ramp in', 'Ramp out', 'Stairs in', 'Stairs out', 'Sphere', 'Terrain'];
+export const STAIR_SHAPES = new Set([2, 6, 7]);
+export const TERRAIN_SHAPE = 9;
 
 export const SURFACES = {
   normal: 0x0000, slippery: 0x0014, ice: 0x0013, not_slippery: 0x0015, lava: 0x0001,
@@ -33,6 +38,13 @@ export const PRESETS = [
   { id: 'ramp', label: 'Ramp', block: { shape: 1, sx: 400, sy: 300, sz: 700 } },
   { id: 'stairs', label: 'Stairs', block: { shape: 2, sx: 400, sy: 320, sz: 640, steps: 8 } },
   { id: 'pillar', label: 'Pillar', block: { shape: 3, sx: 260, sy: 600, sz: 260 } },
+  // corners match the ramp and the stairs above (their depth on both sides)
+  { id: 'ramp_inner', label: 'Ramp inner corner', block: { shape: 4, sx: 700, sy: 300, sz: 700 } },
+  { id: 'ramp_outer', label: 'Ramp outer corner', block: { shape: 5, sx: 700, sy: 300, sz: 700 } },
+  { id: 'stairs_inner', label: 'Stairs inner corner', block: { shape: 6, sx: 640, sy: 320, sz: 640, steps: 8 } },
+  { id: 'stairs_outer', label: 'Stairs outer corner', block: { shape: 7, sx: 640, sy: 320, sz: 640, steps: 8 } },
+  { id: 'sphere', label: 'Sphere', block: { shape: 8, sx: 400, sy: 400, sz: 400 } },
+  { id: 'terrain', label: 'Terrain patch', block: { shape: 9, sx: 1600, sy: 100, sz: 1600, steps: 16 } },
 ];
 
 const DEG = Math.PI / 180;
@@ -44,15 +56,20 @@ export const yawToDeg = (y) => Math.round((((y & 0xffff) / 65536) * 360) * 10) /
 // Default block record fields.
 export function blockDefaults(b = {}) {
   const top = material(b.top ?? b.material ?? 'grass');
+  const shape = typeof b.shape === 'string' ? (SHAPES[b.shape] ?? 0) : (b.shape ?? 0);
+  // the newer shapes come in their library size when no size is given
+  const pre = shape >= 4 ? PRESETS.find((p) => p.block.shape === shape)?.block : null;
   return {
-    shape: typeof b.shape === 'string' ? (SHAPES[b.shape] ?? 0) : (b.shape ?? 0),
-    sx: Math.round(b.sx ?? 300), sy: Math.round(b.sy ?? 300), sz: Math.round(b.sz ?? 300),
-    steps: b.steps ?? 8,
+    shape,
+    sx: Math.round(b.sx ?? pre?.sx ?? 300), sy: Math.round(b.sy ?? pre?.sy ?? 300), sz: Math.round(b.sz ?? pre?.sz ?? 300),
+    steps: b.steps ?? (shape === 9 ? 16 : 8),
     top,
     side: material(b.side ?? b.material ?? (top === 0 ? 'grass' : b.top ?? top)),
     surface: typeof b.surface === 'string' ? (SURFACES[b.surface] ?? 0) : (b.surface ?? 0),
     flags: (b.invisible ? 1 : 0) | (b.no_collision ? 2 : 0) | (b.flags ?? 0),
     color: typeof b.color === 'string' ? parseInt(b.color.replace('#', ''), 16) : (b.color ?? 0xffffff),
+    // a terrain patch's sculpted heights and paint (terrain.js patchOf)
+    ...(b.hm ? { hm: b.hm } : {}), ...(b.pm ? { pm: b.pm } : {}),
   };
 }
 

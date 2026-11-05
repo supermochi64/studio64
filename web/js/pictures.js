@@ -3,10 +3,10 @@
 // only asks for pictures that exist (GET /api/pictures) and shows its placeholders for the rest;
 // while the setup is still taking pictures it asks again now and then, and every view that shows
 // them re-renders on the 'studio:pictures' event when new ones arrived.
-const have = { objects: new Set(), levels: new Set(), templates: new Set(), hub: new Set() };
+const have = { objects: new Set(), levels: new Set(), templates: new Set(), hub: new Set(), blocks: new Set() };
 let loaded = null;
 let timer = null;
-const key = () => `${have.objects.size}/${have.levels.size}/${have.templates.size}/${have.hub.size}`;
+const key = () => `${have.objects.size}/${have.levels.size}/${have.templates.size}/${have.hub.size}/${have.blocks.size}`;
 
 async function fetchList() {
   const r = await fetch('/api/pictures', { headers: { 'x-studio-key': (() => { try { return localStorage.getItem('studio64.password') || ''; } catch { return ''; } })() } });
@@ -22,6 +22,7 @@ async function refresh() {
   have.levels = new Set((d.levels || []).map(Number));
   have.templates = new Set(d.templates || []);
   have.hub = new Set(d.hub || []);
+  have.blocks = new Set(d.blocks || []);
   if (key() !== before) window.dispatchEvent(new CustomEvent('studio:pictures'));
   clearTimeout(timer);
   // still being made: look again in a while (and once more right after the step ends)
@@ -53,6 +54,10 @@ export function templatePicture(id) {
 /** A home screen card's picture (castle, ...), or null. */
 export function hubPicture(name) {
   return have.hub.has(name) ? `thumbs/hub/${name}.jpg` : null;
+}
+/** A block preset's picture (generators.js PRESETS ids), or null. */
+export function blockPicture(id) {
+  return have.blocks.has(id) ? `thumbs/blocks/${id}.webp` : null;
 }
 /** The set of catalog ids that have a picture (for code that keeps its own Set). */
 export const objectPictureIds = () => have.objects;

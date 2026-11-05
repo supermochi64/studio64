@@ -3,6 +3,7 @@
 // custom block/terrain materials, custom skies and Mario's colours.
 
 import { Assets, ANIM_NAMES, MARIO_PARTS, MARIO_PRESETS } from './assets.js';
+import { LIGHT_GROUPS, MARIO_LIGHT_PRESETS, cleanLight } from './mario_look.js';
 import { importModel, isModelFile } from './asset_import.js';
 import { buildPackage, encodePackage, decodePackage, defaultMaterialMeta, SURFACE_NAMES } from './asset_mesh.js';
 import { ModelPreview, thumbnail } from './asset_preview.js';
@@ -880,13 +881,18 @@ export class AssetsUI {
   renderMario(body) {
     const cur = { ...(this.assets.meta.mario?.colors || {}) };
     const def = this.assets.marioDefaults();
+    const light = cleanLight(this.assets.meta.mario?.light);
+    const lightIs = (l) => JSON.stringify(cleanLight(l)) === JSON.stringify(light);
     body.innerHTML = `<div class="as-presets big">${Object.entries(MARIO_PRESETS).map(([k, p]) => {
       const c = { ...def, ...p.colors };
       return `<button class="as-preset ${this.assets.meta.mario?.preset === k ? 'active' : ''}" data-preset="${k}"><span class="as-preset-sw"><i style="background:${c.cap}"></i><i style="background:${c.overalls}"></i><i style="background:${c.skin}"></i></span>${esc(p.name)}</button>`;
     }).join('')}</div>
       <div class="as-parts"></div>
       <div class="as-row"><label class="as-toggle"><input type="checkbox" data-a="look" ${this.looking ? 'checked' : ''}> ${ic(ICON.camera)} Look at Mario</label><span class="spacer"></span><button class="btn sm ghost" data-a="reset">${ic(ICON.reset)}All back to Mario</button></div>
-      <div class="as-tip">Colours change live and are saved in the project.<span data-ai> Claude can do it too: “make Mario look like Luigi”.</span></div>`;
+      <div class="as-group">Lighting <span class="as-hint">how harsh the shading on Mario is</span></div>
+      <div class="as-presets as-light-presets">${Object.entries(MARIO_LIGHT_PRESETS).map(([k, p]) => `<button class="as-preset ${lightIs(p.light) ? 'active' : ''}" data-light="${k}" title="${esc(LIGHT_TIPS[k] || '')}">${esc(p.name)}</button>`).join('')}</div>
+      <div class="as-light"></div>
+      <div class="as-tip">Colours and lighting change live, are saved in the project and go into the exported ROM.<span data-ai> Claude can do it too: “make Mario look like Luigi”, “give Mario beta lighting”.</span></div>`;
     const parts = body.querySelector('.as-parts');
     let timer = null;
     const commit = (preset = null) => {
@@ -899,7 +905,7 @@ export class AssetsUI {
       row.innerHTML = `<input type="color" value="${cur[k] || def[k]}"><span>${esc(label)}</span>${cur[k] ? `<button class="btn sm ghost" title="Back to Mario's">${ic(ICON.reset)}</button>` : ''}`;
       row.querySelector('input').oninput = (e) => { cur[k] = e.target.value; commit(); };
       row.querySelector('input').onchange = () => this.renderMario(body);
-      row.querySelector('button')?.addEventListener('click', (e) => { e.preventDefault(); delete cur[k]; commit(); this.assets.meta.mario = { colors: cur }; this.renderMario(body); });
+      row.querySelector('button')?.addEventListener('click', (e) => { e.preventDefault(); delete cur[k]; commit(); this.assets.meta.mario = { ...this.assets.meta.mario, colors: cur }; this.renderMario(body); });
       parts.appendChild(row);
     }
     body.querySelectorAll('[data-preset]').forEach((b) => {
@@ -907,6 +913,33 @@ export class AssetsUI {
     });
     body.querySelector('[data-a=reset]').onclick = () => this.busy(null, async () => { await this.assets.setMario({}, 'mario'); this.renderMario(body); });
     body.querySelector('[data-a=look]').onchange = (e) => this.lookAtMario(e.target.checked);
+    this.renderMarioLight(body, light);
+  }
+
+  // Mario's lighting: a slider per group of parts (how dark the shadow side gets), the light's direction,
+  // presets (the game's, the beta's harsh shading, soft).
+  renderMarioLight(body, light) {
+    const box = body.querySelector('.as-light');
+    let timer = null;
+    const commit = () => {
+      this.assets.applyMario(this.assets.meta.mario?.colors || {}, light);
+      body.querySelectorAll('[data-light]').forEach((b) => b.classList.toggle('active', JSON.stringify(cleanLight(MARIO_LIGHT_PRESETS[b.dataset.light].light)) === JSON.stringify(cleanLight(light))));
+      clearTimeout(timer);
+      timer = setTimeout(() => this.assets.setMarioLight(light).catch((err) => this.toast(err.message, 'x')), 350);
+    };
+    const harsh = (v) => `${v}`;
+    const turn = (v) => (v === 0 ? 'Game' : `${v > 0 ? '+' : ''}${v}°`);
+    const rows = [...LIGHT_GROUPS.map(([k, label, parts]) => [k, label, 0, 100, harsh, `${parts.join(', ')}: left soft shading, right harsh (the middle is the game's)`]),
+      ['dir', 'Light from', -180, 180, turn, 'Where the light comes from, turned around Mario (0: the game\'s, from the upper right)']];
+    box.innerHTML = rows.map(([k, label, min, max, fmt, tip]) => `<label class="as-row" title="${esc(tip)}"><span>${esc(label)}</span><input type="range" min="${min}" max="${max}" step="1" value="${light[k]}" data-lk="${k}"><b>${fmt(light[k])}</b></label>`).join('');
+    box.querySelectorAll('[data-lk]').forEach((r) => {
+      const fmt = rows.find(([k]) => k === r.dataset.lk)[4];
+      r.oninput = () => { light[r.dataset.lk] = Number(r.value); r.nextElementSibling.textContent = fmt(light[r.dataset.lk]); commit(); };
+      r.ondblclick = () => { light[r.dataset.lk] = r.dataset.lk === 'dir' ? 0 : 50; r.value = light[r.dataset.lk]; r.nextElementSibling.textContent = fmt(light[r.dataset.lk]); commit(); };
+    });
+    body.querySelectorAll('[data-light]').forEach((b) => {
+      b.onclick = () => { Object.assign(light, cleanLight(MARIO_LIGHT_PRESETS[b.dataset.light].light)); this.renderMarioLight(body, light); commit(); };
+    });
   }
 
   // A turntable close-up of Mario while his colours are edited.
@@ -945,6 +978,12 @@ export class AssetsUI {
     e.on('frame', this.lookFn);
   }
 }
+
+const LIGHT_TIPS = {
+  game: 'The game\'s own shading',
+  beta: 'The harsh shading of the 1995-96 pre-release footage: dark shadow sides, light from the side',
+  soft: 'Flat, soft shading',
+};
 
 const SKY_PRESETS = {
   day: { label: 'Sunny day', sky: { top: '#2a6fd6', horizon: '#bfe3ff', bottom: '#8fb0c8', clouds: 0.5, sun: true, stars: 0, mountains: 0.5, mountain_color: '#4f7a5a' } },

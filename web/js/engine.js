@@ -212,10 +212,27 @@ export class Engine {
     return this._spawnBase(o);
   }
 
+  // A terrain patch's heights and paint for the next block spawn (block.hm / block.pm, terrain.js).
+  _blockPatch(b) {
+    const M = this.M;
+    const n = Math.max(2, Math.min(32, (b.steps | 0) || 16));
+    const dec = (s) => { const t = atob(s), out = new Uint8Array(t.length); for (let i = 0; i < t.length; i++) out[i] = t.charCodeAt(i); return out; };
+    const hb = (n + 1) * (n + 1) * 2, mb = n * n;
+    const p = M._malloc(hb + mb);
+    M.HEAPU8.fill(0, p, p + hb + mb);
+    try {
+      if (b.hm) { const h = dec(b.hm); if (h.length === hb) M.HEAPU8.set(h, p); }
+      if (b.pm) { const m = dec(b.pm); if (m.length === mb) M.HEAPU8.set(m, p + hb); }
+    } catch { /* damaged: flat */ }
+    M._studio_block_patch(p, p + hb, n);
+    M._free(p);
+  }
+
   _spawnBase(o) {
     const M = this.M;
     if (o.block) {
       const b = o.block;
+      if ((b.shape | 0) === 9 && (b.hm || b.pm) && M._studio_block_patch) this._blockPatch(b);
       return M._studio_spawn_block(b.shape | 0, b.sx, b.sy, b.sz, b.steps | 0, b.top | 0, b.side ?? b.top ?? 0,
         b.surface | 0, b.flags | 0, b.color ?? 0xffffff, o.x, o.y, o.z, o.yaw | 0, o.pitch | 0, o.roll | 0, o.uid);
     }
@@ -380,6 +397,8 @@ export class Engine {
     this.M._studio_sfx_override_clear();
     for (const o of list) this.M._studio_sfx_override(o.bits >>> 0, o.id | 0);
   }
+  // Beta sounds: Mario's voice with the game's unused clips (audio.c studio_voice_beta).
+  setBetaSounds(on) { this.M?._studio_voice_beta?.(on ? 1 : 0); }
 
   // ---- world ----------------------------------------------------------------
 

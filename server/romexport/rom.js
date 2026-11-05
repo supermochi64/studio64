@@ -17,6 +17,7 @@ import { writeCalls } from './calls.js';
 import { buildStory } from './story.js';
 import { getEntry, catalog } from '../catalog.js';
 import { encodeSong, replacements } from '../../web/js/music.js';
+import { MARIO_PARTS, lightTable } from '../../web/js/mario_look.js';
 import { OVERLAYS } from './overlays.js';
 import { designBook, encode } from './vadpcm.js';
 
@@ -714,7 +715,9 @@ export function buildRom(kit, project, dumps, { title, calls = new Map(), object
     }
   }
   info.writeUInt16BE(named, 8);
-  info.writeUInt16BE(hub || start ? 1 : 0, 10); // no castle intro when the hack starts in its own level
+  // flags: no castle intro when the hack starts in its own level; Mario's beta voice
+  info.writeUInt16BE((hub || start ? 1 : 0) | (project.audio?.beta ? 2 : 0), 10);
+  marioLook(project.assets?.mario).copy(info, 0xE00);
   const mask = [0, 0];
   for (const lv of plan.levels) if (!lv.vanilla) mask[lv.levelNum >> 5] |= 1 << (lv.levelNum & 31);
   info.writeUInt32BE(mask[0] >>> 0, 12);
@@ -745,11 +748,35 @@ export function buildRom(kit, project, dumps, { title, calls = new Map(), object
 }
 
 const align = (v, a) => Math.ceil(v / a) * a;
+
+// Mario's look in the info block (0xE00, s64_hack.h): which parts have their own look, the light's
+// direction, then per part (MARIO_PARTS order) r, g, b, has-colour, amb, dif (s64_mario.c applies them
+// with the web build's own mario_look.c). Nothing set: all zero, his model stays the game's.
+export function marioLook(mario) {
+  const out = Buffer.alloc(0x40);
+  const colors = mario?.colors || {};
+  const t = lightTable(mario?.light);
+  let mask = 0;
+  MARIO_PARTS.forEach(([k], i) => {
+    const c = /^#?([0-9a-f]{6})$/i.exec(String(colors[k] || ''));
+    const { amb, dif } = t.parts[i];
+    if (!c && amb === 128 && dif === 256) return;
+    mask |= 1 << i;
+    const o = 8 + i * 8;
+    if (c) { out.writeUIntBE(parseInt(c[1], 16), o, 3); out.writeUInt8(1, o + 3); }
+    out.writeInt16BE(amb, o + 4);
+    out.writeInt16BE(dif, o + 6);
+  });
+  if (t.dir) { mask |= 0x80000000; t.dir.forEach((v, k) => out.writeInt8(v, 4 + k)); }
+  out.writeUInt32BE(mask >>> 0, 0);
+  return out;
+}
 // replaced sounds: how many a ROM holds (the instruments of its sound bank) and their sample rate
 const MAX_SFX = 16, SFX_RATE = 16000;
 
 // The sequence that plays a replaced sound once: its instrument (program) of the sounds' bank,
-// middle C (the sample at its own speed), as long as the sound (48 ticks a beat, 120 beats a minute)
+// middle C (the sample at its own speed), as long as the sound (48 ticks a beat, 120 beats a minute;
+// gate 0: held to its end, not released early)
 function sfxSequence(program, seconds) {
   const ticks = Math.min(0x7FFF, Math.ceil(seconds * 96) + 2);
   const len = (n) => (n < 0x80 ? [n] : [0x80 | (n >> 8), n & 0xFF]);
@@ -759,7 +786,7 @@ function sfxSequence(program, seconds) {
   seq.push(0xC4, 0xC1, program, 0xDF, 127, 0xDD, 64, 0xD4, 0, 0x90, 0, 0, 0xFD, ...len(ticks), 0xFF);
   const layer = seq.length;
   seq[ch + 10] = layer >> 8; seq[ch + 11] = layer & 0xFF;
-  seq.push(39, ...len(ticks), 127, 215, 0xFF);
+  seq.push(39, ...len(ticks), 127, 0, 0xFF);
   return Buffer.from(seq);
 }
 const SONG_SLOT = 0x1A;

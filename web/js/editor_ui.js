@@ -1,8 +1,8 @@
 // Library (blocks, objects, structures) and inspector panels for build mode.
-import { SHAPE_NAMES, MATERIALS, PRESETS, GENERATORS, SURFACES, SURFACE_LABELS, blockDefaults, yawToDeg, degToYaw } from './generators.js';
-import { SKIES, Terrain, terrainFromImage } from './terrain.js';
+import { SHAPE_NAMES, MATERIALS, PRESETS, GENERATORS, SURFACES, SURFACE_LABELS, STAIR_SHAPES, TERRAIN_SHAPE, blockDefaults, yawToDeg, degToYaw } from './generators.js';
+import { SKIES, Terrain, terrainFromImage, resamplePatch, PATCH_MAX } from './terrain.js';
 import { GAME_SONGS } from './music.js';
-import { loadPictures, objectPicture, objectPictureIds } from './pictures.js';
+import { loadPictures, objectPicture, objectPictureIds, blockPicture } from './pictures.js';
 
 const $ = (s) => document.querySelector(s);
 const el = (tag, cls, html) => { const e = document.createElement(tag); if (cls) e.className = cls; if (html !== undefined) e.innerHTML = html; return e; };
@@ -17,7 +17,16 @@ const SHAPE_ICONS = {
   ramp: '<path d="M3 19h18V7z"/>',
   stairs: '<path d="M3 21h6v-5h5v-5h5V6h3"/><path d="M3 21h18V6"/>',
   pillar: '<ellipse cx="12" cy="5" rx="6" ry="2.5"/><path d="M6 5v14c0 1.4 2.7 2.5 6 2.5s6-1.1 6-2.5V5"/>',
+  ramp_inner: '<path d="M3 8l9 3 9-3v9l-9 4-9-4z"/><path d="M3 8l9 13 9-13"/>',
+  ramp_outer: '<path d="M3 17l9 4 9-4-6-12z"/><path d="M12 21l3-16"/>',
+  stairs_inner: '<path d="M3 7l9 3 9-3v10l-9 4-9-4z"/><path d="M3 11l6 2 3-1 3 1 6-2M3 14.5l5 1.7 4-1.4 4 1.4 5-1.7"/>',
+  stairs_outer: '<path d="M3 17l9 4 9-4"/><path d="M3 17v-3l9 4 9-4v3M6 13.5v-3l6 2.6 6-2.6v3M9 10V7l3 1.3L15 7v3"/>',
+  sphere: '<circle cx="12" cy="12" r="8.5"/><ellipse cx="12" cy="12" rx="8.5" ry="3.2"/><path d="M12 3.5c-3.4 3-3.4 14 0 17"/>',
+  terrain: '<path d="M2 15c2.5-4 5-6 8-3.5S15 7 17.5 8 21 12 22 15v4l-10 2-10-2z"/><path d="M2 15l10 2 10-2"/>',
 };
+// the shape buttons of the inspector, in the engine's order (generators.js SHAPES)
+const SHAPE_ICON_ORDER = ['box', 'ramp', 'stairs', 'pillar', 'ramp_inner', 'ramp_outer', 'stairs_inner', 'stairs_outer', 'sphere', 'terrain'];
+const PRESET_SHORT = { ramp_inner: 'Inner ramp', ramp_outer: 'Outer ramp', stairs_inner: 'Inner stairs', stairs_outer: 'Outer stairs', terrain: 'Terrain' };
 const GEN_ICONS = {
   stairs: SHAPE_ICONS.stairs,
   spiral: '<path d="M12 21V3"/><path d="M12 6c4 0 6 1 6 2s-2 2-6 2-6 1-6 2 2 2 6 2 6 1 6 2-2 2-6 2"/>',
@@ -125,7 +134,8 @@ export class EditorUI {
     pane.appendChild(el('div', 'lib-label', 'Shapes'));
     const grid = el('div', 'preset-grid');
     for (const p of PRESETS) {
-      const b = el('button', 'preset', `<svg viewBox="0 0 24 24">${SHAPE_ICONS[p.id]}</svg><span>${esc(p.label)}</span>`);
+      const b = el('button', 'preset', `${this.presetPicture(p)}<span>${esc(PRESET_SHORT[p.id] || p.label)}</span>`);
+      b.dataset.preset = p.id;
       b.title = `${p.label}: ${p.block.sx}×${p.block.sy}×${p.block.sz}`;
       b.onclick = () => {
         const block = { ...p.block, top: this.blockMat.top, side: this.blockMat.side, surface: this.blockSurface, color: this.blockColor };
@@ -135,6 +145,11 @@ export class EditorUI {
       grid.appendChild(b);
     }
     pane.appendChild(grid);
+    loadPictures().then(() => this.refreshPresetPictures());
+    if (!this.presetPicturesHooked) {
+      this.presetPicturesHooked = true;
+      window.addEventListener('studio:pictures', () => this.refreshPresetPictures());
+    }
 
     pane.appendChild(el('div', 'lib-label', 'Material <span class="lib-sub">for new blocks</span>'));
     const mats = el('div', 'mat-grid');
@@ -163,6 +178,23 @@ export class EditorUI {
     row.querySelector('#lib-color').oninput = (e) => { this.blockColor = e.target.value; this.refreshPlacingBlock(); };
 
     pane.appendChild(el('div', 'lib-tip', 'Pick a shape, then click in the level. Clicking a wall attaches the block to it. <kbd>R</kbd> or Shift+wheel turns it, right-click stops placing.'));
+  }
+
+  // A block preset's picture: its rendered one (web/thumbs/blocks, made by the setup with
+  // tools/make_thumbs.mjs --blocks), else its icon.
+  presetPicture(p) {
+    const pic = blockPicture(p.id);
+    return pic ? `<img class="preset-thumb" alt="" src="${pic}">` : `<svg viewBox="0 0 24 24">${SHAPE_ICONS[p.id]}</svg>`;
+  }
+
+  // The pictures arrived (or more of them): swap them in for the icons.
+  refreshPresetPictures() {
+    document.querySelectorAll('#lib-blocks .preset[data-preset]').forEach((b) => {
+      const p = PRESETS.find((x) => x.id === b.dataset.preset);
+      const old = b.querySelector('svg, img.preset-thumb');
+      if (!p || !old || (old.tagName === 'IMG') === !!blockPicture(p.id)) return;
+      old.outerHTML = this.presetPicture(p);
+    });
   }
 
   refreshPlacingBlock() {
@@ -341,7 +373,7 @@ export class EditorUI {
     });
     paint.appendChild(mats);
     pane.appendChild(paint);
-    pane.appendChild(el('div', 'lib-tip', 'Hold the left mouse button to sculpt. <kbd>Shift</kbd> lowers, <kbd>Ctrl</kbd> smooths, <kbd>[</kbd> <kbd>]</kbd> or <kbd>Alt</kbd>+wheel change the size. In original levels the brush reshapes the level\'s real ground.'));
+    pane.appendChild(el('div', 'lib-tip', 'Hold the left mouse button to sculpt. <kbd>Shift</kbd> lowers, <kbd>Ctrl</kbd> smooths, <kbd>[</kbd> <kbd>]</kbd> or <kbd>Alt</kbd>+wheel change the size. In original levels the brush reshapes the level\'s real ground. Over a <b>terrain patch</b> (Blocks → Terrain) the brushes shape that patch, anywhere and at any height.'));
     pane.appendChild(el('div', 'terrain-actions', ''));
     pane.appendChild(el('div', 'level-settings', ''));
     this.renderBrush();
@@ -483,14 +515,17 @@ export class EditorUI {
     html += `<div class="insp-sec"><div class="insp-label">Rotation</div><div class="rot-row">
       <input type="range" min="0" max="359" step="1" data-f="yawr" value="${yawToDeg(pose.yaw)}">
       <input type="number" data-f="yaw" value="${yawToDeg(pose.yaw)}" step="15" class="w64"><span class="unit">°</span></div>
-      ${block || rec?.asset ? `<div class="xyz two"><label><i class="ax">Tilt</i><input type="number" data-f="pitch" value="${yawToDeg(pose.pitch)}" step="5"></label>
-      <label><i class="ax">Roll</i><input type="number" data-f="roll" value="${yawToDeg(pose.roll)}" step="5"></label></div>` : ''}</div>`;
+      <div class="xyz two"><label title="Around X"><i class="ax x">Tilt</i><input type="number" data-f="pitch" value="${yawToDeg(pose.pitch)}" step="5"></label>
+      <label title="Around Z"><i class="ax z">Roll</i><input type="number" data-f="roll" value="${yawToDeg(pose.roll)}" step="5"></label></div></div>`;
     if (block) {
-      html += `<div class="insp-sec"><div class="insp-label">Shape</div><div class="seg wide">${SHAPE_NAMES.map((n, i) => `<button class="seg-btn${block.shape === i ? ' active' : ''}" data-shape="${i}">${n}</button>`).join('')}</div>
+      html += `<div class="insp-sec"><div class="insp-label">Shape <span class="insp-sub">${esc(SHAPE_NAMES[block.shape] || '')}</span></div><div class="seg wide shape-seg">${SHAPE_NAMES.map((n, i) => `<button class="seg-btn${block.shape === i ? ' active' : ''}" data-shape="${i}" title="${esc(n)}" aria-label="${esc(n)}"><svg viewBox="0 0 24 24">${SHAPE_ICONS[SHAPE_ICON_ORDER[i]]}</svg></button>`).join('')}</div>
         <div class="xyz"><label><i class="ax">W</i><input type="number" data-b="sx" value="${block.sx}" step="25"></label>
         <label><i class="ax">H</i><input type="number" data-b="sy" value="${block.sy}" step="25"></label>
         <label><i class="ax">D</i><input type="number" data-b="sz" value="${block.sz}" step="25"></label></div>
-        ${block.shape === 2 ? `<div class="xyz two"><label><i class="ax">Steps</i><input type="number" data-b="steps" value="${block.steps}" min="1" max="24"></label></div>` : ''}</div>`;
+        ${STAIR_SHAPES.has(block.shape) ? `<div class="xyz two"><label><i class="ax">Steps</i><input type="number" data-b="steps" value="${block.steps}" min="1" max="24"></label></div>` : ''}
+        ${block.shape === TERRAIN_SHAPE ? `<div class="xyz two"><label title="Cells along each side: more is finer to sculpt"><i class="ax">Grid</i><input type="number" data-b="steps" value="${block.steps}" min="2" max="${PATCH_MAX}"></label></div>
+          <div class="insp-row"><button class="btn sm" data-act="sculpt" title="Raise, lower, smooth, flatten and paint it with the terrain brushes">Sculpt it</button>
+          <button class="btn sm" data-act="flatpatch" title="Back to a flat top">Make flat</button></div>` : ''}</div>`;
       html += `<div class="insp-sec"><div class="insp-label">Material</div><div class="mat-pair">
         <button class="mat big" data-matpick="top" title="Top"><img alt="" src="${this.swatch(block.top)}"><span>Top</span></button>
         <button class="mat big" data-matpick="side" title="Sides"><img alt="" src="${this.swatch(block.side, true)}"><span>Sides</span></button>
@@ -552,7 +587,7 @@ export class EditorUI {
         else if (f === 'pitch') pose.pitch = degToYaw(v);
         else if (f === 'roll') pose.roll = degToYaw(v);
         else if (f === 'scale' || f === 'scaler') pose.scale = Math.max(0.05, Math.min(20, v));
-        if (final) { committed = inp.value; commitPose(f.startsWith('yaw') ? 'Rotated' : f.startsWith('scale') ? 'Scaled' : 'Moved'); }
+        if (final) { committed = inp.value; commitPose(f.startsWith('yaw') || f === 'pitch' || f === 'roll' ? 'Rotated' : f.startsWith('scale') ? 'Scaled' : 'Moved'); }
         else ed.applyPose(pose);
         if (f === 'yawr') box.querySelector('[data-f=yaw]').value = v;
         if (f === 'scaler') box.querySelector('[data-f=scale]').value = v;
@@ -571,7 +606,14 @@ export class EditorUI {
         if (k === 'color') v = parseInt(v.slice(1), 16);
         else if (k === 'surface') v = SURFACES[v] ?? 0;
         else if (v.trim() === '' || !Number.isFinite(Number(v))) { this.renderInspector(ed.sel); return; } // empty / half-typed: keep the size
-        else v = Math.round(Math.max(k === 'steps' ? 1 : 10, Math.min(k === 'steps' ? 24 : 8000, Number(v))));
+        else if (k === 'steps' && pose.block?.shape === TERRAIN_SHAPE) {
+          // a terrain patch's grid: the same shape on more or fewer cells
+          const f = resamplePatch(pose.block, Math.round(Number(v)));
+          const block = { ...pose.block, ...f };
+          for (const key of ['hm', 'pm']) if (!f[key]) delete block[key];
+          ed.updateSelected({ block }, `Changed ${sel.name} grid`);
+          return;
+        } else v = Math.round(Math.max(k === 'steps' ? 1 : 10, Math.min(k === 'steps' ? 24 : 8000, Number(v))));
         ed.updateSelected({ block: { [k]: v } }, `Changed ${sel.name}`);
       });
       inp.addEventListener('keydown', (e) => { if (e.key === 'Enter') inp.blur(); e.stopPropagation(); });
@@ -618,6 +660,16 @@ export class EditorUI {
           const top = pose.block ? pose.p[1] + pose.block.sy : pose.p[1];
           this.engine.teleport(pose.p[0], top + 200, pose.p[2], 0);
         } else if (act === 'ask') this.chat(`The selected ${sel.name}: `);
+        else if (act === 'sculpt') {
+          // the terrain brushes; they sculpt whichever patch (or ground) they are held over
+          document.querySelector('.lib-tab[data-lib=terrain]')?.click();
+          ed.startSculpt(ed.brush.mode || 'raise');
+          this.renderBrush();
+        } else if (act === 'flatpatch') {
+          const block = { ...pose.block };
+          delete block.hm;
+          ed.updateSelected({ block }, `Flattened ${sel.name}`);
+        }
       };
     });
   }

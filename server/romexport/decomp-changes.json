@@ -958,7 +958,7 @@
   },
   "src/game/mario.c": {
    "orig": "a16936e42951b0ecf232fbbdb50d9f596bb8f59d13cf5269e5ba9537bca9b26e",
-   "sha256": "0426265f1d2730d22b017ea20ddbbc12332b66f6ca495fa177a3e209495ea113",
+   "sha256": "eb8734542f3b431bf136fd7376845c7415255f1a80792c337c2ea3f4a975cdaf",
    "hunks": [
     [
      17,
@@ -1019,6 +1019,9 @@
       "            }",
       "            if (ACT_KT_IS(gMarioState->action)) { // Studio 64: Katana Mario's moves",
       "                inLoop = studio_katana_action(gMarioState);",
+      "                continue;",
+      "            }",
+      "            if (studio_moves_step(gMarioState, &inLoop)) { // Studio 64 rules: the new moves",
       "                continue;",
       "            }"
      ]

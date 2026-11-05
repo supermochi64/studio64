@@ -12,14 +12,13 @@ import { registerRpc } from './studio.js';
 import { MATERIALS } from './generators.js';
 import { decodeN64, encodeRGBA16, rasterize, quantize, toPNGBlob, blobToRGBA, recolor, pattern, parseColor, hex, toCanvas } from './texcodec.js';
 import { decodePackage, uploadPackage, defaultMaterialMeta } from './asset_mesh.js';
+import { MARIO_PARTS, MARIO_LIGHT_PRESETS, cleanLight, lightTable } from './mario_look.js';
 
 export const ANIMS = { none: 0, spin: 1, bob: 2, spin_bob: 3, sway: 4, pulse: 5 };
 export const ANIM_NAMES = { none: 'Still', spin: 'Spin', bob: 'Float up & down', spin_bob: 'Spin & float', sway: 'Sway', pulse: 'Pulse' };
 
-// Mario's parts, in the engine's order (ASSET_MARIO_* in studio_assets.h).
-export const MARIO_PARTS = [
-  ['overalls', 'Overalls'], ['shirt', 'Shirt & arms'], ['gloves', 'Gloves'], ['shoes', 'Shoes'], ['skin', 'Skin'], ['hair', 'Hair'], ['cap', 'Cap'],
-];
+// Mario's parts (in the engine's order) and his lighting: mario_look.js.
+export { MARIO_PARTS };
 export const MARIO_PRESETS = {
   mario: { name: 'Mario', colors: {} },
   luigi: { name: 'Luigi', colors: { cap: '#00a038', shirt: '#00a038', overalls: '#1b2fbf' } },
@@ -786,20 +785,32 @@ export class Assets {
     return Object.fromEntries(MARIO_PARTS.map(([k], i) => [k, hex(((v) => [(v >> 16) & 255, (v >> 8) & 255, v & 255])(M._studio_mario_default_color(i)))]));
   }
 
-  applyMario(colors = this.meta.mario?.colors || {}) {
+  // Mario's colours and his lighting (how harsh his shading is, where the light comes from).
+  applyMario(colors = this.meta.mario?.colors || {}, light = this.meta.mario?.light) {
     const M = this.M;
     if (!M?._studio_mario_color) return;
+    const t = lightTable(light);
     MARIO_PARTS.forEach(([k], i) => {
       const c = colors[k];
-      M._studio_mario_color(i, c ? parseInt(String(c).replace('#', ''), 16) : -1, 128);
+      M._studio_mario_color(i, c ? parseInt(String(c).replace('#', ''), 16) : -1, M._studio_mario_light ? 0 : 128);
+      M._studio_mario_light?.(i, t.parts[i].amb, t.parts[i].dif);
     });
+    const d = t.dir || [0x28, 0x28, 0x28];
+    M._studio_mario_light_dir?.(d[0], d[1], d[2]);
   }
 
   async setMario(colors, preset = null) {
     const clean = {};
     for (const [k] of MARIO_PARTS) if (colors[k]) clean[k] = hex(parseColor(colors[k]));
     this.applyMario(clean);
-    await this.save('mario', { colors: clean, preset });
+    await this.save('mario', { ...this.meta.mario, colors: clean, preset });
+  }
+
+  // light: { skin, clothes, hands: harshness 0-100 (50 the game's), dir: degrees }, or a preset's name
+  async setMarioLight(light) {
+    const clean = cleanLight(typeof light === 'string' ? MARIO_LIGHT_PRESETS[light]?.light : light);
+    this.applyMario(this.meta.mario?.colors || {}, clean);
+    await this.save('mario', { colors: {}, ...this.meta.mario, light: clean });
   }
 }
 
@@ -898,6 +909,14 @@ function registerAssetRpcs(A) {
   registerRpc('sky_clear', async function ({ area = 'here' } = {}) {
     await A.clearSky(area === 'all' ? '*' : A.key());
     return { ok: true };
+  });
+
+  registerRpc('mario_lighting', async function ({ preset, skin, clothes, hands, direction } = {}) {
+    if (preset && !MARIO_LIGHT_PRESETS[preset]) throw new Error(`unknown preset "${preset}" (${Object.keys(MARIO_LIGHT_PRESETS).join(', ')})`);
+    const base = preset ? MARIO_LIGHT_PRESETS[preset].light : cleanLight(A.meta.mario?.light);
+    const next = cleanLight({ ...base, ...(skin != null && { skin }), ...(clothes != null && { clothes }), ...(hands != null && { hands }), ...(direction != null && { dir: direction }) });
+    await A.setMarioLight(next);
+    return { lighting: next };
   });
 
   registerRpc('mario_colors', async function ({ preset, colors = {} } = {}) {

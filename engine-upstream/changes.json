@@ -591,7 +591,7 @@
    ]
   },
   "src/engine/surface_load.c": {
-   "sha256": "a527cc8d1cd4b3ee7b40efa41cbd7009560851091abde8d77652d0d68896b17e",
+   "sha256": "992eb995221352ee5d726919af6f34937ecd15803c9d35160410c03f4cdc7600",
    "hunks": [
     [
      23,
@@ -726,6 +726,32 @@
      ]
     ],
     [
+     755,
+     0,
+     [
+      "// Studio 64: object collision models of up to this many vertices (the game's own buffer held 200,",
+      "// on the stack; Studio 64's blocks, spheres and terrain patches have more). Bigger ones are skipped.",
+      "#define STUDIO_OBJECT_COL_VERTS 4096",
+      "static s16 sObjectVertexData[3 * STUDIO_OBJECT_COL_VERTS];",
+      ""
+     ]
+    ],
+    [
+     757,
+     1,
+     [
+      "    s16 *vertexData = sObjectVertexData;"
+     ]
+    ],
+    [
+     777,
+     1,
+     [
+      "        && !(gCurrentObject->activeFlags & ACTIVE_FLAG_IN_DIFFERENT_ROOM)",
+      "        && collisionData[1] <= STUDIO_OBJECT_COL_VERTS) {"
+     ]
+    ],
+    [
      796,
      0,
      [
@@ -735,11 +761,11 @@
       " * Studio 64 build mode: load an object's collision regardless of distance or time stop.",
       " */",
       "void studio_load_object_collision(struct Object *obj) {",
-      "    s16 vertexData[600];",
+      "    s16 *vertexData = sObjectVertexData;",
       "    s16 *collisionData = obj->collisionData;",
       "    struct Object *saved = gCurrentObject;",
       "",
-      "    if (collisionData == NULL) {",
+      "    if (collisionData == NULL || collisionData[1] > STUDIO_OBJECT_COL_VERTS) {",
       "        return;",
       "    }",
       "    gCurrentObject = obj;",
@@ -1753,7 +1779,7 @@
    ]
   },
   "src/game/mario.c": {
-   "sha256": "03a5e34b37ad899e2c0a971f370e37efdf2ff5d9f36afd1adc1c5ab6fa94e22e",
+   "sha256": "b7cf0659d881bb13556303b7357020cfd5cfca58b8164afb2978d1d9e459ded7",
    "hunks": [
     [
      40,
@@ -1851,6 +1877,9 @@
       "            }",
       "            if (ACT_KT_IS(gMarioState->action)) { // Studio 64: Katana Mario's moves (studio/katana.c)",
       "                inLoop = studio_katana_action(gMarioState);",
+      "                continue;",
+      "            }",
+      "            if (studio_moves_step(gMarioState, &inLoop)) { // Studio 64 rules: the new moves (studio/moves.c)",
       "                continue;",
       "            }"
      ]

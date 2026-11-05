@@ -67,15 +67,20 @@ Studio 64's own features work in the ROM too:
 - **Keys and locks**: keys to pick up, doors that need a key, a number of stars, or the story.
 - **Saving**: what the story has done, the keys Mario holds and the doors he opened are kept in
   the save file with the stars. Like in Studio 64, the game saves by itself when they change.
+- **Blocks of every shape** (boxes, ramps, stairs and their corners, pillars, spheres, sculpted
+  terrain patches) as part of the level, drawn and solid as in Studio 64.
 - **Custom objects and enemies** built from behavior blocks, and moving blocks and models.
 - **Roads, fences and plants** from Roads & Nature, solid where they are in Studio 64. The game's
   own trees stay real trees that Mario can climb.
 - **Sculpted ground in the original levels.** The parts you changed are rebuilt from the level's
   own textures and drawing commands, so the patch carries your shapes and none of Nintendo's
   pictures. The collision follows the new shape.
-- **Game rules**: jump heights, gravity, speeds, switched-off moves, the HUD.
+- **Game rules**: jump heights, gravity, speeds, switched-off moves, the new moves (wall slide,
+  spin jump, ground pound jump...), the HUD.
 - **Your songs** from the sound studio, for an area or played by the story, and **game sounds you
   replaced** with your own (up to 16; the ROM plays them as N64 samples, 16 kHz, at most 3 seconds).
+- **Mario's colours and lighting** (Assets → Mario), and **beta sounds** (Mario's unused voice
+  clips, sound studio → Sound effects).
 - **Cars and races** (with their HUD), **Shotgun Mario**, **Katana Mario**, and **Tokyo** with its
   city life: traffic, the train, pedestrians, oni.
 
@@ -117,6 +122,11 @@ motion and custom-object code the browser runs (`engine/src/studio`), plus what 
 features (Shotgun, Katana, cars, Tokyo) are modules: compiled once into the
 base ROM with what they need to move in memory, loaded by a level that uses them
 (`server/romexport/overlays.js`).
+
+The info block (`s64_hack.h`, written by `rom.js`) also carries Mario's look (0xE00: which parts
+have their own, the light's direction, per part colour, amb and dif; `s64_mario.c` applies it with
+the engine's own `mario_look.c` once Mario is in a level) and the beta-sounds flag (`flags` bit 1:
+`audio.c studio_voice_beta`).
 
 Every export then only adds data after it: each level becomes one block with its level script,
 geo layout, display lists, textures, collision, its objects' set-up and the story. Edits to an

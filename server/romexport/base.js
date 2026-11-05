@@ -31,7 +31,7 @@ export function changedFile(rel, pristine) {
 
 // The hack's own settings, which an export writes into the ROM (rom.js, writeInfo): read at boot.
 export const INFO_ROM = 0x01000000;
-export const INFO_SIZE = 0xE00;
+export const INFO_SIZE = 0xE40;
 
 // The ROM's own code: n64/ (what only the ROM needs) and the engine's Studio 64 modules (the same
 // code the web build runs), into src/s64/. The engine modules build against n64/n64compat.h.
@@ -40,7 +40,7 @@ const ENGINE = path.resolve(HERE, '..', '..', 'engine', 'src', 'studio');
 // what the engine's older decomp called otherwise (renames.json)
 export const RENAMES = JSON.parse(fs.readFileSync(path.join(HERE, 'renames.json'), 'utf8'));
 const INSTRUMENT_NAMES = JSON.parse(fs.readFileSync(path.join(HERE, 'instrument_names.json'), 'utf8'));
-export const ENGINE_MODULES = ['studio.h', 'studio_assets.h', 'objects.h', 'flow.c', 'motion.c', 'actor.c', 'rules.c', 'story.c', 'audio.c'];
+export const ENGINE_MODULES = ['studio.h', 'studio_assets.h', 'objects.h', 'flow.c', 'motion.c', 'actor.c', 'rules.c', 'moves.c', 'story.c', 'audio.c', 'mario_look.c'];
 // On the N64 an object's behavior is a RAM address and the behavior symbols are segment 0x13
 // addresses (the PC port has one kind of address): comparisons go through segmented_to_virtual.
 // What the engine tells the page (EM_ASM: Module.studioX(...)) is a C call here (s64_page_studioX,

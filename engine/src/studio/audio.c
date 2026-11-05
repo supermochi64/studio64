@@ -197,6 +197,7 @@ void studio_sfx_play(u32 bits) {
 static u32 sSfxKey[MAX_SFX_OVERRIDES];
 static s32 sSfxId[MAX_SFX_OVERRIDES];
 static s32 sSfxCount;
+static s32 sSfxCanon; // the keys are canonical (studio_sfx_canon) once the sound player runs
 
 EMSCRIPTEN_KEEPALIVE
 void studio_sfx_override_clear(void) {
@@ -209,7 +210,134 @@ void studio_sfx_override(u32 bits, s32 id) {
         sSfxKey[sSfxCount] = SFX_KEY(bits);
         sSfxId[sSfxCount] = id;
         sSfxCount++;
+        sSfxCanon = FALSE;
     }
+}
+
+// A sound's key (bank | id) as one sound: the first id of its bank that plays the same sound script.
+// The game asks for some sounds under several ids (Mario's jump voice is one of three random ids, his
+// triple jump "Yahoo!" three of five, the long jump's "Yahoo!" is the same clip), so replacing one
+// replaces it wherever it plays. (Each bank is a channel of the sound player, its sounds a table.)
+u32 studio_sfx_canon(u32 bits) {
+    u32 bank = (bits & SOUNDARGS_MASK_BANK) >> SOUNDARGS_SHIFT_BANK;
+    u32 id = (bits & SOUNDARGS_MASK_SOUNDID) >> SOUNDARGS_SHIFT_SOUNDID, j;
+    struct SequencePlayer *p = &gSequencePlayers[SEQ_PLAYER_SFX];
+    struct SequenceChannel *c = bank < CHANNELS_MAX ? p->channels[bank] : NULL;
+    if (p->enabled && p->seqData != NULL && c != NULL && IS_SEQUENCE_CHANNEL_VALID(c) && c->dynTable != NULL) {
+        u8 (*t)[2] = *c->dynTable;
+        for (j = 0; j < id; j++) {
+            if (t[j][0] == t[id][0] && t[j][1] == t[id][1]) {
+                id = j;
+                break;
+            }
+        }
+    }
+    return (bank << SOUNDARGS_SHIFT_BANK) | (id << SOUNDARGS_SHIFT_SOUNDID);
+}
+
+// The sound player has all its banks' tables (it runs from the game's start on).
+static s32 sfx_tables_ready(void) {
+    struct SequencePlayer *p = &gSequencePlayers[SEQ_PLAYER_SFX];
+    s32 i;
+    if (!p->enabled || p->seqData == NULL) return FALSE;
+    for (i = 0; i < 10; i++) {
+        if (!IS_SEQUENCE_CHANNEL_VALID(p->channels[i]) || p->channels[i]->dynTable == NULL) return FALSE;
+    }
+    return TRUE;
+}
+
+// For tests and the page: the canonical key of a sound (0 before the sound player runs).
+EMSCRIPTEN_KEEPALIVE
+u32 studio_sfx_key(u32 bits) {
+    return sfx_tables_ready() ? studio_sfx_canon(bits) : 0;
+}
+
+// ---------------------------------------------------------------------------
+// Beta sounds: Mario's voice with the clips of the game that it never plays (the same code runs
+// in the exported ROM: s64_sfx.c). The voice bank (sfx_mario) holds three jump voices side by
+// side, "hoo" (0), "wah" (1) and a "yah" (2) that no sound of the game uses: the game's own "yah"
+// borrows the punch's from the other voice bank. With beta sounds on, the jump "yah" plays the
+// unused one (its sound script in the sound player's sequence gets that bank and instrument),
+// and the triple jump says yah/wah/hoo as in the 1996 Japanese original ("Waha!" and "Yippee!"
+// came with the US release).
+
+#define VOICE_BANK 2 // SOUND_BANK_VOICE: the sound player's channel 2
+
+static s32 sVoiceBeta;
+static u8 *sVoicePatched; // the jump "yah" script we patched (the sequence can be loaded again: then it is the game's)
+
+// The sound player's script of voice sound `id` (its dynamic table, as the channel has it), or NULL.
+static u8 *voice_script(s32 id) {
+    struct SequencePlayer *p = &gSequencePlayers[SEQ_PLAYER_SFX];
+    struct SequenceChannel *c = p->channels[VOICE_BANK];
+    u32 off;
+    if (!p->enabled || p->seqData == NULL || !IS_SEQUENCE_CHANNEL_VALID(c) || c->dynTable == NULL) return NULL;
+    off = ((*c->dynTable)[id][0] << 8) | (*c->dynTable)[id][1];
+    return p->seqData + off;
+}
+
+// chan_setbank 10, chan_setinstr 9 (the punch's "yah") <-> chan_setbank 8, chan_setinstr 2 (the unused "yah")
+static void voice_patch(s32 on) {
+    u8 *s = voice_script(0);
+    if (s == NULL) return;
+    if (on && s[0] == 0xC6 && s[1] == 10 && s[2] == 0xC1 && s[3] == 9) {
+        s[1] = 8;
+        s[3] = 2;
+        sVoicePatched = s;
+    } else if (!on && s == sVoicePatched && s[0] == 0xC6 && s[1] == 8 && s[2] == 0xC1 && s[3] == 2) {
+        s[1] = 10;
+        s[3] = 9;
+        sVoicePatched = NULL;
+    }
+}
+
+EMSCRIPTEN_KEEPALIVE
+void studio_voice_beta(s32 on) {
+    sVoiceBeta = on;
+    voice_patch(on);
+}
+
+// play_sound: TRUE when a beta voice played instead of the sound (the sound player's script is
+// patched just before its sound starts: the sequence is loaded by then).
+s32 studio_voice_hook(s32 bits, f32 *pos) {
+    s32 id = ((u32) bits & SOUNDARGS_MASK_SOUNDID) >> SOUNDARGS_SHIFT_SOUNDID;
+    if (((u32) bits & SOUNDARGS_MASK_BANK) >> SOUNDARGS_SHIFT_BANK != VOICE_BANK) return FALSE;
+    voice_patch(sVoiceBeta);
+    if (sVoiceBeta && id >= 0x2B && id <= 0x2F) { // the triple jump's yahoo / waha / yippee
+        play_sound((bits & ~SOUNDARGS_MASK_SOUNDID) | (((id - 0x2B) % 3) << SOUNDARGS_SHIFT_SOUNDID), pos);
+        return TRUE;
+    }
+    return FALSE;
+}
+
+// For tests: the voice script's first bytes (setbank, bank, setinstr, instrument) of sound `id`, or -1.
+EMSCRIPTEN_KEEPALIVE
+s32 studio_voice_script(s32 id) {
+    u8 *s = id >= 0 && id < 0x40 ? voice_script(id) : NULL;
+    return s == NULL ? -1 : (s32) (((u32) s[0] << 24) | (s[1] << 16) | (s[2] << 8) | s[3]);
+}
+
+// For tests: the sounds the game asked for and did play (after the page's and the beta's), newest first.
+static u32 sSfxRecent[16];
+static s32 sSfxRecentAt;
+
+EMSCRIPTEN_KEEPALIVE
+u32 studio_sfx_recent(s32 i) {
+    return sSfxRecent[(sSfxRecentAt - 1 - i) & 15];
+}
+
+// For tests: what the sound player's channel `ch` plays now: bank << 16 | instrument (set_instrument's
+// instOrWave) << 8 | 1 while a sound plays on it (its first layer runs), else 0.
+EMSCRIPTEN_KEEPALIVE
+s32 studio_sfx_channel(s32 ch) {
+    struct SequenceChannel *c;
+    struct SequenceChannelLayer *l;
+    if (ch < 0 || ch >= CHANNELS_MAX) return 0;
+    c = gSequencePlayers[SEQ_PLAYER_SFX].channels[ch];
+    if (!IS_SEQUENCE_CHANNEL_VALID(c) || !c->enabled) return 0;
+    l = c->layers[0];
+    if (l == NULL || l == NO_LAYER || !l->enabled) return 0;
+    return (c->bankId << 16) | ((c->instOrWave & 0xFF) << 8) | 1;
 }
 
 // Called for every sound the game plays: a replaced one goes to the page instead,
@@ -218,9 +346,15 @@ s32 studio_sfx_hook(s32 bits, f32 *pos) {
     s32 i;
     u32 key;
     if (sSfxCount == 0) {
+        if (studio_voice_hook(bits, pos)) return TRUE;
+        sSfxRecent[sSfxRecentAt++ & 15] = (u32) bits;
         return FALSE;
     }
-    key = SFX_KEY((u32) bits);
+    if (!sSfxCanon && sfx_tables_ready()) {
+        for (i = 0; i < sSfxCount; i++) sSfxKey[i] = studio_sfx_canon(sSfxKey[i]);
+        sSfxCanon = TRUE;
+    }
+    key = sSfxCanon ? studio_sfx_canon((u32) bits) : SFX_KEY((u32) bits);
     for (i = 0; i < sSfxCount; i++) {
         if (sSfxKey[i] == key) {
             f32 dist = 0;
@@ -233,6 +367,8 @@ s32 studio_sfx_hook(s32 bits, f32 *pos) {
             return TRUE;
         }
     }
+    if (studio_voice_hook(bits, pos)) return TRUE;
+    sSfxRecent[sSfxRecentAt++ & 15] = (u32) bits;
     return FALSE;
 }
 
@@ -264,6 +400,22 @@ s32 studio_music_now(s32 player) {
         if (IS_SEQUENCE_CHANNEL_VALID(p->channels[i]) && p->channels[i]->enabled) channels++;
     }
     return (p->enabled ? 1 << 16 : 0) | (p->seqId << 8) | channels;
+}
+
+// For tests: a layer of the music player's channel. -> -1 when it plays nothing, else the
+// current note's length in ticks (bits 0-14), the ticks left of it (bits 15-29) and bit 30
+// set while the note still sounds (not released yet).
+EMSCRIPTEN_KEEPALIVE
+s32 studio_music_layer(s32 channel, s32 layer) {
+    struct SequencePlayer *p = &gSequencePlayers[SEQ_PLAYER_LEVEL];
+    struct SequenceChannel *c;
+    struct SequenceChannelLayer *l;
+    if (!p->enabled || channel < 0 || channel >= CHANNELS_MAX || layer < 0 || layer >= LAYERS_MAX) return -1;
+    c = p->channels[channel];
+    if (!IS_SEQUENCE_CHANNEL_VALID(c) || !c->enabled) return -1;
+    l = c->layers[layer];
+    if (l == NULL || l == NO_LAYER || !l->enabled) return -1;
+    return (l->delayUnused & 0x7fff) | ((l->delay & 0x7fff) << 15) | (l->stopSomething ? 0 : 1 << 30);
 }
 
 EMSCRIPTEN_KEEPALIVE

@@ -25,7 +25,8 @@ features. The guides describe doing things by hand. The AI assistant is optional
 | [Tokyo template](tokyo-template.md) | Shoggoth World's Tokyo as a level to start from: what comes with it, how it is made |
 | [Roads and nature](roads-and-nature.md) | Roads, walks, junctions and steps; fences, walls, lamps; the brush for trees, flowers, grass and rocks |
 | [Stars](stars.md) | Your own stars, red coin stars, the 100-coin star |
-| [Objects](objects.md) | Moving platforms and paths, custom enemies without code, the scene panel, prefabs, game rules |
+| [Objects](objects.md) | Moving platforms and paths, custom enemies without code, the scene panel, prefabs, game rules (also the new moves) |
+| [Moveset research](moveset-research.md) | The new moves other SM64 hacks and mods have, and which ones Studio 64 took |
 | [World](world.md) | Areas, doors, pipes, paintings, warp zones, the hub, fog, weather, camera |
 | [Story](story.md) | Dialogs, characters that talk, events (When → If → Then), cutscenes, game texts |
 | [ROM export](rom-export.md) | Your hack as a real N64 ROM and a .bps patch to upload anywhere: where your levels go, what comes along |

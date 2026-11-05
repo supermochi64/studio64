@@ -95,6 +95,22 @@ reshape the level's real ground: Studio 64 copies the
 level's geometry and collision into an editable mesh, splits it finely where you paint, and the
 collision follows. The strokes are saved and replayed every time the level loads.
 
+### Terrain patches
+
+A **terrain patch** (Blocks tab → **Terrain**) is a piece of ground you place like a block: in any
+level, original or your own, at any height, floating in the air or on top of a building. Place it,
+then hold a brush over it: Raise, Lower, Smooth, Flatten and Paint shape that patch instead of the
+ground below (also in original levels, which stay as they are). It moves, turns, resizes, copies
+and undoes like any block, and keeps its shape when you change its size.
+
+- It is a grid of 16 × 16 cells over its width and depth; **Grid** in the inspector makes it finer
+  or coarser (2 to 32 cells a side, the shape is kept). **Sculpt it** opens the brushes, **Make
+  flat** smooths it back.
+- Its top uses the block's top material everywhere, steep parts included (like the ground); Paint
+  gives cells a material of their own. Painted lava burns, ice is slippery.
+- Its sides hang down to its bottom with the block's side material, like a box.
+- Collision follows every stroke; the ROM export takes it along like any block.
+
 ## Level settings
 
 Under the brushes in the Terrain tab:

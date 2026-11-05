@@ -606,7 +606,7 @@ export class Studio {
       case 'build': return this.build(params);
       case 'make_level_area': return World.newLevelArea(params.template || 'meadow');
       case 'goto': return this.gotoLevel(params);
-      case 'shape': return this.world.runOps(params.ops || [], params.summary);
+      case 'shape': return params.patch ? this.world.runPatchOps(params.patch, params.ops || [], params.summary) : this.world.runOps(params.ops || [], params.summary);
       case 'level_settings': return this.levelSettings(params);
       case 'add_star': return this.addStar(params);
       case 'stars': return { level: this.levelName(this.engine.level), stars: this.world.stars() };

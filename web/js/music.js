@@ -110,10 +110,13 @@ export function songChannels(song) {
 
 // The song as .m64 bytes: a header that starts one channel per track and waits forever,
 // channels that restart their layers every loop, layers with the notes. `once` (jingles): the
-// song plays one time and ends, after a beat for the last notes to ring out.
-export function encodeSong(song, { once = false } = {}) {
+// song plays one time and ends, after a beat for the last notes to ring out. `from` (in steps):
+// the first time through starts there (the composer's playhead), notes that sound at that moment
+// included; the loops after it play the whole song.
+export function encodeSong(song, { once = false, from = 0 } = {}) {
   const stepTicks = TICKS_PER_BEAT / song.stepsPerBeat;
   const loop = Math.min(0x7fff, song.bars * song.beatsPerBar * TICKS_PER_BEAT);
+  const start0 = clamp(Math.round((Number(from) || 0) * stepTicks), 0, loop - 1);
   const { channels } = songChannels(song);
   const tracks = channels.map((c) => c.track);
   const out = [], fix = [], at = {};
@@ -127,7 +130,7 @@ export function encodeSong(song, { once = false } = {}) {
   emit(0xdd, clamp(Math.round(song.tempo), 20, 255)); // seq_settempo
   emit(0xdb, clamp(song.volume ?? 100, 0, 127));      // seq_setvol
   at.wait = out.length;
-  if (once) emit(0xfd, ...varLen(loop + TICKS_PER_BEAT), 0xff); // seq_delay, seq_end
+  if (once) emit(0xfd, ...varLen(loop - start0 + TICKS_PER_BEAT), 0xff); // seq_delay, seq_end
   else { emit(0xfd, ...varLen(loop)); emit(0xfb); ref('wait'); }
 
   const voiceLists = channels.map((c) => c.voices);
@@ -138,29 +141,60 @@ export function encodeSong(song, { once = false } = {}) {
     emit(0xdf, clamp(t.volume ?? 100, 0, 127));            // chan_setvol
     emit(0xdd, clamp(t.pan ?? 64, 0, 127));                // chan_setpan
     emit(0xd4, clamp(t.reverb ?? 20, 0, 127));             // chan_setreverb
+    if (start0 > 0) {
+      // the first time through from the playhead: layers that join the song's own there
+      voiceLists[i].forEach((_, k) => { emit(0x90 + k); ref(`fl${i}_${k}`); });
+      if (once) { emit(0xfd, ...varLen(loop - start0 + TICKS_PER_BEAT), 0xff); return; }
+      emit(0xfd, ...varLen(loop - start0));
+    }
     at[`loop${i}`] = out.length;
     voiceLists[i].forEach((_, k) => { emit(0x90 + k); ref(`ly${i}_${k}`); }); // chan_setlayer
     if (once) emit(0xfd, ...varLen(loop + TICKS_PER_BEAT), 0xff); // chan_delay, chan_end
     else { emit(0xfd, ...varLen(loop)); emit(0xfb); ref(`loop${i}`); }
   });
 
+  // layer_note0: note, length, velocity, gate. The gate is how much of the length is left when the
+  // note is released (gate/256 of it): 0 sounds the note to its end, as written
+  const note = (key, dur, v) => emit(clamp(key, 0, 63), ...varLen(dur), clamp(v ?? 100, 1, 127), 0);
+  // per layer, its notes as written: { pre: where its delay starts, at: after the delay, start, dur, key, trans, v }
+  const written = {};
   tracks.forEach((t, i) => voiceLists[i].forEach((voice, k) => {
     at[`ly${i}_${k}`] = out.length;
+    if (t.legato) emit(0xc4); // layer_somethingon: notes that follow each other glide on without a new attack
+    const list = written[`${i}_${k}`] = [];
     let time = 0, trans = 0;
     for (const n of voice) {
       const start = n.t * stepTicks;
       if (start >= loop) break;
       const dur = Math.max(1, Math.min(n.d * stepTicks, loop - start));
+      const pre = out.length;
       if (start > time) { emit(0xc0, ...varLen(start - time)); time = start; } // layer_delay
+      const at0 = out.length;
       // note numbers 0..63 (39 = middle C); a transpose reaches further
       const idx = t.kind === 'drums' ? clamp(n.p, 0, 63) : n.p - 21;
       let tr = trans;
       if (idx - tr < 0 || idx - tr > 63) tr = idx < 0 ? -12 * Math.ceil(-idx / 12) : idx > 63 ? 12 * Math.ceil((idx - 63) / 12) : 0;
       if (tr !== trans) { emit(0xc2, tr); trans = tr; }    // layer_transpose
-      emit(clamp(idx - trans, 0, 63), ...varLen(dur), clamp(n.v ?? 100, 1, 127), t.legato ? 254 : 215); // layer_note0
+      note(idx - trans, dur, n.v);
+      list.push({ pre, at: at0, start, dur, key: idx - trans, trans, v: n.v });
       time = start + dur;
     }
+    list.end = out.length;
     emit(0xff); // layer_end
+  }));
+  // the first time through from the playhead: the note sounding there (what is left of it), or
+  // a rest until the next one, then on in the layer's own notes
+  if (start0 > 0) tracks.forEach((t, i) => voiceLists[i].forEach((_, k) => {
+    at[`fl${i}_${k}`] = out.length;
+    if (t.legato) emit(0xc4);
+    const list = written[`${i}_${k}`];
+    const j = list.findIndex((n) => n.start + n.dur > start0);
+    if (j < 0) { emit(0xff); return; }
+    const n = list[j];
+    emit(0xc2, n.trans);
+    const jump = (a) => emit(0xfb, a >> 8, a);             // layer_jump
+    if (n.start < start0) { note(n.key, n.start + n.dur - start0, n.v); jump(list[j + 1]?.pre ?? list.end); }
+    else { if (n.start > start0) emit(0xc0, ...varLen(n.start - start0)); jump(n.at); }
   }));
 
   for (const f of fix) {

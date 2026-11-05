@@ -308,3 +308,60 @@ export async function terrainFromImage(file, { min = -200, max = 2500, nx = 128,
   t.autoPaint({ water: min + (max - min) * 0.08, high: 'snow', highLine: min + (max - min) * 0.8 });
   return t;
 }
+
+// ---- terrain patches ----------------------------------------------------------
+// A terrain patch is a block (shape 9) with its own small heightmap on top: steps x steps cells
+// over the block's width and depth, heights as offsets above its height (block.hm, Int16 as
+// base64), painted cells as material + 1 (block.pm, 0 = the block's top material). The editor
+// sculpts it with the ground's brushes (a Terrain in the patch's own coordinates).
+
+export const PATCH_MAX = 32;
+
+export function patchOf(block) {
+  const n = Math.max(2, Math.min(PATCH_MAX, block.steps | 0 || 16));
+  const t = new Terrain({ nx: n, nz: n, cell: block.sx / n, x0: -block.sx / 2, z0: -block.sx / 2 });
+  try {
+    if (block.hm) { const h = new Int16Array(fromB64(block.hm).buffer); if (h.length === t.h.length) t.h.set(h); }
+    if (block.pm) { const m = fromB64(block.pm); if (m.length === t.m.length) t.m.set(m); }
+  } catch { /* a damaged patch is flat */ }
+  return t;
+}
+
+// The block fields of a patch (no fields for a flat, unpainted one).
+export function patchFields(t) {
+  const out = { steps: t.nx };
+  out.hm = t.h.some((v) => v) ? toB64(new Uint8Array(t.h.buffer, t.h.byteOffset, t.h.byteLength)) : undefined;
+  out.pm = t.m.some((v) => v) ? toB64(t.m) : undefined;
+  return out;
+}
+
+// A patch with another grid size: the same shape, resampled.
+export function resamplePatch(block, n) {
+  const src = patchOf(block);
+  n = Math.max(2, Math.min(PATCH_MAX, n | 0));
+  const t = new Terrain({ nx: n, nz: n, cell: block.sx / n, x0: -block.sx / 2, z0: -block.sx / 2 });
+  for (let j = 0; j <= n; j++) for (let i = 0; i <= n; i++) t.h[t.idx(i, j)] = clampH(src.heightAt(t.wx(i), t.wz(j)));
+  for (let j = 0; j < n; j++) for (let i = 0; i < n; i++) {
+    const si = Math.min(src.nx - 1, Math.floor(((i + 0.5) / n) * src.nx)), sj = Math.min(src.nz - 1, Math.floor(((j + 0.5) / n) * src.nz));
+    t.m[j * n + i] = src.m[sj * src.nx + si];
+  }
+  return patchFields(t);
+}
+
+// World point -> the patch's own grid coordinates (its square grid spans x; z is scaled to it).
+export function patchLocal(rec, x, z) {
+  const a = ((rec.yaw | 0) / 32768) * Math.PI;
+  const dx = x - rec.x, dz = z - rec.z;
+  const lx = dx * Math.cos(a) - dz * Math.sin(a), lz = dx * Math.sin(a) + dz * Math.cos(a);
+  return { x: lx, z: lz * (rec.block.sx / rec.block.sz) };
+}
+
+// Paint cells of a patch (material + 1; null erases back to the block's own material).
+export function paintPatch(t, mat, x, z, r) {
+  const v = mat == null ? 0 : material(mat) + 1;
+  const i0 = Math.max(0, Math.floor(t.gx(x - r))), i1 = Math.min(t.nx - 1, Math.ceil(t.gx(x + r)));
+  const j0 = Math.max(0, Math.floor(t.gz(z - r))), j1 = Math.min(t.nz - 1, Math.ceil(t.gz(z + r)));
+  for (let j = j0; j <= j1; j++) for (let i = i0; i <= i1; i++) {
+    if (Math.hypot(t.wx(i + 0.5) - x, t.wz(j + 0.5) - z) <= Math.max(r, t.cell * 0.5)) t.m[j * t.nx + i] = v;
+  }
+}

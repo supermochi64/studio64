@@ -1,6 +1,6 @@
 // The level's own shape and settings: custom-level terrain, sculpted original
 // geometry, sky/music/water/spawn, and custom star progress.
-import { Terrain } from './terrain.js';
+import { Terrain, patchOf, patchFields, patchLocal, paintPatch } from './terrain.js';
 import { makeTemplate } from './templates.js';
 import { encodeSong } from './music.js';
 import { material } from './generators.js';
@@ -161,7 +161,22 @@ export class World {
     return null;
   }
 
+  // The terrain patch block (shape 9) a brush hit lands on, or null.
+  patchAt(hit) {
+    if (!hit || !(hit.slot >= 0)) return null;
+    const o = this.engine.objects().find((x) => x.slot === hit.slot);
+    const rec = o?.uid ? (this.area().objects || []).find((r) => r.uid === o.uid) : null;
+    return rec?.block && (rec.block.shape | 0) === 9 && !rec.motion ? rec : null;
+  }
+
   beginStroke(mode, hit, brush) {
+    const patch = this.patchAt(hit);
+    if (patch) {
+      const T = patchOf(patch.block);
+      const l = patchLocal(patch, hit.x, hit.z);
+      // flatten keeps the height under the first dab (in the patch's own units)
+      return { target: 'patch', rec: patch, T, mode, brush, flatY: Math.round(T.heightAt(l.x, l.z)), dabs: [], before: { ...patch.block } };
+    }
     const target = this.brushTarget(hit.x, hit.z);
     if (!target) return null;
     if (target === 'level' && mode === 'paint') { this.toast('Paint works on custom terrain; the original levels keep their textures', 'x'); return null; }
@@ -173,7 +188,18 @@ export class World {
   dab(stroke, x, z) {
     const b = stroke.brush;
     const strength = stroke.mode === 'raise' || stroke.mode === 'lower' ? b.strength * 0.9 : b.strength;
-    if (stroke.target === 'terrain') {
+    if (stroke.target === 'patch') {
+      const { rec, T } = stroke;
+      const l = patchLocal(rec, x, z);
+      if (stroke.mode === 'paint') paintPatch(T, b.material, l.x, l.z, b.radius);
+      else T.brush(stroke.mode, l.x, l.z, b.radius, strength, stroke.flatY);
+      rec.block = { ...rec.block, ...patchFields(T) };
+      if (!rec.block.hm) delete rec.block.hm;
+      if (!rec.block.pm) delete rec.block.pm;
+      this.engine.deleteUid(rec.uid);
+      stroke.slot = this.engine.spawn(rec);
+      stroke.dabs.push(1);
+    } else if (stroke.target === 'terrain') {
       const rect = stroke.mode === 'paint'
         ? this.terrain.paint(b.material, x, z, b.radius)
         : this.terrain.brush(stroke.mode, x, z, b.radius, strength, stroke.flatY);
@@ -188,9 +214,12 @@ export class World {
 
   endStroke(stroke) {
     const names = { raise: 'Raised', lower: 'Lowered', smooth: 'Smoothed', flatten: 'Flattened', paint: 'Painted' };
-    const what = stroke.target === 'terrain' ? 'the terrain' : 'the level';
+    const what = stroke.target === 'terrain' ? 'the terrain' : stroke.target === 'patch' ? (stroke.rec.name || 'the terrain patch') : 'the level';
     const summary = `${names[stroke.mode]} ${stroke.mode === 'paint' ? `${stroke.brush.materialName || 'terrain'}` : what}`;
-    if (stroke.target === 'terrain') {
+    if (stroke.target === 'patch') {
+      // one edit per stroke: the patch's block with its new heights (undo puts the old ones back)
+      if (stroke.dabs.length) this.commit({ type: 'update', key: this.key(), uid: stroke.rec.uid, fields: { block: stroke.rec.block }, summary });
+    } else if (stroke.target === 'terrain') {
       this.commitArea('terrain', this.terrain.encode(), summary);
     } else if (stroke.dabs.length) {
       const st = { id: Math.random().toString(36).slice(2, 10), dabs: stroke.dabs };
@@ -253,6 +282,34 @@ export class World {
     this.syncTerrain({ i0: 0, j0: 0, i1: T.nx, j1: T.nz });
     this.commitArea('terrain', T.encode(), summary);
     return { ok: true, heights: this.terrainSummary() };
+  }
+
+  // Terrain operations (Terrain.op) on a terrain patch block: x/z in world units, heights above the
+  // patch's flat top. One edit.
+  runPatchOps(uid, ops, summary = 'Shaped the terrain patch') {
+    const rec = (this.area().objects || []).find((r) => r.uid === uid);
+    if (!rec?.block || (rec.block.shape | 0) !== 9) throw new Error('no terrain patch with that uid here (build one with shape "terrain")');
+    const T = patchOf(rec.block);
+    for (const o of ops) {
+      const loc = (p) => { const l = patchLocal(rec, p[0] ?? p.x, p[1] ?? p.z); return [l.x, l.z]; };
+      const c = o.x !== undefined ? patchLocal(rec, o.x, o.z ?? rec.z) : null;
+      const lo = { ...o, ...(c ? { x: c.x, z: c.z } : { x: 0, z: 0 }) };
+      if (o.points) lo.points = o.points.map(loc);
+      if (o.from) lo.from = loc(o.from);
+      if (o.to) lo.to = loc(o.to);
+      if (o.op === 'paint') { paintPatch(T, o.material, lo.x, lo.z, o.radius ?? 1e6); continue; }
+      if (o.op === 'paint_auto' || o.op === 'heightmap' && !o.grid) continue;
+      T.op(lo);
+    }
+    rec.block = { ...rec.block, ...patchFields(T) };
+    if (!rec.block.hm) delete rec.block.hm;
+    if (!rec.block.pm) delete rec.block.pm;
+    this.engine.deleteUid(rec.uid);
+    this.engine.spawn(rec);
+    this.commit({ type: 'update', key: this.key(), uid: rec.uid, fields: { block: rec.block }, summary });
+    let lo = Infinity, hi = -Infinity;
+    for (const v of T.h) { lo = Math.min(lo, v); hi = Math.max(hi, v); }
+    return { ok: true, uid, steps: T.nx, lowest_above_top: lo, highest_above_top: hi };
   }
 
   terrainSummary() {

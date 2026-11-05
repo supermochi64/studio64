@@ -5,6 +5,7 @@
 import { el, esc, svg, newUid, newId, deepCopy, round } from './common.js';
 import { relativeItems } from './placer.js';
 import { motionLabel, normalizeMotion, isActor } from './motion.js';
+import { relativeTurn } from '../rotation.js';
 
 const NOISE = /Particle|Sparkle|Puff|Smoke|Mist|SoundLoop|AmbientSounds|Dust|Splash|WaveTrail|Bubble|Shard|Explosion|Fuse|Trail|bhvMario$|ShadowSpawn|CelebrationStar|StarKeyCollection|bhvStudioTerrain|bhvStudioProjectile|Tweester|Butterfly$|bhvBirdsSoundLoop|bhvHidden|Spawner$|SpawnCoord|Manager$|Controller$|bhvWaterLevel|bhvInstantActiveWarp|bhvWarp$|bhvFadingWarp|bhvAirborne|bhvDeathWarp|bhvPaintingStar|bhvStaticObject$/;
 const ENEMY = /Goomba|Bobomb|Koopa|Boo|Bully|Whomp|Thwomp|Piranha|Spiny|FlyGuy|Snufit|Scuttlebug|Amp|Chuckya|HeaveHo|Skeeter|Monty|Klepto|Pokey|Blizzard|MrI|Swoop|BulletBill|Lakitu|Moneybag|Spindrift|Chomp|StudioActor/;
@@ -388,7 +389,7 @@ export class ScenePanel {
     const ed = this.editor;
     const pk = ed.sel.uid ? `u${ed.sel.uid}` : `s${ed.sel.slot}`;
     const start = ed.drag?.start || ed.selPose();
-    this.groupStart = { p: [...start.p], yaw: start.yaw, members: this.members().filter((x) => this.key(x.o) !== pk) };
+    this.groupStart = { p: [...start.p], yaw: start.yaw, pitch: start.pitch | 0, roll: start.roll | 0, members: this.members().filter((x) => this.key(x.o) !== pk) };
   }
 
   // Live: the other members follow the selected one.
@@ -397,11 +398,22 @@ export class ScenePanel {
     this.groupBefore();
     const gs = this.groupStart;
     const dyaw = ((pose.yaw - gs.yaw) << 16) >> 16;
+    // tilted or rolled (the rotate handles' X and Z rings): the whole group turns around the
+    // selected one in 3D, each member's angles with it
+    const turn = ((pose.pitch | 0) - gs.pitch) & 0xffff || ((pose.roll | 0) - gs.roll) & 0xffff ? relativeTurn(gs, pose) : null;
     for (const mb of gs.members) {
-      const [rx, rz] = yawRot(mb.p[0] - gs.p[0], mb.p[2] - gs.p[2], dyaw);
-      const np = [pose.p[0] + rx, mb.p[1] + (pose.p[1] - gs.p[1]), pose.p[2] + rz];
-      mb.next = { p: np.map(Math.round), yaw: (mb.yaw + dyaw) & 0xffff };
-      this.engine.transform(mb.o.slot, np[0], np[1], np[2], mb.pitch, mb.next.yaw, mb.roll, mb.rec?.block ? 0 : mb.scale);
+      let np, ang;
+      if (turn) {
+        const off = turn.vec([mb.p[0] - gs.p[0], mb.p[1] - gs.p[1], mb.p[2] - gs.p[2]]);
+        np = [pose.p[0] + off[0], pose.p[1] + off[1], pose.p[2] + off[2]];
+        ang = turn.angles(mb);
+      } else {
+        const [rx, rz] = yawRot(mb.p[0] - gs.p[0], mb.p[2] - gs.p[2], dyaw);
+        np = [pose.p[0] + rx, mb.p[1] + (pose.p[1] - gs.p[1]), pose.p[2] + rz];
+        ang = { pitch: mb.pitch, yaw: (mb.yaw + dyaw) & 0xffff, roll: mb.roll };
+      }
+      mb.next = { p: np.map(Math.round), ...ang };
+      this.engine.transform(mb.o.slot, np[0], np[1], np[2], ang.pitch, ang.yaw, ang.roll, mb.rec?.block ? 0 : mb.scale);
     }
   }
 
@@ -417,7 +429,7 @@ export class ScenePanel {
     const adopt = [];
     for (const mb of gs.members) {
       if (!mb.next) continue;
-      const f = { x: mb.next.p[0], y: mb.next.p[1], z: mb.next.p[2], yaw: mb.next.yaw };
+      const f = { x: mb.next.p[0], y: mb.next.p[1], z: mb.next.p[2], yaw: mb.next.yaw, pitch: mb.next.pitch | 0, roll: mb.next.roll | 0 };
       if (mb.rec) { Object.assign(mb.rec, f); updates.push({ uid: mb.rec.uid, fields: f }); } else adopt.push({ o: mb.o, fields: f });
     }
     this.groupStart = null;
@@ -435,10 +447,11 @@ export class ScenePanel {
     const adopt = [];
     for (const mb of gs.members) {
       if (!mb.next) continue;
+      const f = { x: mb.next.p[0], y: mb.next.p[1], z: mb.next.p[2], yaw: mb.next.yaw, pitch: mb.next.pitch | 0, roll: mb.next.roll | 0 };
       if (mb.rec) {
-        Object.assign(mb.rec, { x: mb.next.p[0], y: mb.next.p[1], z: mb.next.p[2], yaw: mb.next.yaw });
-        updates.push({ uid: mb.rec.uid, fields: { x: mb.next.p[0], y: mb.next.p[1], z: mb.next.p[2], yaw: mb.next.yaw } });
-      } else adopt.push({ o: mb.o, fields: { x: mb.next.p[0], y: mb.next.p[1], z: mb.next.p[2], yaw: mb.next.yaw } });
+        Object.assign(mb.rec, f);
+        updates.push({ uid: mb.rec.uid, fields: f });
+      } else adopt.push({ o: mb.o, fields: f });
     }
     if (updates.length) this.store.commit({ type: 'update_many', updates, summary: `${summary} ${updates.length + 1} objects` });
     if (adopt.length) this.adoptMany(adopt, summary);

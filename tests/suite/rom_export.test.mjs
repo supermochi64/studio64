@@ -27,6 +27,12 @@ await suite('ROM export', async (t) => {
     return song.id;
   });
   t.must('the sample has a song to replace game songs with', !!swapped);
+  // Mario's beta lighting with a green cap, and his beta voice (issue #8): written into the info block
+  await s.eval(async () => {
+    await studio64.studio.handle('mario_colors', { colors: { cap: '#00c040' } });
+    await studio64.studio.handle('mario_lighting', { preset: 'beta' });
+    studio64.soundUI.setBeta(true);
+  });
   await s.wait(800);
   await s.eval(() => studio64.hub.romModal());
   await s.page.waitForSelector('#rx-go');
@@ -56,6 +62,13 @@ await suite('ROM export', async (t) => {
   t.eq('the ROM lists the replaced game songs', table.sort(), [0x01, 0x09]);
   const songs = rom.readUInt32BE(0x01000DE8), song = (i) => rom.readUInt32BE(at + i * 8 + 4);
   t.check('the fanfare gets its own play-once copy of the song', n === 2 && song(0) !== song(1) && song(0) < rom.readUInt32BE(0x01000DEC) && songs > 0, { n, a: song(0), b: song(1) });
+  // Mario's look and the beta voice (s64_hack.h: flags bit 1, marioLook at 0xE00)
+  const { MARIO_LIGHT_PRESETS, lightTable } = await import('../../web/js/mario_look.js');
+  const beta = lightTable(MARIO_LIGHT_PRESETS.beta.light);
+  t.eq('the ROM has the beta voice on', rom.readUInt16BE(0x0100000A) & 2, 2);
+  t.eq('the ROM has Mario\'s look for every part and the light\'s direction', rom.readUInt32BE(0x01000E00) >>> 0, (0x7f | (beta.dir ? 0x80000000 : 0)) >>> 0);
+  t.eq('the ROM has the beta skin light (amb, dif)', [rom.readInt16BE(0x01000E08 + 4 * 8 + 4), rom.readInt16BE(0x01000E08 + 4 * 8 + 6)], [beta.parts[4].amb, beta.parts[4].dif]);
+  t.eq('the ROM has the green cap', [rom.readUIntBE(0x01000E08 + 6 * 8, 3), rom[0x01000E08 + 6 * 8 + 3]], [0x00c040, 1]);
   fs.writeFileSync(path.join(ROOT, 'tests', 'out', 'rom_export.z64'), rom); // (for emulator checks)
   t.check('the patch is a fraction of the ROM', bps.length < rom.length / 2, bps.length);
 });

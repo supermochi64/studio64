@@ -2,7 +2,7 @@
 #define STUDIO_ASSETS_H
 
 // Imported models, texture replacement, custom materials, skyboxes and Mario's
-// colours (src/studio/assets.c). Other studio features can draw imported models:
+// colours (src/studio/assets.c; Mario's colours and lighting: mario_look.c). Other studio features can draw imported models:
 // studio_asset_model_node(id) is the model's graph node (NULL when not loaded),
 // studio_asset_model_collision(id) its object collision (max 200 vertices).
 

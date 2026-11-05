@@ -59,8 +59,8 @@ Words from Super Mario 64, its decompilation and Studio 64, in plain language.
   Sunshine characters. Generated from the decomp by `tools/gen_catalog.py`. See
   [Adding catalog objects](adding-objects.md).
 - **Prop**: A model with no behavior, placed as decoration.
-- **Block**: Studio 64's building piece: a box, ramp, stairs or pillar with real collision, a material and a
-  surface type.
+- **Block**: Studio 64's building piece: a box, ramp, stairs, pillar, sphere, ramp or stairs corner, or terrain
+  patch with real collision, a material and a surface type.
 - **Prefab**: A group of things you saved to place again anywhere (in *My objects*).
 - **Custom object**: An enemy or character you build in Studio 64 from a model and behavior blocks (wander, chase,
   shoot, health, ...), without code. See [Objects](objects.md#custom-objects-enemies-and-characters-without-code).

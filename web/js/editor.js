@@ -6,6 +6,7 @@
 
 import { isTyping } from './typing.js';
 import { SHAPES, SHAPE_NAMES, MATERIALS, PRESETS, GENERATORS, blockDefaults, blockName, yawToRad, radToYaw } from './generators.js';
+import { rotRows, turnAngles, turnVec } from './rotation.js';
 
 const GHOST_UID = 0x7f000000;
 const ACCENT = '#ffc83d';
@@ -39,18 +40,13 @@ const PITCH_MAX = 1.553; // 89 degrees: straight down would break the look-at
 // The navigation widget in the corner of the view (like Blender's).
 const NAV = { r: 44, right: 64, top: 104, btn: 15 };
 
-// Rows of SM64's object rotation (mtxf_rotate_zxy_and_translate): world = x*r0 + y*r1 + z*r2.
-function rotRows(pitch, yaw, roll) {
-  const a = (v) => (v / 32768) * Math.PI;
-  const sx = Math.sin(a(pitch)), cx = Math.cos(a(pitch));
-  const sy = Math.sin(a(yaw)), cy = Math.cos(a(yaw));
-  const sz = Math.sin(a(roll)), cz = Math.cos(a(roll));
-  return [
-    [cy * cz + sx * sy * sz, cx * sz, -sy * cz + sx * cy * sz],
-    [-cy * sz + sx * sy * cz, cx * cz, sy * sz + sx * cy * cz],
-    [cx * sy, -sx, cx * cy],
-  ];
-}
+// (rotRows: rows of SM64's object rotation, world = x*r0 + y*r1 + z*r2; rotation.js)
+// The rotate handles: rings around the world's X, Y and Z axes, and one around the view.
+const RINGS = [
+  { id: 'x', axis: [1, 0, 0], u: [0, 1, 0], v: [0, 0, 1], color: '#ff5d5d' },
+  { id: 'y', axis: [0, 1, 0], u: [0, 0, 1], v: [1, 0, 0], color: '#5ee08a' },
+  { id: 'z', axis: [0, 0, 1], u: [1, 0, 0], v: [0, 1, 0], color: '#5aa7ff' },
+];
 const toWorld = (R, p, l) => add(p, add(add(mul(R[0], l[0]), mul(R[1], l[1])), mul(R[2], l[2])));
 
 export class Editor {
@@ -428,7 +424,7 @@ export class Editor {
     pose.p[1] = Math.max(-WORLD_Y, Math.min(WORLD_Y, pose.p[1])); // block collision is s16: far up it wraps around
     this.engine.transform(s.slot, pose.p[0], pose.p[1], pose.p[2], pose.pitch, pose.yaw, pose.roll, pose.block ? 0 : pose.scale);
     if (s.rec) Object.assign(s.rec, { x: pose.p[0], y: pose.p[1], z: pose.p[2], yaw: pose.yaw, pitch: pose.pitch, roll: pose.roll });
-    else Object.assign(s.obj, { x: pose.p[0], y: pose.p[1], z: pose.p[2], yaw: pose.yaw });
+    else Object.assign(s.obj, { x: pose.p[0], y: pose.p[1], z: pose.p[2], yaw: pose.yaw, pitch: pose.pitch, roll: pose.roll });
   }
 
   // Save the selection's current pose (and other fields) to the project.
@@ -844,7 +840,8 @@ export class Editor {
   handles() {
     const pose = this.selPose();
     if (!pose || !this.camData) return [];
-    const center = pose.block ? add(pose.p, [0, pose.block.sy / 2, 0]) : add(pose.p, [0, 60, 0]);
+    // (a block's middle, turned with it: blocks turn around their middle, see dragTo)
+    const center = pose.block ? toWorld(rotRows(pose.pitch, pose.yaw, pose.roll), pose.p, [0, pose.block.sy / 2, 0]) : add(pose.p, [0, 60, 0]);
     const c = this.project(center);
     if (!c) return [];
     const out = [];
@@ -859,17 +856,25 @@ export class Editor {
       }
       out.push({ type: 'free', at: c, world: center });
     } else if (this.gizmo === 'rotate') {
-      const q = this.project(add(center, [100, 0, 0])) || c;
-      const q2 = this.project(add(center, [0, 0, 100])) || c;
-      const s = Math.max(Math.hypot(q.x - c.x, q.y - c.y), Math.hypot(q2.x - c.x, q2.y - c.y)) / 100 || 1;
-      const R = 75 / s;
-      const pts = [];
-      for (let i = 0; i <= 48; i++) {
-        const a = (i / 48) * Math.PI * 2;
-        const pp = this.project(add(center, [Math.sin(a) * R, 0, Math.cos(a) * R]));
-        if (pp) pts.push(pp);
-      }
-      out.push({ type: 'ring', pts, center, R, yaw: pose.yaw });
+      // a ball of rings ~75 px across on screen: X, Y and Z (the half behind the ball faint), and
+      // a wider one around the view
+      const right = this.camRight(), look = this.camDir();
+      const up = norm(cross(right, look));
+      const q = this.project(add(center, mul(right, 100))) || c;
+      const R = 75 / ((Math.hypot(q.x - c.x, q.y - c.y) / 100) || 1);
+      const toCam = sub(this.camPos(), center);
+      const ring = (u, v, r, front) => {
+        const pts = [];
+        for (let i = 0; i <= 64; i++) {
+          const a = (i / 64) * Math.PI * 2;
+          const off = add(mul(u, Math.sin(a) * r), mul(v, Math.cos(a) * r));
+          const pp = this.project(add(center, off));
+          pts.push(pp ? { x: pp.x, y: pp.y, front: front || dot(off, toCam) >= -1e-6 } : null);
+        }
+        return pts;
+      };
+      for (const g of RINGS) out.push({ type: 'ring', ring: g.id, axis: g.axis, u: g.u, color: g.color, pts: ring(g.u, g.v, R), center, c, R, yaw: pose.yaw });
+      out.push({ type: 'ring', ring: 'view', axis: mul(look, -1), u: right, color: 'rgba(255,255,255,0.7)', pts: ring(right, up, R * 1.22, true), center, c, R: R * 1.22 });
     } else if (this.gizmo === 'size' && pose.block) {
       const b = pose.block;
       const Rm = rotRows(pose.pitch, pose.yaw, pose.roll);
@@ -899,7 +904,13 @@ export class Editor {
       if (h.type === 'axis') d = segDist(px, py, h.from, h.to);
       else if (h.type === 'free') d = Math.hypot(px - h.at.x, py - h.at.y) - 4;
       else if (h.type === 'face' || h.type === 'scale') d = Math.hypot(px - h.at.x, py - h.at.y) - 3;
-      else if (h.type === 'ring') for (let i = 1; i < h.pts.length; i++) d = Math.min(d, segDist(px, py, h.pts[i - 1], h.pts[i]));
+      else if (h.type === 'ring') {
+        // (the half of a ring behind the ball counts a little farther: the front one wins)
+        for (let i = 1; i < h.pts.length; i++) {
+          const a = h.pts[i - 1], b = h.pts[i];
+          if (a && b) d = Math.min(d, segDist(px, py, a, b) + (a.front || b.front ? 0 : 4));
+        }
+      }
       if (d < bestD) { bestD = d; best = h; }
     }
     return best;
@@ -1035,8 +1046,13 @@ export class Editor {
       if (h.type === 'axis') this.drag.s0 = this.axisParam(h.world, h.axis.dir, m.x, m.y);
       if (h.type === 'face') this.drag.s0 = this.axisParam(h.world, h.dir, m.x, m.y);
       if (h.type === 'ring') {
-        const p = this.planeHit(h.center[1], m.x, m.y);
-        this.drag.a0 = p ? Math.atan2(p[0] - h.center[0], p[2] - h.center[2]) : 0;
+        // the mouse goes around the ball's center on screen; which way that turns the ring: from
+        // how a little turn of the ring looks on screen (a ring seen edge-on: either way)
+        const p0 = this.project(add(h.center, mul(h.u, h.R))), p1 = this.project(add(h.center, mul(turnVec(h.u, h.axis, 0.3), h.R)));
+        const cr = p0 && p1 ? (p0.x - h.c.x) * (p1.y - h.c.y) - (p0.y - h.c.y) * (p1.x - h.c.x) : 1;
+        this.drag.sense = cr < 0 ? -1 : 1;
+        this.drag.a0 = this.drag.aPrev = Math.atan2(m.y - h.c.y, m.x - h.c.x);
+        this.drag.turned = 0;
       }
       if (h.type === 'free') {
         const hit = this.pick(m.x, m.y, { ignoreSlot: this.sel.slot, objects: false });
@@ -1114,12 +1130,22 @@ export class Editor {
         pose.p[1] = hit.ny > 0.5 ? hit.y : pose.p[1];
       }
     } else if (d.type === 'ring') {
-      const p = this.planeHit(d.handle.center[1], m.x, m.y);
-      if (!p) return;
-      const a = Math.atan2(p[0] - d.handle.center[0], p[2] - d.handle.center[2]);
-      let deg = ((a - d.a0) * 180) / Math.PI;
+      // around the ball's center on screen, counted on past a full turn
+      const a = Math.atan2(m.y - d.handle.c.y, m.x - d.handle.c.x);
+      let da = a - d.aPrev;
+      if (da > Math.PI) da -= 2 * Math.PI; else if (da < -Math.PI) da += 2 * Math.PI;
+      d.aPrev = a;
+      d.turned += da;
+      let deg = (d.turned * d.sense * 180) / Math.PI;
       if (snap) deg = Math.round(deg / 15) * 15;
-      pose.yaw = (d.start.yaw + Math.round((deg / 360) * 65536)) & 0xffff;
+      d.deg = deg;
+      Object.assign(pose, turnAngles(d.start, d.handle.axis, (deg * Math.PI) / 180));
+      if (pose.block) {
+        // a block turns around its middle (its position is its bottom): the middle stays put
+        const mid = [0, pose.block.sy / 2, 0];
+        const c = toWorld(rotRows(d.start.pitch, d.start.yaw, d.start.roll), d.start.p, mid);
+        pose.p = sub(c, sub(toWorld(rotRows(pose.pitch, pose.yaw, pose.roll), [0, 0, 0], mid), [0, 0, 0]));
+      }
     } else if (d.type === 'face') {
       const s = this.axisParam(d.handle.world, d.handle.dir, m.x, m.y);
       if (s == null || d.s0 == null) return;
@@ -1522,7 +1548,8 @@ export class Editor {
     const g = this.ctx;
     const active = this.drag?.handle;
     for (const h of this.handles()) {
-      const hot = active === h || (this.mouse && this.hitHandle(this.mouse.x, this.mouse.y) === h);
+      // (handles are made anew each time: the same one has the same key)
+      const hot = sameHandle(active, h) || (!active && this.mouse && sameHandle(this.hitHandle(this.mouse.x, this.mouse.y), h));
       if (h.type === 'axis') {
         g.strokeStyle = h.axis.color;
         g.lineWidth = hot ? 5 : 3.5;
@@ -1540,14 +1567,42 @@ export class Editor {
         g.lineWidth = 1.5;
         g.beginPath(); g.arc(h.at.x, h.at.y, 7, 0, Math.PI * 2); g.fill(); g.stroke();
       } else if (h.type === 'ring') {
-        g.strokeStyle = hot ? '#fff' : ACCENT;
-        g.lineWidth = hot ? 4 : 3;
-        g.beginPath();
-        h.pts.forEach((p, i) => (i ? g.lineTo(p.x, p.y) : g.moveTo(p.x, p.y)));
-        g.stroke();
-        const a = yawToRad(h.yaw);
-        const tip = this.project(add(h.center, [Math.sin(a) * h.R, 0, Math.cos(a) * h.R]));
-        if (tip) { g.fillStyle = ACCENT; g.beginPath(); g.arc(tip.x, tip.y, 6, 0, Math.PI * 2); g.fill(); }
+        const busy = this.drag?.type === 'ring' && !hot; // while one ring turns, the others step back
+        if (h.ring === 'x') {
+          // the ball: a faint disc behind the rings
+          g.fillStyle = 'rgba(255,255,255,0.05)';
+          g.beginPath(); g.arc(h.c.x, h.c.y, Math.max(...h.pts.filter(Boolean).map((p) => Math.hypot(p.x - h.c.x, p.y - h.c.y))), 0, Math.PI * 2); g.fill();
+        }
+        for (const front of [false, true]) {
+          g.strokeStyle = hot ? '#fff' : h.color;
+          g.globalAlpha = busy ? 0.25 : front ? 1 : 0.3;
+          g.lineWidth = hot ? 4 : front ? 3 : 2;
+          g.beginPath();
+          for (let i = 1; i < h.pts.length; i++) {
+            const a = h.pts[i - 1], b = h.pts[i];
+            if (!a || !b || (a.front && b.front) !== front) continue;
+            g.moveTo(a.x, a.y); g.lineTo(b.x, b.y);
+          }
+          g.stroke();
+        }
+        g.globalAlpha = 1;
+        if (h.ring === 'y') {
+          // which way it faces
+          const a = yawToRad(h.yaw);
+          const tip = this.project(add(h.center, [Math.sin(a) * h.R, 0, Math.cos(a) * h.R]));
+          if (tip) { g.fillStyle = ACCENT; g.strokeStyle = 'rgba(0,0,0,0.5)'; g.lineWidth = 1.5; g.beginPath(); g.arc(tip.x, tip.y, 6, 0, Math.PI * 2); g.fill(); g.stroke(); }
+        }
+        if (sameHandle(active, h) && this.drag.deg !== undefined) {
+          // how far it turned
+          const text = `${h.ring === 'view' ? 'View' : h.ring.toUpperCase()} ${Math.round(this.drag.deg)}°`;
+          g.font = '600 12px Inter, sans-serif';
+          const w = g.measureText(text).width + 14;
+          g.fillStyle = 'rgba(12,12,14,0.85)';
+          roundRect(g, h.c.x - w / 2, h.c.y - 11, w, 22, 11);
+          g.fill();
+          g.fillStyle = h.ring === 'view' ? '#fff' : h.color;
+          g.fillText(text, h.c.x - w / 2 + 7, h.c.y + 4);
+        }
       } else if (h.type === 'face' || h.type === 'scale') {
         g.fillStyle = hot ? '#fff' : ACCENT;
         g.strokeStyle = 'rgba(0,0,0,0.55)';
@@ -1598,6 +1653,10 @@ export class Editor {
 
 // isTyping lives in typing.js (the player uses it without the editor)
 export { isTyping };
+
+function sameHandle(a, b) {
+  return !!a && !!b && a.type === b.type && (a.ring || a.axis?.id || a.key) === (b.ring || b.axis?.id || b.key) && a.sign === b.sign;
+}
 
 function segDist(px, py, a, b) {
   const dx = b.x - a.x, dy = b.y - a.y;

@@ -1,5 +1,6 @@
 // Render a thumbnail for every catalog object: web/thumbs/<id>.webp + index.json.
 // Needs the server running (npm start). Usage: node tools/make_thumbs.mjs [ids...]
+//   node tools/make_thumbs.mjs --blocks [preset ids...]   the block shapes of the library (web/thumbs/blocks)
 import { launchBrowser } from './lib/browser.mjs';
 import fs from 'node:fs';
 import path from 'node:path';
@@ -32,11 +33,13 @@ await page.evaluate(() => {
   const E = studio64.engine;
   E.setPaused(true, true);
   E.resize(512, 512);
-  window.__thumb = async (id, dist, inside) => {
+  // opts (blocks, --blocks): { rec: a block record, focusY, up: camera height per distance, yaw }
+  window.__thumb = async (id, dist, inside, opts = {}) => {
     // outside the level there is no ground (so no shadows); some objects delete
     // themselves without ground, so they get a second try above the level
     const P = inside ? [0, 9000, 0] : [26000, 6000, 26000];
-    const cam = (d) => E.setCamera(true, [P[0], P[1] + 80 + d * 0.25, P[2] + d], [P[0], P[1] + 70, P[2]], 40);
+    const fy = opts.focusY ?? 70, up = opts.up ?? 0.25, yaw = opts.yaw ?? 0x1600;
+    const cam = (d) => E.setCamera(true, [P[0], P[1] + fy + 10 + d * up, P[2] + d], [P[0], P[1] + fy, P[2]], 40);
     const shot = async () => {
       const c = await E.captureFrame(2);
       return c.getContext('2d').getImageData(0, 0, c.width, c.height);
@@ -44,14 +47,15 @@ await page.evaluate(() => {
     for (const d of [dist, dist * 2.4, dist * 6]) {
       cam(d);
       const bg = await shot();
-      const slot = E.spawn({ uid: 999, entry: id, x: P[0], y: P[1], z: P[2], yaw: 0x1600, pitch: 0, roll: 0, bparams: studio64.studio.parseParams(studio64.studio.entries.get(id)?.params?.[0]) || 0, scale: 1 });
+      const slot = opts.rec ? E.spawn({ ...opts.rec, uid: 999, x: P[0], y: P[1], z: P[2], yaw, pitch: 0, roll: 0 })
+        : E.spawn({ uid: 999, entry: id, x: P[0], y: P[1], z: P[2], yaw, pitch: 0, roll: 0, bparams: studio64.studio.parseParams(studio64.studio.entries.get(id)?.params?.[0]) || 0, scale: 1 });
       if (slot < 0) return null;
       // let the behavior run its init and a couple of animation frames, then freeze again
       E.setPaused(false, true);
       await E.captureFrame(2);
       E.setPaused(true, true);
       const o = E.objects().find((x) => x.uid === 999);
-      if (o) E.transform(o.slot, P[0], P[1], P[2], 0, 0x1600, 0, 0);
+      if (o) E.transform(o.slot, P[0], P[1], P[2], 0, yaw, 0, opts.rec ? 0 : 1);
       const img = await shot();
       E.deleteUid(999);
       const W = img.width, H = img.height;
@@ -100,6 +104,42 @@ await page.evaluate(() => {
 
 }
 await openPage();
+
+// --blocks: the block presets of the library (web/thumbs/blocks/<preset>.webp), in stone with the
+// slopes toward the camera; the terrain patch with a sculpted hill and painted cells.
+if (process.argv.includes('--blocks')) {
+  const { PRESETS, blockDefaults, material } = await import('../web/js/generators.js');
+  const dirB = path.join(OUT, 'blocks');
+  fs.mkdirSync(dirB, { recursive: true });
+  const hill = (n) => {
+    const h = new Int16Array((n + 1) * (n + 1));
+    for (let j = 0; j <= n; j++) for (let i = 0; i <= n; i++) {
+      const x = i / n - 0.5, z = j / n - 0.5;
+      h[j * (n + 1) + i] = Math.round(520 * Math.exp(-((x + 0.08) ** 2 + (z - 0.05) ** 2) / 0.045) + 140 * Math.exp(-((x - 0.3) ** 2 + (z + 0.25) ** 2) / 0.02));
+    }
+    const m = new Uint8Array(n * n);
+    for (let j = 0; j < n; j++) for (let i = 0; i < n; i++) if ((i - n * 0.75) ** 2 + (j - n * 0.75) ** 2 < n * 0.9) m[j * n + i] = material('sand') + 1;
+    const b64 = (u8) => Buffer.from(u8.buffer, u8.byteOffset, u8.byteLength).toString('base64');
+    return { hm: b64(h), pm: b64(m) };
+  };
+  const only = process.argv.slice(2).filter((a) => !a.startsWith('--'));
+  // (a first picture warms the view up: the very first background shot can still show the sky)
+  await page.evaluate(([rec]) => __thumb(null, 600, false, { rec }), [{ block: blockDefaults({ shape: 0, sx: 300, sy: 300, sz: 300 }) }]);
+  for (const p of PRESETS) {
+    if (only.length && !only.includes(p.id)) continue;
+    const mat = p.id === 'terrain' ? 'grass' : p.id === 'pillar' ? 'castle stone' : 'stone block';
+    const block = blockDefaults({ ...p.block, material: mat, ...(p.id === 'terrain' ? hill(p.block.steps) : {}) });
+    const big = Math.max(block.sx, block.sy, block.sz);
+    // slopes and steps rise toward +z: turned around so they face the camera
+    const turn = [4, 5, 6, 7].includes(block.shape) ? 0x6000 - 0x600 : [1, 2].includes(block.shape) ? 0x8000 + 0x1600 : 0x1600;
+    const url = await page.evaluate(([rec, dist, fy, up, yaw]) => __thumb(null, dist, false, { rec, focusY: fy, up, yaw }),
+      [{ block }, big * 1.9, block.sy * 0.45 + (p.id === 'terrain' ? 120 : 0), 0.55, turn]);
+    if (url) { fs.writeFileSync(path.join(dirB, `${p.id}.webp`), Buffer.from(url.split(',')[1], 'base64')); console.log(`block ${p.id} ok`); }
+    else console.log('no picture for', p.id);
+  }
+  await browser.close();
+  process.exit(0);
+}
 
 const made = [];
 let n = 0;

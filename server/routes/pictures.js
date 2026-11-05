@@ -2,7 +2,7 @@
 // them in the background while the studio already runs, so the app asks first and shows its
 // letter placeholders for the rest instead of requesting pictures that are not there (404s).
 //
-//   GET /api/pictures   -> { objects: [ids], levels: [nums], templates: [ids], hub: [names], making }
+//   GET /api/pictures   -> { objects: [ids], levels: [nums], templates: [ids], hub: [names], blocks: [presets], making }
 //                          making: the setup is still taking pictures (ask again when it is done)
 import fs from 'node:fs';
 import path from 'node:path';
@@ -23,6 +23,7 @@ export default (ctx) => {
         levels: list('levels', '.jpg').map(Number).filter((n) => n > 0),
         templates: list('templates', '.jpg'),
         hub: list('hub', '.jpg'),
+        blocks: list('blocks', '.webp'), // the block presets (tools/make_thumbs.mjs --blocks)
         // (finishing: the extras start a few seconds after the studio opened)
         making: !!(step && !['done', 'warning'].includes(step.state) && (setup.running || setup.state.status === 'finishing')),
       });

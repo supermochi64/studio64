@@ -89,13 +89,30 @@ The **Mario** tab colours overalls, shirt & arms, gloves, shoes, skin, hair and 
 split from the shirt), with presets (Luigi, Wario, Waluigi, Fire, Ice, Classic NES, Gold, Shadow,
 Builder, Doctor, Pink). *Look at Mario* turns the camera around him while you choose.
 
+**Lighting** sets how harsh the shading on Mario is, in three groups:
+
+| Slider | Parts | |
+|---|---|---|
+| Face & hair | skin, hair | 50 is the game's shading. Higher: a darker shadow side (black at 100) and a slightly brighter lit side. Lower: flatter (at 0 the shadow side has the full colour). |
+| Clothes | cap, shirt & arms, overalls | |
+| Hands & feet | gloves, shoes | |
+| Light from | | Where the light comes from, turned around Mario (0 is the game's: from the upper right of the camera; 90 from the right, -90 from the left, 180 from behind). |
+
+Presets: **Game** (the normal look, exactly the game's), **Beta** (the harsh, high-contrast shading
+of the game's 1995-96 pre-release footage: dark shadow sides, a strong light from one side) and
+**Soft**. Double-click a slider to put it back to the game's. Colours and lighting change live, are
+saved in the project and go into the [exported ROM](rom-export.md). The finished game still has
+traces of the harsher look: two unused light groups in Mario's model (skin and hair) have a
+quarter of the colour as their shadow side instead of half (harshness 75 here).
+
 ## Claude
 
 Claude's tools (server/tools/assets.js): `list_assets`, `place_model` (where like `spawn`, prop or
 level, scale, animation), `search_textures`, `edit_textures` (recolour, generated patterns, reset;
 by paths or a query, optionally only what is drawn in this level), `set_skybox` (generated from
-colours, clouds, sun, stars, mountains), `clear_skybox`, `set_mario_colors` (preset and/or parts).
-"Put five of my crates around me", "make Mario look like Wario", "give this level a night sky",
+colours, clouds, sun, stars, mountains), `clear_skybox`, `set_mario_colors` (preset and/or parts),
+`set_mario_lighting` (preset game/beta/soft and/or the three harshness values and the direction).
+"Put five of my crates around me", "make Mario look like Wario", "give Mario the beta lighting", "give this level a night sky",
 "make all the grass in this level blue".
 
 ## How it works
@@ -123,9 +140,18 @@ colours, clouds, sun, stars, mountains), `clear_skybox`, `set_mario_colors` (pre
   engine from a different ROM.
 - **Skies**: the 8×8 tiles of 32×32 RGBA16 replace the pointer lists of every skybox while a custom
   sky is on (`studio_sky_buffer/apply`).
-- **Mario**: the light groups of his display lists are found by walking them; the cap's head and
-  hand lists are re-pointed to the cap object's own red, the hands to a glove copy of white
-  (`studio_mario_color(part, rgb, shade)`).
+- **Mario** (engine/src/studio/mario_look.c, also compiled into the exported ROM): the light groups
+  (Lights1: ambient + one directional light) of his display lists are found by walking them; the
+  cap's head and hand lists are re-pointed to the cap object's own red, the hands to a glove copy
+  of white. Each part's group is written from its colour and its lighting: ambient = colour ×
+  amb / 256 (the game: 128), diffuse = colour × dif / 256 (the game: 256), the light's direction
+  in the camera's view (the game: 40, 40, 40); all at the game's values writes the game's own bytes
+  back (`studio_mario_color(part, rgb, shade)`, `studio_mario_light(part, amb, dif)`,
+  `studio_mario_light_dir(x, y, z)`). The sliders' harshness → amb, dif and the direction are
+  `web/js/mario_look.js`, shared by the page, the ROM export and Claude's tool. Saved as
+  `project.assets.mario.light` (`{ skin, clothes, hands, dir }`). The light groups are found
+  through the model's display lists, so a Mario model with other lists keeps its own look (the
+  parts that are not found are left alone).
 - **For other features**: `studio64.assets.ensureModel(id)` loads a model and gives its engine
   model number; in C `studio_asset_model_node(n)` is its graph node and
   `studio_asset_model_collision(n)` its object collision, e.g. for custom enemies.

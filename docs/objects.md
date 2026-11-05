@@ -114,19 +114,44 @@ The **Game** button (or **P**) opens the rules, for the **whole game** or just *
 - **Mario**: run speed, gravity, air control, swim speed, fall damage height (0 = none).
 - **Jumps**: height of jump, double, triple, backflip, side flip, long jump, wall kick; long
   jump distance.
-- **Moves**: switch off the long jump, backflip, side flip, triple / double jump, wall kick,
-  ground pound, dive, slide kick, punch & kick, ledge grab, crouch; no BLJ speed.
+- **Moves**: two groups. **The game's moves**: switch off the long jump, backflip, side flip,
+  triple / double jump, wall kick, ground pound, dive, slide kick, punch & kick, ledge grab,
+  crouch, walking (off: a tilted stick always runs at full speed); no BLJ speed. **New moves**
+  from later Mario games and other SM64 hacks, off unless you switch them on (the classic game
+  stays the classic game); each says how to do it:
+
+  | Move | How | What it does |
+  |---|---|---|
+  | Wall slide | jump against a wall | slides down it (at most 20 units a frame, no fall damage); A kicks off, Z lets go; too fast (a long jump) still bonks |
+  | Spin jump | spin the stick and press A, or hold L and press A | a twirling jump (a bit higher than a side flip) that falls slowly; spinning the stick during a jump twirls too; Z: spin pound, B: dive |
+  | Spinning triple jump | the third jump in a row | is a spin jump (as high as the triple jump) |
+  | Instant ground pound | Z in the air | drops at once, without the flip first (also under water) |
+  | Ground pound jump | A right as a ground pound lands | a high jump straight up (between a side flip and a triple jump) |
+  | Ground pound dive | B during a ground pound | a dive forward, aimed with the stick |
+  | Ground pound anytime | Z in a long jump, a rollout or a jump kick | ground pounds out of it |
+  | Underwater ground pound | Z under water (or a ground pound into water) | sinks fast to the floor; A right after jumps up and out of the water |
+  | Dive hop | B while belly sliding after a dive | another dive with the slide's speed |
+  | Ledge vault | B right after grabbing a ledge with a run-up | flips over the ledge, keeping the speed |
+
+  With Shotgun Mario, L also fires: hold L + A for the spin jump only when he has no gun, or
+  use the stick spin. Where these moves come from: [moveset-research.md](moveset-research.md).
 - **Health & lives**: damage taken (0 = invincible), one hit kills, infinite lives, starting lives.
 - **Coins & caps**: 1-up every N coins, coins refill health, 100-coin star, wing / metal /
   vanish cap time.
 - **HUD & timer**: hide lives, coins, stars, power meter, keys; a level timer; a time limit.
 - **Items**: Mario starts with the [shotgun](shotgun.md) or the [katana](katana.md) (one weapon at a time).
-- **Presets**: classic, moon, speedy, hardcore, kids, pure platformer, Shotgun Mario, Katana Mario.
+- **Presets**: classic, moon, speedy, hardcore, kids, modern moveset (every new move on), pure
+  platformer, Shotgun Mario, Katana Mario.
 
 Stored as `@game.rules = { base, levels: { "<level number>" | "c:<custom id>": {...} } }`.
 The engine side is `gStudioRules` (src/studio/rules.c), read where the game does those
 things (jumps in `set_mario_action_airborne`, gravity in `apply_gravity`, moves in
-`set_mario_action`, ...).
+`set_mario_action`, ...). The new moves are `src/studio/moves.c` (`gStudioRules.newMoves`,
+`STUDIO_NEW_*` in objects.h): one hook in Mario's action loop (`studio_moves_step`, before each
+action: starts the moves, runs Studio 64's own actions `ACT_SM_WALL_SLIDE`, `ACT_SM_SPIN_JUMP`,
+`ACT_SM_WATER_POUND`) and one in `set_mario_action` (`studio_moves_filter`: the wall slide
+instead of a soft bonk, the spin instead of the triple jump, the pound going on under water). The
+ROM has the same code and hooks (rules.c and moves.c are in the base ROM).
 
 ## Claude's tools (server/tools/objects.js)
 
@@ -158,7 +183,7 @@ The same events arrive as `window` `studio:object` events. Engine exports:
 ## Files
 
 - `engine/src/studio/motion.c` motions, paths of path objects; `actor.c` custom objects,
-  projectiles, movers; `rules.c` game rules; `objects.h` the hooks. Hooks in mario.c,
+  projectiles, movers; `rules.c` game rules; `moves.c` the new moves; `objects.h` the hooks. Hooks in mario.c,
   mario_step.c, mario_actions_*.c, interaction.c, hud.c, behavior_script.c,
   object_helpers.c, obj_behaviors_2.c (platform_on_track), editor.c, studio.c.
 - `web/js/objects/`: `index.js` (wiring, rpc for the tools), `motion.js` (inspector section,
@@ -167,5 +192,6 @@ The same events arrive as `window` `studio:object` events. Engine exports:
 - Tests: `tests/suite/motion.test.mjs` (riding every motion), `custom_objects.test.mjs`
   (builder, getting hurt, stomping, shooting, patrol, edits, reload), `game_rules.test.mjs`
   (measured jump heights, run speed, gravity, fall damage, long jump off, overrides, reload),
+  `moveset.test.mjs` (every new move off by default and played switched on, frame by frame),
   `objects_ui.test.mjs` (path tool, scene panel, multi-select, align, prefabs, copy/paste,
   undo, hide/lock/rename), `objects_ai.test.mjs` (every tool against the real game).
