@@ -107,11 +107,13 @@ quarter of the colour as their shadow side instead of half (harshness 75 here).
 
 ## Claude
 
-Claude's tools (server/tools/assets.js): `list_assets`, `place_model` (where like `spawn`, prop or
-level, scale, animation), `search_textures`, `edit_textures` (recolour, generated patterns, reset;
-by paths or a query, optionally only what is drawn in this level), `set_skybox` (generated from
-colours, clouds, sun, stars, mountains), `clear_skybox`, `set_mario_colors` (preset and/or parts),
-`set_mario_lighting` (preset game/beta/soft and/or the three harshness values and the direction).
+Claude's tools (server/tools/assets.js): `list_assets`, `create_model` (designs a mesh itself --
+vertex positions, triangles, colours, one or more parts -- and adds it as a new asset the same way
+a dropped file would; see `place_model` to then put it in the level), `place_model` (where like
+`spawn`, prop or level, scale, animation), `search_textures`, `edit_textures` (recolour, generated
+patterns, reset; by paths or a query, optionally only what is drawn in this level), `set_skybox`
+(generated from colours, clouds, sun, stars, mountains), `clear_skybox`, `set_mario_colors` (preset
+and/or parts), `set_mario_lighting` (preset game/beta/soft and/or the three harshness values and the direction).
 "Put five of my crates around me", "make Mario look like Wario", "give Mario the beta lighting", "give this level a night sky",
 "make all the grass in this level blue".
 
