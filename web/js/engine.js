@@ -27,6 +27,7 @@ export class Engine {
     this.pauseLevels = null; // () => [{ name, stars: "1010", coins, coinStar }] for the castle pause menu
     this.starInfo = null;    // (uid, index) => { title, name } of a star just collected
     this.onGameSound = null; // (id, distance): the game played a sound the project replaced
+    this.onCustomSound = null; // (slot, distance): a custom object's trigger sound, or the ambient sound (sfx.js customSoundBits)
     this.levelHooks = [];    // (level, area, key) => void, run while an area loads
     this.spawnFilters = [];  // (record) => slot | undefined: a module spawns special records itself (worldflow.js)
     this.afterAreaHooks = []; // (level, area, key) => void, run while an area loads, after its records spawned (assets.js)
@@ -68,6 +69,7 @@ export class Engine {
         studioPauseLevels: () => this._pauseLevels(),
         studioStarInfo: (uid, index) => this._starInfo(uid, index),
         studioSfx: (id, dist) => this.onGameSound?.(id, dist),
+        studioCustomSound: (slot, dist) => this.onCustomSound?.(slot, dist),
         studioKeysBlocked: keysBlocked,
         // the game's save (EEPROM) per project (savegame.js); null: the game's one shared save
         studioSaveKey: this.saveKey || null,

@@ -5,6 +5,7 @@
 
 import { el, esc, svg, clamp, round, deepCopy, newId, withFloats } from './common.js';
 import { isTyping } from '../typing.js';
+import { customSoundBits, isCustomSoundBits, customSoundSlot } from '../sfx.js';
 
 export const ACTOR_DEFAULTS = {
   name: 'Custom enemy', model: 'goomba', scale: 1,
@@ -98,13 +99,14 @@ export function actorRecord(def, p, yaw = 0, uid = 0) {
 // The builder dialog.
 
 export class ActorBuilder {
-  constructor({ engine, catalog, store, toast, thumbs, onSaved }) {
+  constructor({ engine, catalog, store, toast, thumbs, onSaved, getAudio }) {
     this.engine = engine;
     this.catalog = catalog;
     this.store = store;
     this.toast = toast;
     this.thumbs = thumbs; // () => Set of ids with a picture
     this.onSaved = onSaved;
+    this.getAudio = getAudio; // () => the project's songs/sounds/overrides
     this.modal = null;
   }
 
@@ -261,11 +263,18 @@ export class ActorBuilder {
     loadSounds().then((list) => {
       const groups = {};
       for (const s of list) (groups[s.group] ||= []).push(s);
-      const html = Object.entries(groups).map(([g, l]) => `<optgroup label="${esc(g)}">${l.map((s) => `<option value="${esc(s.id)}">${esc(s.name)}</option>`).join('')}</optgroup>`).join('');
+      const mine = (this.getAudio?.().sounds || []).filter((s) => Number.isInteger(s.slot));
+      const mineHtml = mine.length ? `<optgroup label="My sounds">${mine.map((s) => `<option value="custom:${s.slot}">${esc(s.name)}</option>`).join('')}</optgroup>` : '';
+      const html = mineHtml + Object.entries(groups).map(([g, l]) => `<optgroup label="${esc(g)}">${l.map((s) => `<option value="${esc(s.id)}">${esc(s.name)}</option>`).join('')}</optgroup>`).join('');
       body.querySelectorAll('[data-snd]').forEach((sel) => {
         sel.insertAdjacentHTML('beforeend', html);
-        sel.value = d.sounds[sel.dataset.snd] || '';
-        sel.onchange = () => { d.sounds[sel.dataset.snd] = sel.value; this.play(sel.value); };
+        const v = d.sounds[sel.dataset.snd];
+        sel.value = isCustomSoundBits(v) ? `custom:${customSoundSlot(v)}` : v || '';
+        sel.onchange = () => {
+          const m = /^custom:(\d+)$/.exec(sel.value);
+          d.sounds[sel.dataset.snd] = m ? customSoundBits(Number(m[1])) : sel.value;
+          this.play(d.sounds[sel.dataset.snd]);
+        };
       });
       body.querySelectorAll('[data-play]').forEach((b) => { b.onclick = () => this.play(d.sounds[b.dataset.play]); });
     });

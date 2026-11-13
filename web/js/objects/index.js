@@ -340,12 +340,12 @@ function registerRpcs(ctx) {
 // ---------------------------------------------------------------------------
 // Build mode UI.
 
-export function installObjectsEditor(ctx, { editor, editorUI, catalog }) {
+export function installObjectsEditor(ctx, { editor, editorUI, catalog, getAudio }) {
   const { engine, store, toast, studio } = ctx;
   const placer = new Placer({ engine, editor, store, toast });
   const motion = new MotionUI({ engine, editor, editorUI, store, toast });
   const builder = new ActorBuilder({
-    engine, catalog, store, toast, thumbs: () => editorUI.thumbs || new Set(),
+    engine, catalog, store, toast, thumbs: () => editorUI.thumbs || new Set(), getAudio,
     onSaved: (def, { place }) => { renderMine(); if (place) placeDef(def); },
   });
   const scene = new ScenePanel({ engine, editor, editorUI, studio, store, placer, toast, actors: builder });
