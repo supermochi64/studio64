@@ -11,7 +11,10 @@
 import { registerRpc } from './studio.js';
 import { MATERIALS } from './generators.js';
 import { decodeN64, encodeRGBA16, rasterize, quantize, toPNGBlob, blobToRGBA, recolor, pattern, parseColor, hex, toCanvas } from './texcodec.js';
-import { decodePackage, uploadPackage, defaultMaterialMeta } from './asset_mesh.js';
+import { decodePackage, uploadPackage, defaultMaterialMeta, buildPackage, encodePackage } from './asset_mesh.js';
+import { importModel } from './asset_import.js';
+import { thumbnail } from './asset_preview.js';
+import { partsToGLB } from './model_gen.js';
 import { MARIO_PARTS, MARIO_LIGHT_PRESETS, cleanLight, lightTable } from './mario_look.js';
 
 export const ANIMS = { none: 0, spin: 1, bob: 2, spin_bob: 3, sway: 4, pulse: 5 };
@@ -847,6 +850,28 @@ function registerAssetRpcs(A) {
     A.rebuildCollision();
     A.applyWater(A.key());
     return { level: s.level, area: s.area, key: this.engine.areaKey(), records };
+  });
+
+  // Claude designs the mesh itself (parts: flat position/index/colour arrays, see model_gen.js);
+  // packed into a real .glb and run through the ordinary import pipeline, so it ends up exactly
+  // like a model someone dropped onto the page -- same storage, same place_model afterwards.
+  registerRpc('asset_generate', async function ({ name, parts, use, height, lighting = 'baked' } = {}) {
+    const glb = partsToGLB(parts, name || 'Model');
+    const scene = await importModel([new File([glb], 'generated.glb', { type: 'model/gltf-binary' })]);
+    const buildOpts = (scale) => ({ scale, rotate: [0, 0, 0], zUp: false, origin: 'bottom', texMax: 64, texFormat: 'rgba16' });
+    let scale = 1;
+    if (height > 0) {
+      const natural = await buildPackage(scene, buildOpts(1));
+      const naturalHeight = natural.bounds.max[1] - natural.bounds.min[1];
+      if (naturalHeight > 1e-6) scale = height / naturalHeight;
+    }
+    const pkg = await buildPackage(scene, buildOpts(scale));
+    const materials = defaultMaterialMeta(pkg);
+    const bytes = await encodePackage(pkg);
+    const thumb = thumbnail(pkg, { materials, lighting });
+    const meta = await A.addModel({ bytes, pkg, name: name || scene.name || 'Model', materials, lighting, thumb, source: { generated: 'ai', parts: parts.length } });
+    if (use === 'level') await A.updateModel(meta.id, { defaults: { ...meta.defaults, mode: 'level' } });
+    return { id: meta.id, name: meta.name, tris: meta.tris, size: meta.bounds ? meta.bounds.max.map((v, i) => Math.round(v - meta.bounds.min[i])) : null };
   });
 
   // The matches, plus a numbered picture of them (the game's own pixels) so Claude can see

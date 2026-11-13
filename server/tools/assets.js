@@ -29,6 +29,23 @@ export default ({ tool, z, card, rpc: rpc20, commit, text, where, opts, agent })
     return { summary, result: text({ placed: r.records.map((x) => ({ uid: x.uid, x: x.x, y: x.y, z: x.z })), change_id: change.id }) };
   }), opts),
 
+  tool('create_model', 'Create a new 3D model by designing the mesh yourself -- vertex positions and triangles, like food, furniture, a simple prop or creature -- and add it to this project\'s own assets (then place it with place_model, same as anything from list_assets). One or more parts, each its own flat position/triangle/colour arrays: good for a part per material or colour (a body and separate eyes, a cake and its cherry, ...). Units are metres (1 = 1m; Mario is about 1.6m tall, so a hand-sized object is around 0.1-0.3). Y is up; put the model\'s base near y=0, it is stood on the ground on placement regardless. Triangles use the right-hand rule (counter-clockwise looking at the face from outside, like glTF/OpenGL) -- get that backwards and a face is invisible from outside, visible from inside.', {
+    name: z.string().describe('model name'),
+    parts: z.array(z.object({
+      positions: z.array(z.number()).describe('flat x,y,z,x,y,z,... in metres, at least 3 vertices'),
+      indices: z.array(z.number().int()).describe('flat triangle list, 3 per triangle, indices into this part\'s positions'),
+      normals: z.array(z.number()).optional().describe('flat x,y,z,... one per vertex; smooth normals are computed if omitted (fine for most shapes)'),
+      colors: z.array(z.number()).optional().describe('flat r,g,b (or r,g,b,a) 0..1 per vertex, for a gradient or pattern; overrides color'),
+      color: z.string().optional().describe('#rrggbb for this whole part, used where colors is not given (default a light grey)'),
+    })).min(1).max(64).describe('up to 64 parts'),
+    use: z.enum(['prop', 'level']).optional().describe('prop (default): placed many times, can be solid and animated. level: level geometry, full-mesh collision'),
+    height: z.number().optional().describe('target height in game units (Mario is 160); default: the mesh\'s own size × 100 (metres -> game units)'),
+    lighting: z.enum(['baked', 'flat']).optional().describe('baked (default): shaded like the game, from the normals. flat: exact vertex colours, unshaded'),
+  }, card('create_model', (a) => `Creating ${a.name}`, async (a) => {
+    const r = await rpc('asset_generate', a);
+    return { summary: `Created ${r.name} (${r.tris} triangle${r.tris === 1 ? '' : 's'})`, result: text({ id: r.id, name: r.name, tris: r.tris, size: r.size }) };
+  }), opts),
+
   tool('search_textures', 'Search the game\'s textures (level, object, Mario, HUD) by name or group; here=true lists only textures drawn in the current level (best for "the grass here": names are mostly numbers, so look at the returned numbered picture to find the right one). Returns paths for edit_textures.', {
     query: z.string().optional().describe('e.g. "grass", "mario", "brick", "coin"'),
     group: z.string().optional().describe('e.g. "Mario", "Objects", "Bob-omb Battlefield", "Level textures: grass"'),
