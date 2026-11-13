@@ -4,6 +4,15 @@
 
 export const WAVES = ['square', 'sawtooth', 'triangle', 'sine', 'noise'];
 
+// Playing a project sound directly (not a game-sound replacement): object triggers, ambient.
+// `slot` is the sound's permanent id (server/projects.js saveSound). SOUND_BANK_CUSTOM.
+const CUSTOM_SOUND_BANK = 0xf;
+export function customSoundBits(slot) {
+  return ((CUSTOM_SOUND_BANK << 28) | ((slot & 0xff) << 16) | (0x80 << 8) | (8 << 4) | 1) >>> 0;
+}
+export function isCustomSoundBits(bits) { return (((bits >>> 0) >>> 28) & 0xf) === CUSTOM_SOUND_BANK; }
+export function customSoundSlot(bits) { return ((bits >>> 0) >>> 16) & 0xff; }
+
 const base = { wave: 'square', duty: 0.5, freq: 440, freqEnd: 440, attack: 0, sustain: 0.08, decay: 0.2,
   vibrato: 0, vibratoSpeed: 8, jump: 1, jumpAt: 0.5, filter: 1, volume: 0.8 };
 

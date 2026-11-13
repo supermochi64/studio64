@@ -345,6 +345,19 @@ s32 studio_sfx_channel(s32 ch) {
 s32 studio_sfx_hook(s32 bits, f32 *pos) {
     s32 i;
     u32 key;
+    u32 ubits = (u32) bits;
+    // One of the project's own sounds, never the game's: skip the override table.
+    if (((ubits & SOUNDARGS_MASK_BANK) >> SOUNDARGS_SHIFT_BANK) == SOUND_BANK_CUSTOM) {
+        s32 slot = (s32) ((ubits & SOUNDARGS_MASK_SOUNDID) >> SOUNDARGS_SHIFT_SOUNDID);
+        f32 dist = 0;
+        if (pos != NULL && pos != gDefaultSoundArgs) {
+            dist = sqrtf(pos[0] * pos[0] + pos[1] * pos[1] + pos[2] * pos[2]);
+        }
+        EM_ASM({
+            if (Module.studioCustomSound) Module.studioCustomSound($0, $1);
+        }, slot, dist);
+        return TRUE;
+    }
     if (sSfxCount == 0) {
         if (studio_voice_hook(bits, pos)) return TRUE;
         sSfxRecent[sSfxRecentAt++ & 15] = (u32) bits;

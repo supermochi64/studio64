@@ -55,6 +55,7 @@ export class SoundUI {
     loadInstruments().then((b) => { this.banks = b; if (this.isOpen()) this.render(); });
     fetch('data/sounds.json').then((r) => r.json()).then((s) => { this.gameSounds = s.filter((x) => !x.hidden); });
     engine.onGameSound = (id, dist) => this.onGameSound(id, dist);
+    engine.onCustomSound = (slot, dist) => this.onCustomSound(slot, dist);
     this.replaced = new Map(); // game song slots the engine has a song of the project in
     engine.on('ready', () => { this.replaced = new Map(); this.syncOverrides(); });
     engine.on('area', () => this.syncReplacements());
@@ -1349,6 +1350,11 @@ export class SoundUI {
   onGameSound(id, dist) {
     const o = this.audio.overrides[id];
     const s = o && this.audio.sounds.find((x) => x.id === o.sound);
+    if (s) this.sfx.play(s, dist);
+  }
+
+  onCustomSound(slot, dist) {
+    const s = this.audio.sounds.find((x) => x.slot === slot);
     if (s) this.sfx.play(s, dist);
   }
 }

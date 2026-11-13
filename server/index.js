@@ -444,9 +444,14 @@ async function onClientMessage(client, msg) {
       }
       case 'sound_save': {
         const before = JSON.parse(JSON.stringify(project.audio || {}));
-        if (projects.saveSound(project, msg.sound)) {
+        const saved = projects.saveSound(project, msg.sound);
+        if (saved) {
           projects.recordProjectChange(project, ['audio'], before, `Edited sound “${String(msg.sound?.name || 'sound').slice(0, 40)}”`, { by: client.id || null });
           hub.broadcast(project.id, { type: 'audio', audio: project.audio }, client);
+          // the sender can't learn its own sound's slot any other way (assigned here, server-side);
+          // a narrow message, not the broadcast above, so it can never race a sibling optimistic
+          // update (e.g. "replace a game sound" saves the sound then its own overrides right after)
+          hub.send(client, { type: 'sound_slot', id: saved.id, slot: saved.slot });
           hub.changesChanged(project);
         }
         break;

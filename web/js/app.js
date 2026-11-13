@@ -295,6 +295,13 @@ async function onMessage(msg) {
       state.editorUI?.renderLevelSettings?.();
       break;
     }
+    // a sound's slot, assigned server-side (sound_save); patched onto the matching sound in
+    // place, never a wholesale state.audio replace, so it can't race a sibling optimistic update
+    case 'sound_slot': {
+      const sound = state.audio?.sounds?.find((x) => x.id === msg.id);
+      if (sound) sound.slot = msg.slot;
+      break;
+    }
     case 'levels':
       state.levels = msg.levels || [];
       state.thumbs = msg.thumbs || state.thumbs;
@@ -1135,13 +1142,13 @@ function setupEditor() {
   state.levelsUI.renderStars();
   state.worldFlow.editor = editor;
   state.worldFlow.levelsUI = state.levelsUI;
-  state.worldUI = new WorldUI({ flow: state.worldFlow, engine: state.engine, world: state.world, editor, editorUI: state.editorUI, levelsUI: state.levelsUI, catalog: state.catalog, send, toast, getLevels: () => state.levels, getThumbs: () => state.thumbs });
+  state.worldUI = new WorldUI({ flow: state.worldFlow, engine: state.engine, world: state.world, editor, editorUI: state.editorUI, levelsUI: state.levelsUI, catalog: state.catalog, send, toast, getLevels: () => state.levels, getThumbs: () => state.thumbs, getAudio: () => state.audio });
   state.testing = new TestTools({ state, send, toast, hub: state.hub }); // play-testing and debug tools (testing.js)
   state.soundUI = new SoundUI({ engine: state.engine, world: state.world, editor, send, toast, getAudio: () => state.audio });
   $('#sound-btn').onclick = () => state.soundUI.open();
   state.assetsUI = new AssetsUI({ assets: state.assets, engine: state.engine, editor, editorUI: state.editorUI, levelsUI: state.levelsUI, toast, chat: (text) => submit(text) });
   attachStoryUI(state, { send, toast }); // the Story panel and build mode's Logic tab (story/)
-  installObjectsEditor(state.objects, { editor, editorUI: state.editorUI, catalog: state.catalog }); // path tool, scene panel, My objects, Game panel
+  installObjectsEditor(state.objects, { editor, editorUI: state.editorUI, catalog: state.catalog, getAudio: () => state.audio }); // path tool, scene panel, My objects, Game panel
   installPathsEditor(state.paths, { editor, editorUI: state.editorUI, studio: state.studio, toast }); // build mode's Roads and Nature tabs
   window.addEventListener('keydown', (e) => {
     const typing = /INPUT|TEXTAREA|SELECT/.test(document.activeElement?.tagName || '');

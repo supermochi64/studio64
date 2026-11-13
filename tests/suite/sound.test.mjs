@@ -62,7 +62,7 @@ await suite('sound studio', async (t) => {
   const coinRow = page.locator('.gs-row', { hasText: /^Coin/ }).first();
   t.must('coin sound listed', await coinRow.count() > 0);
   await coinRow.locator('button', { hasText: /Replace/ }).click();
-  await s.wait(800);
+  await s.until(() => studio64.audio.overrides.length > 0, null, 4000);
   const ov = await s.eval(() => studio64.audio.overrides);
   t.check('override created', ov.length === 1 && !!ov[0].sound, ov);
   // presets / random / vary

@@ -72,7 +72,9 @@ await suite('Mario sounds', async (t) => {
   await s.shot('1_mario_sounds');
   const yahRow = page.locator('.gs-row', { hasText: 'Jump "Yah!"' }).first();
   await yahRow.locator('button', { hasText: /Replace/ }).click();
-  await s.wait(500);
+  // the round trip must land (audio.overrides has it) before extending it below, or the extend
+  // reads a stale, still-empty list and wipes out this first override when it saves
+  await s.until(() => studio64.audio.overrides.length > 0, null, 4000);
   const sound = await s.eval(() => studio64.soundUI.soundId);
   await page.click('.ss-tab[data-tab=sounds]').catch(() => {});
   // the other two jump voices with the same sound

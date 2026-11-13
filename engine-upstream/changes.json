@@ -346,6 +346,22 @@
     ]
    ]
   },
+  "include/audio_defines.h": {
+   "sha256": "beff397686eb68ef59185f193cade4aa85b1c2d3c512d74176cdc756029511be",
+   "hunks": [
+    [
+     23,
+     0,
+     [
+      "// Studio 64: bank 0xF is unused by the game (every SOUND_ARG_LOAD here is 0-9); reserved for the",
+      "// project's own sounds (studio_sfx_hook, web/js/sfx.js customSoundBits). Silent in an exported",
+      "// ROM (EM_ASM is a no-op there).",
+      "#define SOUND_BANK_CUSTOM 0xF",
+      ""
+     ]
+    ]
+   ]
+  },
   "include/behavior_data.h": {
    "sha256": "5089bd70c2bcbfb5e1a73f7a63ff351476a97d2ed7d8b78f994c5de51988e86d",
    "hunks": [

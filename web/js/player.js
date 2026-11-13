@@ -173,6 +173,10 @@ function boot() {
     const s = o && h.audio.sounds.find((x) => x.id === o.sound);
     if (s) sfx.play(s, dist);
   };
+  engine.onCustomSound = (slot, dist) => {
+    const s = h.audio?.sounds?.find((x) => x.slot === slot);
+    if (s) sfx.play(s, dist);
+  };
   engine.on('ready', () => {
     syncStars();
     engine.setSoundOverrides((h.audio?.overrides || []).map((o, i) => ({ bits: o.bits, id: i })));

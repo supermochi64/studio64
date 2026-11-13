@@ -19,6 +19,21 @@ function file(id) {
   return path.join(DIR, `${id}.json`);
 }
 
+// A sound's permanent id, used in a bits value baked elsewhere (web/js/sfx.js customSoundBits).
+// Given out once, never reused, even across deletions.
+function allocateSlot(audio) {
+  if (!Number.isInteger(audio.nextSlot)) audio.nextSlot = 0;
+  return audio.nextSlot++;
+}
+
+// Backfills slot/nextSlot for data saved before they existed.
+export function normalizeAudio(audio) {
+  audio ||= {};
+  audio.songs ||= []; audio.sounds ||= []; audio.overrides ||= []; audio.replace ||= [];
+  for (const s of audio.sounds) if (!Number.isInteger(s.slot)) s.slot = allocateSlot(audio);
+  return audio;
+}
+
 export function createProject({ name = 'Untitled hack', level = 9 } = {}) {
   const p = {
     id: newId(),
@@ -34,7 +49,7 @@ export function createProject({ name = 'Untitled hack', level = 9 } = {}) {
     model: null,
     levels: [],   // custom levels: { id, name, created, template }
     thumbs: {},   // area key -> small jpeg data URL
-    audio: { songs: [], sounds: [], overrides: [], replace: [] }, // the sound studio's songs, sound effects, replaced game sounds and songs
+    audio: normalizeAudio({}), // the sound studio's songs, sound effects, replaced game sounds and songs
   };
   cache.set(p.id, p);
   saveNow(p);
@@ -48,11 +63,7 @@ export function getProject(id) {
     p.redo ||= [];
     p.levels ||= [];
     p.thumbs ||= {};
-    p.audio ||= {};
-    p.audio.songs ||= [];
-    p.audio.sounds ||= [];
-    p.audio.overrides ||= [];
-    p.audio.replace ||= [];
+    p.audio = normalizeAudio(p.audio);
     cache.set(id, p);
     return p;
   } catch {
@@ -416,6 +427,8 @@ export function saveSong(p, song) {
 export function saveSound(p, sound) {
   if (!sound || typeof sound.id !== 'string' || JSON.stringify(sound).length > 2500000) return null;
   sound.name = String(sound.name || 'Sound').slice(0, 60);
+  const existing = p.audio.sounds.find((x) => x.id === sound.id);
+  sound.slot = Number.isInteger(existing?.slot) ? existing.slot : allocateSlot(p.audio);
   upsert(p.audio.sounds, sound);
   save(p);
   return sound;

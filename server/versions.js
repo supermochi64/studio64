@@ -96,7 +96,7 @@ export function restore(p, vid) {
   Object.assign(p, c);
   p.redo = [];
   p.areas ||= {}; p.changes ||= []; p.levels ||= []; p.thumbs ||= {};
-  p.audio ||= {}; p.audio.songs ||= []; p.audio.sounds ||= []; p.audio.overrides ||= []; p.audio.replace ||= [];
+  p.audio = projects.normalizeAudio(p.audio);
   restoreAssetFiles(p); // asset files deleted since that version come back from the trash
   projects.save(p);
   projects.saveImmediately(p);

@@ -15,6 +15,7 @@
 import { material } from './generators.js';
 import { registerRpc } from './studio.js';
 import { World } from './world.js';
+import { customSoundBits } from './sfx.js';
 
 export const STUDIO_LEVEL = 37;
 export const MAX_AREAS = 7;
@@ -422,7 +423,8 @@ export class WorldFlow {
     const mode = Math.max(0, CAMERA_MODES.indexOf(cam.mode || 'default'));
     M._studio_env_camera(mode, cam.mode === 'side' ? Math.round(((cam.axis ?? 0) / 360) * 65536) : (cam.x ?? 0), cam.y ?? 0, cam.z ?? 0, cam.dist ?? 0);
     const amb = AMBIENT[env.ambient];
-    M._studio_env_ambient(amb ? amb.bits >>> 0 : 0, amb ? amb.every : 0);
+    const customSlot = /^custom:(\d+)$/.exec(env.ambient || '');
+    M._studio_env_ambient(amb ? amb.bits >>> 0 : customSlot ? customSoundBits(Number(customSlot[1])) : 0, amb ? amb.every : customSlot ? 1 : 0);
   }
 
   // Re-apply after an edit of this area's environment (no reload).

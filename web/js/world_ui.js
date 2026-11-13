@@ -19,6 +19,13 @@ const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '
 const toHex = (c, d = '#ffffff') => (typeof c === 'string' ? c : c == null ? d : `#${(c >>> 0).toString(16).padStart(6, '0')}`);
 const yawDeg = (y) => Math.round((((y | 0) & 0xffff) / 65536) * 360);
 
+// A "My sounds" optgroup for the ambient sound picker; env.ambient stores "custom:<slot>" for one of these.
+function myAmbientOptions(audio, ambient) {
+  const mine = (audio?.sounds || []).filter((s) => Number.isInteger(s.slot));
+  if (!mine.length) return '';
+  return `<optgroup label="My sounds">${mine.map((s) => `<option value="custom:${s.slot}" ${ambient === `custom:${s.slot}` ? 'selected' : ''}>${esc(s.name)}</option>`).join('')}</optgroup>`;
+}
+
 // The warp palette: what you can place, and how it sits where you click.
 const PLACE = [
   { kind: 'door', label: 'Door', ic: 'door', help: 'A door. Link it to another door to walk between areas or levels.' },
@@ -50,8 +57,8 @@ const AREA_TEMPLATES = [
 ];
 
 export class WorldUI {
-  constructor({ flow, engine, world, editor, editorUI, levelsUI, catalog, send, toast, getLevels, getThumbs }) {
-    Object.assign(this, { flow, engine, world, editor, editorUI, levelsUI, catalog, send, toast, getLevels, getThumbs });
+  constructor({ flow, engine, world, editor, editorUI, levelsUI, catalog, send, toast, getLevels, getThumbs, getAudio }) {
+    Object.assign(this, { flow, engine, world, editor, editorUI, levelsUI, catalog, send, toast, getLevels, getThumbs, getAudio });
     this.tool = null;          // { kind, opts } while placing
     this.hover = null;
     this.picking = null;       // { fromKey, uid, to, back } while choosing a warp's destination
@@ -322,7 +329,7 @@ export class WorldUI {
       <div class="wd-range"><span>Ambient</span><input type="range" min="0" max="1" step="0.02" data-k="light.ambient" value="${light.ambient ?? 0.42}"><b>${Math.round((light.ambient ?? 0.42) * 100)}%</b></div>
       <div class="wd-sub">Sky, weather & sound</div>
       <label class="wd-field"><span>Weather</span><select data-k="weather">${WEATHER.map((w) => `<option value="${w}" ${(env.weather || 'none') === w ? 'selected' : ''}>${esc(WEATHER_LABELS[w])}</option>`).join('')}</select></label>
-      <label class="wd-field"><span>Ambient sound</span><select data-k="ambient"><option value="">None</option>${Object.entries(AMBIENT).filter(([, v]) => v).map(([k, v]) => `<option value="${k}" ${env.ambient === k ? 'selected' : ''}>${esc(v.label)}</option>`).join('')}</select></label>
+      <label class="wd-field"><span>Ambient sound</span><select data-k="ambient"><option value="">None</option>${myAmbientOptions(this.getAudio?.(), env.ambient)}${Object.entries(AMBIENT).filter(([, v]) => v).map(([k, v]) => `<option value="${k}" ${env.ambient === k ? 'selected' : ''}>${esc(v.label)}</option>`).join('')}</select></label>
       <div class="wd-sub">Camera</div>
       <label class="wd-field"><span>Mode</span><select data-k="camera.mode">${CAMERA_MODES.map((c) => `<option value="${c}" ${(cam.mode || 'default') === c ? 'selected' : ''}>${esc(CAMERA_LABELS[c])}</option>`).join('')}</select></label>
       ${cam.mode === 'fixed' ? `<div class="btn-row"><button class="btn sm" data-a="camfix">Camera stands where I look from</button></div>` : ''}
